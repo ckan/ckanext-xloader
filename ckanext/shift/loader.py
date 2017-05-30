@@ -2,9 +2,8 @@
 import argparse
 import os.path
 
-from sqlalchemy import String, Integer, Table, Column
+from sqlalchemy import String, Table, Column
 from sqlalchemy import create_engine, MetaData
-import sqlalchemy as sa
 import messytables
 
 
@@ -23,21 +22,22 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
     # http_content_type = \
     #     response.info().getheader('content-type').split(';', 1)[0]
     extension = os.path.splitext(csv_filepath)[1]
-    try:
-        table_set = messytables.any_tableset(f, mimetype=mimetype,
-                                             extension=extension)
-    except messytables.ReadError as e:
-        # # try again with format
-        # f.seek(0)
-        # try:
-        #     format = resource.get('format')
-        #     table_set = messytables.any_tableset(f, mimetype=format,
-        #                                          extension=format)
-        # except Exception:
-            raise 'Messytables error: {}'.format(e)
+    with open(csv_filepath, 'rb') as f:
+        try:
+            table_set = messytables.any_tableset(f, mimetype=mimetype,
+                                                 extension=extension)
+        except messytables.ReadError as e:
+            # # try again with format
+            # f.seek(0)
+            # try:
+            #     format = resource.get('format')
+            #     table_set = messytables.any_tableset(f, mimetype=format,
+            #                                          extension=format)
+            # except Exception:
+                raise 'Messytables error: {}'.format(e)
 
-    row_set = table_set.tables.pop()
-    header_offset, headers = messytables.headers_guess(row_set.sample)
+        row_set = table_set.tables.pop()
+        header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
     headers = [unicode(header) for header in headers]
@@ -60,13 +60,9 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
     datastore_sqlalchemy_url = \
         get_config_value_without_loading_ckan_environment(
             ckan_ini, 'ckan.datastore.write_url')
-    datastore_su_sqlalchemy_url = \
-        get_config_value_without_loading_ckan_environment(
-            ckan_ini, 'ckan.datastore.su_url')
 
     table_name = 'test1'
     engine = create_engine(datastore_sqlalchemy_url)
-    #engine_su = create_engine(datastore_su_sqlalchemy_url)
 
     # If table exists, delete (TODO something more sophis)
     metadata = MetaData(engine)
@@ -74,14 +70,11 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
         table = Table(table_name, metadata, autoload=True,
                       autoload_with=engine)
         table.drop()
-        #metadata.Session().commit()
-        #engine.execute('DROP TABLE {};'.format(table_name))
-    #connection = engine.connect()
+
     # Create table
-    # Create a table with text columns
+    # All columns are text type - convert them later
     columns = [Column(header_name, String) for header_name in headers]
     Table(table_name, metadata,
-          # Column('id', Integer, primary_key=True, nullable=False),
           *columns,
           extend_existing=True)  # edit columns
     # Implement the creation
@@ -89,33 +82,25 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
 
     # COPY zip_codes FROM '/path/to/csv/ZIP_CODES.txt' DELIMITER ',' CSV;
     print('Copying...')
-    # can't use :param for table name because params are only for filter values
-    # that are single quoted.
-    # connection.execute(sa.text(
-    #     "\copy {} FROM :filepath DELIMITER ',' CSV".format(table_name)),
-    #     {'filepath': csv_filepath})
-    # NB can't use "\copy" as that is a psql meta-command and not accessible
-    #    via psycopg2
-    # NB COPY requires the db user to have superuser privileges. This is dangerous. It is not available on AWS, for example.
-    # TODO look at doing what pgloader does - as described in its docs:
-    # Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
 
-    # COULDNT GET THIS TO WORK
-    # csv_filepath = os.path.abspath(csv_filepath)
-    # connection_su = engine_su.connect()
-    # ret = connection_su.execute(sa.text(
-    #     "COPY {} FROM :filepath WITH (DELIMITER ',', FORMAT csv, HEADER 1);".format(
-    #         table_name, csv_filepath)),
-    #     {'filepath': csv_filepath})
-    # print('...done: {}'.format(ret.rowcount))
-    # connection_su.close()
-    # cur.close()
+    # Options for loading into postgres:
+    # 1. \copy - can't use as that is a psql meta-command and not accessible
+    #    via psycopg2
+    # 2. COPY - requires the db user to have superuser privileges. This is
+    #    dangerous. It is also not available on AWS, for example.
+    # 3. pgloader method? - as described in its docs:
+    #    Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
+    # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
+    #    the superuser issue.
 
     connection = engine.raw_connection()
     cur = connection.cursor()
     with open(csv_filepath, 'rb') as f:
-        cur.copy_expert("COPY {} FROM STDIN WITH (DELIMITER ',', FORMAT csv, HEADER 1);".format(
-             table_name), f)
+        # can't use :param for table name because params are only for filter values
+        # that are single quoted.
+        cur.copy_expert(
+            "COPY {} FROM STDIN WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
+            .format(table_name), f)
         connection.commit()
         cur.close()
 
