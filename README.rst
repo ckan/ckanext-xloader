@@ -32,26 +32,18 @@
 ckanext-shift
 =============
 
-.. Put a description of your extension here:
-   What does it do? What features does it have?
-   Consider including some screenshots or embedding a video!
-
+Loads CSV (and similar) data into DataStore. Designed as a replacement for DataPusher.
 
 ------------
 Requirements
 ------------
 
-For example, you might want to mention here which versions of CKAN this
-extension works with.
+Designed for CKAN 2.7+ but may possibly work with earlier.
 
 
 ------------
 Installation
 ------------
-
-.. Add any additional install steps to the list below.
-   For example installing any non-Python dependencies or adding any required
-   config settings.
 
 To install ckanext-shift:
 
@@ -76,11 +68,24 @@ To install ckanext-shift:
 Config Settings
 ---------------
 
-Document any optional config settings here. For example::
+Configuration:
 
-    # The minimum number of hours to wait before re-checking a resource
-    # (optional, default: 24).
-    ckanext.shift.some_setting = some_default_value
+    .. # The minimum number of hours to wait before re-checking a resource
+    .. # (optional, default: 24).
+    .. ckanext.shift.url =
+
+::
+
+    # The formats that are accepted. If the value of the resource.format is
+    # anything else then it won't be 'shifted' to DataStore (and will therefore
+    # only be available to users in the form of the original download/link).
+    # Case insensitive.
+    # (optional, defaults are listed in plugin.py - FORMATS).
+    ckanext.shift.formats = csv application/csv xls application/vnd.ms-excel
+
+    # The maximum size of files to load into DataStore. In bytes. Default is 1MB
+    # (i.e. 10485760 bytes)
+    ckanext.shift.max_content_length = 20000000
 
 
 ------------------------
@@ -95,6 +100,15 @@ do::
     python setup.py develop
     pip install -r dev-requirements.txt
 
+-------------------------
+Upgrading from DataPusher
+-------------------------
+
+To upgrade from DataPusher to ckanext-shift:
+
+1. In your config, on the `ckan.plugins` line replace `datapusher` with `shift`.
+
+TBC
 
 -----------------
 Running the Tests
@@ -104,63 +118,63 @@ To run the tests, do::
 
     nosetests --nologcapture --with-pylons=test.ini
 
-To run the tests and produce a coverage report, first make sure you have
-coverage installed in your virtualenv (``pip install coverage``) then run::
+.. To run the tests and produce a coverage report, first make sure you have
+.. coverage installed in your virtualenv (``pip install coverage``) then run::
 
-    nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.shift --cover-inclusive --cover-erase --cover-tests
-
-
----------------------------------
-Registering ckanext-shift on PyPI
----------------------------------
-
-ckanext-shift should be availabe on PyPI as
-https://pypi.python.org/pypi/ckanext-shift. If that link doesn't work, then
-you can register the project on PyPI for the first time by following these
-steps:
-
-1. Create a source distribution of the project::
-
-     python setup.py sdist
-
-2. Register the project::
-
-     python setup.py register
-
-3. Upload the source distribution to PyPI::
-
-     python setup.py sdist upload
-
-4. Tag the first release of the project on GitHub with the version number from
-   the ``setup.py`` file. For example if the version number in ``setup.py`` is
-   0.0.1 then do::
-
-       git tag 0.0.1
-       git push --tags
+..     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.shift --cover-inclusive --cover-erase --cover-tests
 
 
-----------------------------------------
-Releasing a New Version of ckanext-shift
-----------------------------------------
+.. ---------------------------------
+.. Registering ckanext-shift on PyPI
+.. ---------------------------------
 
-ckanext-shift is availabe on PyPI as https://pypi.python.org/pypi/ckanext-shift.
-To publish a new version to PyPI follow these steps:
+.. ckanext-shift should be availabe on PyPI as
+.. https://pypi.python.org/pypi/ckanext-shift. If that link doesn't work, then
+.. you can register the project on PyPI for the first time by following these
+.. steps:
 
-1. Update the version number in the ``setup.py`` file.
-   See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
-   for how to choose version numbers.
+.. 1. Create a source distribution of the project::
 
-2. Create a source distribution of the new version::
+..      python setup.py sdist
 
-     python setup.py sdist
+.. 2. Register the project::
 
-3. Upload the source distribution to PyPI::
+..      python setup.py register
 
-     python setup.py sdist upload
+.. 3. Upload the source distribution to PyPI::
 
-4. Tag the new release of the project on GitHub with the version number from
-   the ``setup.py`` file. For example if the version number in ``setup.py`` is
-   0.0.2 then do::
+..      python setup.py sdist upload
 
-       git tag 0.0.2
-       git push --tags
+.. 4. Tag the first release of the project on GitHub with the version number from
+..    the ``setup.py`` file. For example if the version number in ``setup.py`` is
+..    0.0.1 then do::
+
+..        git tag 0.0.1
+..        git push --tags
+
+
+.. ----------------------------------------
+.. Releasing a New Version of ckanext-shift
+.. ----------------------------------------
+
+.. ckanext-shift is availabe on PyPI as https://pypi.python.org/pypi/ckanext-shift.
+.. To publish a new version to PyPI follow these steps:
+
+.. 1. Update the version number in the ``setup.py`` file.
+..    See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
+..    for how to choose version numbers.
+
+.. 2. Create a source distribution of the new version::
+
+..      python setup.py sdist
+
+.. 3. Upload the source distribution to PyPI::
+
+..      python setup.py sdist upload
+
+.. 4. Tag the new release of the project on GitHub with the version number from
+..    the ``setup.py`` file. For example if the version number in ``setup.py`` is
+..    0.0.2 then do::
+
+..        git tag 0.0.2
+..        git push --tags

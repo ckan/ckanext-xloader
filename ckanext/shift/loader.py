@@ -2,12 +2,15 @@
 import argparse
 import os.path
 
+import ckanext.datastore.backend.postgres as datastore_db
+
 from sqlalchemy import String, Table, Column
 from sqlalchemy import create_engine, MetaData
 import messytables
 
 
-def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
+def load_csv(csv_filepath, get_config_value=None, table_name='test1',
+             mimetype='text/csv'):
 
     # hash
     # file_hash = hashlib.md5(f.read()).hexdigest()
@@ -57,12 +60,14 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
     # e.g. duplicate names
 
     # check tables exists
-    datastore_sqlalchemy_url = \
-        get_config_value_without_loading_ckan_environment(
-            ckan_ini, 'ckan.datastore.write_url')
 
-    table_name = 'test1'
-    engine = create_engine(datastore_sqlalchemy_url)
+    # datastore db connection
+    if not get_config_value:
+        engine = datastore_db.get_write_engine()
+    else:
+        # i.e. when running from this file's cli
+        datastore_sqlalchemy_url = get_config_value('ckan.datastore.write_url')
+        engine = create_engine(datastore_sqlalchemy_url)
 
     # If table exists, delete (TODO something more sophis)
     metadata = MetaData(engine)
@@ -96,13 +101,15 @@ def load_csv(ckan_ini, csv_filepath, mimetype='text/csv'):
     connection = engine.raw_connection()
     cur = connection.cursor()
     with open(csv_filepath, 'rb') as f:
-        # can't use :param for table name because params are only for filter values
-        # that are single quoted.
+        # can't use :param for table name because params are only for
+        # filter values that are single quoted.
         cur.copy_expert(
-            "COPY {} FROM STDIN WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
+            "COPY \"{}\" FROM STDIN "
+            "WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
             .format(table_name), f)
         connection.commit()
         cur.close()
+    print('Done')
 
 
 def get_config_value_without_loading_ckan_environment(config_filepath, key):
@@ -125,4 +132,8 @@ if __name__ == '__main__':
     parser.add_argument('csv_filepath', metavar='csv-filepath',
                         help='CSV filepath')
     args = parser.parse_args()
-    load_csv(args.ckan_ini, args.csv_filepath, mimetype='text/csv')
+    def get_config_value(key):
+        return get_config_value_without_loading_ckan_environment(
+            args.ckan_ini, key)
+    load_csv(args.csv_filepath, get_config_value=get_config_value,
+             mimetype='text/csv')
