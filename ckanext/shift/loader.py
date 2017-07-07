@@ -1,6 +1,9 @@
 'Load a CSV into postgres'
 import argparse
+import os
 import os.path
+import tempfile
+import psycopg2
 
 import ckanext.datastore.backend.postgres as datastore_db
 
@@ -60,80 +63,101 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     # TODO worry about csv header name problems
     # e.g. duplicate names
 
-    # check tables exists
-
-    # datastore db connection
-    if not get_config_value:
-        engine = datastore_db.get_write_engine()
-    else:
-        # i.e. when running from this file's cli
-        datastore_sqlalchemy_url = get_config_value('ckan.datastore.write_url')
-        engine = create_engine(datastore_sqlalchemy_url)
-
-    # If table exists, delete (TODO something more sophis)
-    metadata = MetaData(engine)
-    if engine.dialect.has_table(engine, table_name):
-        table = Table(table_name, metadata, autoload=True,
-                      autoload_with=engine)
-        table.drop()
-
-    # Create table
-    # All columns are text type - convert them later
-    columns = [Column(header_name, String) for header_name in headers]
-    columns.insert(0, Column('_id', Integer, primary_key=True))
-    columns.insert(1, Column('_full_text', TSVECTOR))
-    Table(table_name, metadata,
-          *columns,
-          extend_existing=True)  # edit columns
-    # Implement the creation
-    metadata.create_all()
-
-    # COPY zip_codes FROM '/path/to/csv/ZIP_CODES.txt' DELIMITER ',' CSV;
-    print('Copying...')
-
-    # Options for loading into postgres:
-    # 1. \copy - can't use as that is a psql meta-command and not accessible
-    #    via psycopg2
-    # 2. COPY - requires the db user to have superuser privileges. This is
-    #    dangerous. It is also not available on AWS, for example.
-    # 3. pgloader method? - as described in its docs:
-    #    Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
-    # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
-    #    the superuser issue. <-- picked
-
-    # with psycopg2.connect(DSN) as conn:
-    #     with conn.cursor() as curs:
-    #         curs.execute(SQL)
-    connection = engine.raw_connection()
+    # encoding (and line ending?)- use chardet
+    # It is easier to reencode it as UTF8 than convert the name of the encoding
+    # to one that pgloader will understand.
+    print('Re-encoding...')
+    f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
-        cur = connection.cursor()
-        try:
-            with open(csv_filepath, 'rb') as f:
-                # can't use :param for table name because params are only for
-                # filter values that are single quoted.
-                cur.copy_expert(
-                    "COPY \"{table_name}\" ({column_names}) "
-                    "FROM STDIN "
-                    "WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
-                    .format(
-                        table_name=table_name,
-                        column_names=', '.join(['"{}"'.format(h)
-                                                for h in headers])),
-                    f)
+        with open(csv_filepath, 'rb') as f_read:
+            csv_decoder = messytables.commas.UTF8Recoder(f_read, encoding=None)
+            for line in csv_decoder:
+                f_write.write(line)
+            f_write.close()   # ensures the last line is written
+            csv_filepath = f_write.name
 
-                # TODO populate _full_text column, something like this.
-                # Maybe make this a datastore function, called from the queue?
-                # full_text = [_to_full_text(fields, record)]
-                # cur.execute(
-                #     'UPDATE "{table_name}" '
-                #     'SET _full_text = to_tsvector({text});'
-                #     .format(table_name=table_name,
-                #             full_text=full_text)
-                #     ))
+        # check tables exists
+
+        # datastore db connection
+        if not get_config_value:
+            engine = datastore_db.get_write_engine()
+        else:
+            # i.e. when running from this file's cli
+            datastore_sqlalchemy_url = \
+                get_config_value('ckan.datastore.write_url')
+            engine = create_engine(datastore_sqlalchemy_url)
+
+        # If table exists, delete (TODO something more sophis)
+        metadata = MetaData(engine)
+        if engine.dialect.has_table(engine, table_name):
+            table = Table(table_name, metadata, autoload=True,
+                          autoload_with=engine)
+            table.drop()
+        metadata = MetaData(engine)  # refresh it so it knows the table is gone
+
+        # Create table
+        # All columns are text type - convert them later
+        columns = [Column(header_name, String) for header_name in headers]
+        columns.insert(0, Column('_id', Integer, primary_key=True))
+        columns.insert(1, Column('_full_text', TSVECTOR))
+        Table(table_name, metadata,
+              *columns)  # extend_existing=True, # edit columns
+        # Implement the creation
+        metadata.create_all()
+
+        print('Copying...')
+
+        # Options for loading into postgres:
+        # 1. \copy - can't use as that is a psql meta-command and not accessible
+        #    via psycopg2
+        # 2. COPY - requires the db user to have superuser privileges. This is
+        #    dangerous. It is also not available on AWS, for example.
+        # 3. pgloader method? - as described in its docs:
+        #    Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
+        # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
+        #    the superuser issue. <-- picked
+
+        # with psycopg2.connect(DSN) as conn:
+        #     with conn.cursor() as curs:
+        #         curs.execute(SQL)
+        connection = engine.raw_connection()
+        try:
+            cur = connection.cursor()
+            try:
+                with open(csv_filepath, 'rb') as f:
+                    # can't use :param for table name because params are only
+                    # for filter values that are single quoted.
+                    try:
+                        cur.copy_expert(
+                            "COPY \"{table_name}\" ({column_names}) "
+                            "FROM STDIN "
+                            "WITH (DELIMITER ',', FORMAT csv, HEADER 1, "
+                            "      ENCODING '{encoding}');"
+                            .format(
+                                table_name=table_name,
+                                column_names=', '.join(['"{}"'.format(h)
+                                                        for h in headers]),
+                                encoding='UTF8',
+                                ),
+                            f)
+                    except psycopg2.DataError as e:
+                        import pdb; pdb.set_trace()
+
+                    # TODO populate _full_text column, something like this.
+                    # Maybe make this a datastore function, called from the queue?
+                    # full_text = [_to_full_text(fields, record)]
+                    # cur.execute(
+                    #     'UPDATE "{table_name}" '
+                    #     'SET _full_text = to_tsvector({text});'
+                    #     .format(table_name=table_name,
+                    #             full_text=full_text)
+                    #     ))
+            finally:
+                cur.close()
         finally:
-            cur.close()
+            connection.commit()
     finally:
-        connection.commit()
+        os.remove(csv_filepath)  # i.e. the tempfile
 
     print('Done')
 

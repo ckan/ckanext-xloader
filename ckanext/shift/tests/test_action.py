@@ -31,7 +31,7 @@ class TestAction(object):
         # but we avoid that by setting an invalid format
         res = factories.Resource(user=user, format='aaa')
         # mock the enqueue
-        with mock.patch('ckanext.shift.queue._queue') as queue_mock:
+        with mock.patch('ckanext.shift.job_queue._queue') as queue_mock:
             # r_mock().json = mock.Mock(
             #     side_effect=lambda: dict.fromkeys(
             #         ['job_id', 'job_key']))
@@ -48,7 +48,7 @@ class TestAction(object):
 
         user = factories.User()
         res = factories.Resource(user=user, format='csv')
-        with mock.patch('ckanext.shift.queue._queue') as queue_mock:
+        with mock.patch('ckanext.shift.job_queue._queue') as queue_mock:
             queue_mock.reset_mock()
             submit(res, user)
             # a second submit will not enqueue it again, because of the

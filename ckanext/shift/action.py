@@ -15,7 +15,7 @@ from ckan.common import config
 
 import ckanext.shift.schema
 import interfaces as shift_interfaces
-import queue
+import job_queue
 import jobs
 
 log = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ def shift_submit(context, data_dict):
         }
     job_id = uuid.uuid4().hex[:10]
     try:
-        job = queue.get_queue().enqueue(
+        job = job_queue.get_queue().enqueue(
             jobs.shift_data_into_datastore, job_id, data, job_id=job_id)
     except Exception as e:
         import pdb; pdb.set_trace()
