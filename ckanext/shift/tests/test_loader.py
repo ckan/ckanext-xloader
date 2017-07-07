@@ -26,16 +26,17 @@ class TestLoadCsv():
                         mimetype='text/csv')
 
         assert_equal(self._get_records('test1'),
-                     [(u'2011-01-01', u'1', u'Galway'),
-                      (u'2011-01-02', u'-1', u'Galway'),
-                      (u'2011-01-03', u'0', u'Galway'),
-                      (u'2011-01-01', u'6', u'Berkeley'),
-                      (u'2011-01-02', u'8', u'Berkeley'),
-                      (u'2011-01-03', u'5', u'Berkeley')])
+                     [(u'2011-01-01', u'1', u'Galway', 1, None),
+                      (u'2011-01-02', u'-1', u'Galway', 2, None),
+                      (u'2011-01-03', u'0', u'Galway', 3, None),
+                      (u'2011-01-01', u'6', u'Berkeley', 4, None),
+                      (u'2011-01-02', u'8', u'Berkeley', 5, None),
+                      (u'2011-01-03', u'5', u'Berkeley', 6, None)])
         assert_equal(self._get_column_names('test1'),
-                     [u'date', u'temperature', u'place'])
+                     [u'date', u'temperature', u'place',
+                      u'_id', u'_full_text'])
         assert_equal(self._get_column_types('test1'),
-                     [u'varchar', u'varchar', u'varchar'])
+                     [u'varchar', u'varchar', u'varchar', u'int4', u'tsvector'])
 
     def _get_records(self, table_name):
         c = self.Session.connection()
@@ -59,3 +60,8 @@ class TestLoadCsv():
         results = c.execute(sql)
         records = results.fetchall()
         return [r[0] for r in records]
+
+# TODO:
+# * Postgres has a limit of 63 characters for a column name
+# * Duplicate column names
+# * type

@@ -4,7 +4,8 @@ import os.path
 
 import ckanext.datastore.backend.postgres as datastore_db
 
-from sqlalchemy import String, Table, Column
+from sqlalchemy import String, Integer, Table, Column
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
 
@@ -79,6 +80,8 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     # Create table
     # All columns are text type - convert them later
     columns = [Column(header_name, String) for header_name in headers]
+    columns.insert(0, Column('_id', Integer, primary_key=True))
+    columns.insert(1, Column('_full_text', TSVECTOR))
     Table(table_name, metadata,
           *columns,
           extend_existing=True)  # edit columns
@@ -96,19 +99,42 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     # 3. pgloader method? - as described in its docs:
     #    Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
     # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
-    #    the superuser issue.
+    #    the superuser issue. <-- picked
 
+    # with psycopg2.connect(DSN) as conn:
+    #     with conn.cursor() as curs:
+    #         curs.execute(SQL)
     connection = engine.raw_connection()
-    cur = connection.cursor()
-    with open(csv_filepath, 'rb') as f:
-        # can't use :param for table name because params are only for
-        # filter values that are single quoted.
-        cur.copy_expert(
-            "COPY \"{}\" FROM STDIN "
-            "WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
-            .format(table_name), f)
+    try:
+        cur = connection.cursor()
+        try:
+            with open(csv_filepath, 'rb') as f:
+                # can't use :param for table name because params are only for
+                # filter values that are single quoted.
+                cur.copy_expert(
+                    "COPY \"{table_name}\" ({column_names}) "
+                    "FROM STDIN "
+                    "WITH (DELIMITER ',', FORMAT csv, HEADER 1);"
+                    .format(
+                        table_name=table_name,
+                        column_names=', '.join(['"{}"'.format(h)
+                                                for h in headers])),
+                    f)
+
+                # TODO populate _full_text column, something like this.
+                # Maybe make this a datastore function, called from the queue?
+                # full_text = [_to_full_text(fields, record)]
+                # cur.execute(
+                #     'UPDATE "{table_name}" '
+                #     'SET _full_text = to_tsvector({text});'
+                #     .format(table_name=table_name,
+                #             full_text=full_text)
+                #     ))
+        finally:
+            cur.close()
+    finally:
         connection.commit()
-        cur.close()
+
     print('Done')
 
 

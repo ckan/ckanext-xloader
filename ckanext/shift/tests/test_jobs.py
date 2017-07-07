@@ -4,7 +4,6 @@ try:
     from collections import OrderedDict  # from python 2.7
 except ImportError:
     from sqlalchemy.util import OrderedDict
-import datetime
 
 from nose.tools import eq_
 import mock
@@ -21,25 +20,12 @@ from ckanext.shift import db as jobs_db
 
 class TestShiftDataIntoDatastore(object):
 
-#     @classmethod
-#     def setup_class(cls):
-#         if not p.plugin_loaded('datastore'):
-#             p.load('datastore')
-#         if not p.plugin_loaded('shift'):
-#             p.load('shift')
-
-#         helpers.reset_db()
-
-#     @classmethod
-#     def teardown_class(cls):
-
-#         p.unload('shift')
-#         p.unload('datastore')
-
-#         helpers.reset_db()
-
     @classmethod
     def setup_class(cls):
+        if not p.plugin_loaded('shift'):
+            p.load('shift')
+        helpers.reset_db()
+
         cls.host = 'www.ckan.org'
         cls.api_key = 'my-fake-key'
         cls.resource_id = 'foo-bar-42'
@@ -47,6 +33,11 @@ class TestShiftDataIntoDatastore(object):
         # drop test table
         engine, conn = cls.get_datastore_engine_and_connection()
         conn.execute('DROP TABLE IF EXISTS "{}"'.format(cls.resource_id))
+
+    @classmethod
+    def teardown_class(cls):
+        p.unload('shift')
+        helpers.reset_db()
 
     def register_urls(self, filename='simple.csv', format='CSV',
                       content_type='application/csv'):
@@ -146,12 +137,14 @@ class TestShiftDataIntoDatastore(object):
         data = self.get_datastore_table()
         eq_(data['headers'],
             ['_id', '_full_text', 'date', 'temperature', 'place'])
-        eq_(data['header_dict']['date'], 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['temperature'], 'NUMERIC')
-        eq_(data['header_dict']['place'], 'TEXT')
+        eq_(data['header_dict']['date'], 'VARCHAR')
+        # 'TIMESTAMP WITHOUT TIME ZONE')
+        eq_(data['header_dict']['temperature'], 'VARCHAR')  # 'NUMERIC')
+        eq_(data['header_dict']['place'], 'VARCHAR')  # 'TEXT')
         eq_(data['num_rows'], 6)
         eq_(data['rows'][0][2:],
-            (datetime.datetime(2011, 1, 1), Decimal(1), 'Galway'))
+            (u'2011-01-01', u'1', u'Galway'))
+        # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
     def test_submit(self):
         # checks that shift_submit enqueues the resource (to be shifted)
