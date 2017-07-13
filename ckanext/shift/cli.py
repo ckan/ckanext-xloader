@@ -2,7 +2,11 @@ import sys
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
-import ckanext.datastore.db as datastore_db
+try:
+    # as it was called up to ckan 2.7
+    import ckanext.datastore.db as datastore_backend
+except ImportError:
+    import ckanext.datastore as datastore_backend
 
 
 class ShiftCommand(cli.CkanCommand):
