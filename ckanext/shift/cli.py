@@ -2,7 +2,11 @@ import sys
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
-import ckanext.datastore.db as datastore_db
+try:
+    # as it was called up to ckan 2.7
+    import ckanext.datastore.db as datastore_backend
+except ImportError:
+    import ckanext.datastore as datastore_backend
 
 
 class ShiftCommand(cli.CkanCommand):
@@ -25,11 +29,14 @@ class ShiftCommand(cli.CkanCommand):
               Submit all datasets' resources that are already in the DataStore
               to the DataStore again.
 
+        shift status
+              Shows status of jobs
+
     '''
 
     summary = __doc__.split('\n')[0]
     usage = __doc__
-    min_args = 2
+    min_args = 1
 
     def __init__(self, name):
         super(ShiftCommand, self).__init__(name)
@@ -42,7 +49,10 @@ class ShiftCommand(cli.CkanCommand):
                                help='Submit even if the resource is unchanged')
 
     def command(self):
-        if self.args and self.args[0] == 'submit':
+        if not self.args:
+            print self.usage
+            sys.exit(1)
+        if self.args[0] == 'submit':
             if self.args[1] == 'all':
                 if self.options.force:
                     self._confirm_or_abort()
@@ -60,11 +70,11 @@ class ShiftCommand(cli.CkanCommand):
                 print 'This command requires an argument\n'
                 print self.usage
                 sys.exit(1)
-        elif self.args:
-            print 'Unrecognized command\n'
-            print self.usage
-            sys.exit(1)
+        elif self.args[0] == 'status':
+            self._load_config()
+            self._print_status()
         else:
+            print 'Unrecognized command\n'
             print self.usage
             sys.exit(1)
 
@@ -126,3 +136,17 @@ class ShiftCommand(cli.CkanCommand):
                 print 'OK'
             else:
                 print 'Fail'
+
+    def _print_status(self):
+        from ckanext.shift.job_queue import get_queued_jobs
+        for job in get_queued_jobs():
+            job_params = eval(job.description.replace(
+                'ckanext.shift.jobs.shift_data_into_datastore', ''))[1]
+            job_metadata = job_params['metadata']
+            print '{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} ' \
+                'url={url}'.format(
+                    id=job._id,
+                    enqueued=job.enqueued_at,
+                    res_id=job_metadata['resource_id'],
+                    url=job_metadata['original_url'],
+                    )

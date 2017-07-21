@@ -55,3 +55,32 @@ class TestAction(object):
             # existing task for this resource - shown by task_status_show
             submit(res, user)
             eq_(1, queue_mock.enqueue.call_count)
+
+    def test_shift_hook(self):
+        # Check the task_status is stored correctly after a shift job.
+        user = factories.User()
+        res = factories.Resource(user=user, format='csv')
+        task_status = helpers.call_action(
+            'task_status_update', context={},
+            entity_id=res['id'],
+            entity_type='resource',
+            task_type='shift',
+            key='shift',
+            value='{}',
+            error='{}',
+            state='pending',
+        )
+
+        helpers.call_action(
+            'shift_hook', context=dict(user=user['name']),
+            metadata={'resource_id': res['id']},
+            status='complete',
+            )
+
+        task_status = helpers.call_action(
+            'task_status_show', context={},
+            entity_id=res['id'],
+            task_type='shift',
+            key='shift',
+        )
+        eq_(task_status['state'], 'complete')

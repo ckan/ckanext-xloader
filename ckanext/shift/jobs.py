@@ -11,6 +11,7 @@ import datetime
 import urlparse
 
 from pylons import config
+import ckan.lib.search as search
 
 import loader
 import db
@@ -40,7 +41,30 @@ MAX_CONTENT_LENGTH = config.get('ckanext.shift.max_content_length') \
 #     }
 
 def shift_data_into_datastore(job_id, input):
-    '''This is the func that is queued. It does:
+    '''This is the func that is queued. It is a wrapper for
+    shift_data_into_datastore, and makes sure it finishes by calling
+    shift_hook to update the task_status with the result.
+
+    Errors are stored in task_status / job log. If saving those fails, then
+    we return False (but that's not stored anywhere currently).
+    '''
+    try:
+        shift_data_into_datastore_(job_id, input)
+        result = 'complete'
+    except Exception:
+        # TODO capture error better
+        result = 'fail'
+    finally:
+        job_dict = dict(
+            metadata=input['metadata'],
+            status=result)
+        return callback_shift_hook(result_url=input['result_url'],
+                                   api_key=input['api_key'],
+                                   job_dict=job_dict)
+
+
+def shift_data_into_datastore_(job_id, input):
+    '''This function:
     * downloads the resource (metadata) from CKAN
     * downloads the data
     * calls the loader to load the data into DataStore
@@ -51,7 +75,8 @@ def shift_data_into_datastore(job_id, input):
 
     handler = StoringHandler(job_id, input)
     logger = logging.getLogger(job_id)
-    logger.addHandler(handler)  # saves logs to the db
+    #handler.setFormatter(logging.Formatter('%(message)s'))
+    #logger.addHandler(handler)  # saves logs to the db TODO
     logger.addHandler(logging.StreamHandler())  # also show them on stderr
     logger.setLevel(logging.DEBUG)
 
@@ -79,35 +104,41 @@ def shift_data_into_datastore(job_id, input):
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(resource.get('url')))
     try:
-        request = urllib2.Request(resource.get('url'))
-
+        headers = {}
         if resource.get('url_type') == 'upload':
             # If this is an uploaded file to CKAN, authenticate the request,
             # otherwise we won't get file from private resources
-            request.add_header('Authorization', api_key)
+            headers['Authorization'] = api_key
 
-        response = urllib2.urlopen(request, timeout=DOWNLOAD_TIMEOUT)
-    except urllib2.HTTPError as e:
+        response = requests.get(
+            resource.get('url'), headers=headers, timeout=DOWNLOAD_TIMEOUT)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        # status code error
+        logger.error('HTTP error: {}'.format(error))
         raise HTTPError(
             "DataPusher received a bad HTTP response when trying to download "
-            "the data file", status_code=e.code,
-            request_url=resource.get('url'), response=e.read())
-    except urllib2.URLError as e:
-        if isinstance(e.reason, socket.timeout):
-            raise JobError('Connection timed out after {}s'.format(
-                           DOWNLOAD_TIMEOUT))
-        else:
-            raise HTTPError(
-                message=str(e.reason), status_code=None,
-                request_url=resource.get('url'), response=None)
+            "the data file", status_code=error.response.status_code,
+            request_url=resource.get('url'), response=error)
+    except requests.exceptions.Timeout:
+        logger.error('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        raise JobError('Connection timed out after {}s'.format(
+                       DOWNLOAD_TIMEOUT))
+    except requests.exceptions.RequestException as e:
+        logger.error('URL error: {}'.format(str(e.reason)))
+        raise HTTPError(
+            message=str(e.reason), status_code=None,
+            request_url=resource.get('url'), response=None)
+    logger.info('Downloaded ok')
 
-    cl = response.info().getheader('content-length')
+    cl = response.headers.get('content-length')
     if cl and int(cl) > MAX_CONTENT_LENGTH:
-        raise JobError(
-            'Resource too large to download: {cl} > max ({max_cl}).'.format(
-                cl=cl, max_cl=MAX_CONTENT_LENGTH))
+        error_msg = 'Resource too large to download: {cl} > max ({max_cl}).'\
+            .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
+        logger.error(error_msg)
+        raise JobError(error_msg)
 
-    f = cStringIO.StringIO(response.read())
+    f = cStringIO.StringIO(response.content)
     file_hash = hashlib.md5(f.read()).hexdigest()
     f.seek(0)
 
@@ -116,6 +147,7 @@ def shift_data_into_datastore(job_id, input):
         logger.info('Ignoring resource - the file hash hasn\'t changed: '
                     '{hash}.'.format(hash=file_hash))
         return
+    logger.info('File hash: {}'.format(file_hash))
 
     resource['hash'] = file_hash
 
@@ -131,9 +163,11 @@ def shift_data_into_datastore(job_id, input):
         # Load it
         def get_config_value(key):
             return config[key]
+        logger.info('Loading CSV')
         loader.load_csv(f_.name, get_config_value=get_config_value,
                         table_name=resource['id'],
                         mimetype=resource.get('format'))
+        logger.info('Finished loading CSV')
 
     # try:
     #     table_set = messytables.any_tableset(f, mimetype=ct, extension=ct)
@@ -238,8 +272,102 @@ def shift_data_into_datastore(job_id, input):
     #     if dry_run:
     #         return ret
 
+    # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
+        logger.info('Setting resource.url_type = \'datapusher\'')
         update_resource(resource, api_key, ckan_url)
+
+    # Set resource.datastore_active = True
+    if resource.get('datastore_active') is not True:
+        from ckan import model
+        logger.info('Setting resource.datastore_active = True')
+        set_datastore_active_flag(model=model, data_dict=data, flag=True)
+
+    logger.info('Shift completed')
+
+def callback_shift_hook(result_url, api_key, job_dict):
+    '''Tells CKAN about the result of the shift (i.e. calls the callback
+    function 'shift_hook'). Usually called by the shift queue job.
+    Returns whether it managed to call the sh
+    '''
+    api_key_from_job = job_dict.pop('api_key', None)
+    if not api_key:
+        api_key = api_key_from_job
+    headers = {'Content-Type': 'application/json'}
+    if api_key:
+        if ':' in api_key:
+            header, key = api_key.split(':')
+        else:
+            header, key = 'Authorization', api_key
+        headers[header] = key
+
+    try:
+        result = requests.post(
+            result_url,
+            data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
+            headers=headers)
+    except requests.ConnectionError:
+        return False
+
+    return result.status_code == requests.codes.ok
+
+
+# def set_datastore_active_flag(resource_id):
+#     # equivalent to datapusher's set_datastore_active_flag, but it doesn't have
+#     # to work from outside ckan.
+#     resource = model.Resource.get(resource_id)
+#     resource.extras['datastore_active'] = True
+#     model.Session.commit()
+#     model.Session.remove()
+
+def set_datastore_active_flag(model, data_dict, flag):
+    '''
+    Set appropriate datastore_active flag on CKAN resource.
+
+    Called after creation or deletion of DataStore table.
+    '''
+    # We're modifying the resource extra directly here to avoid a
+    # race condition, see issue #3245 for details and plan for a
+    # better fix
+    update_dict = {'datastore_active': flag}
+
+    # get extras(for entity update) and package_id(for search index update)
+    res_query = model.Session.query(
+        model.resource_table.c.extras,
+        model.resource_table.c.package_id
+    ).filter(
+        model.Resource.id == data_dict['resource_id']
+    )
+    extras, package_id = res_query.one()
+
+    # update extras in database for record and its revision
+    extras.update(update_dict)
+    res_query.update({'extras': extras}, synchronize_session=False)
+    model.Session.query(model.resource_revision_table).filter(
+        model.ResourceRevision.id == data_dict['resource_id'],
+        model.ResourceRevision.current is True
+    ).update({'extras': extras}, synchronize_session=False)
+
+    model.Session.commit()
+
+    # get package with updated resource from solr
+    # find changed resource, patch it and reindex package
+    psi = search.PackageSearchIndex()
+    solr_query = search.PackageSearchQuery()
+    q = {
+        'q': 'id:"{0}"'.format(package_id),
+        'fl': 'data_dict',
+        'wt': 'json',
+        'fq': 'site_id:"%s"' % config.get('ckan.site_id'),
+        'rows': 1
+    }
+    for record in solr_query.run(q)['results']:
+        solr_data_dict = json.loads(record['data_dict'])
+        for resource in solr_data_dict['resources']:
+            if resource['id'] == data_dict['resource_id']:
+                resource.update(update_dict)
+                psi.index_package(solr_data_dict)
+                break
 
 
 def validate_input(input):
@@ -278,6 +406,9 @@ def update_resource(resource, api_key, ckan_url):
 def get_resource(resource_id, ckan_url, api_key):
     """
     Gets available information about the resource from CKAN
+
+    Could simply use the ckan model (the http request is a hangover from
+    datapusher).
     """
     url = get_url('resource_show', ckan_url)
     r = requests.post(url,
@@ -401,3 +532,11 @@ class HTTPError(JobError):
         return u'{} status={} url={} response={}'.format(
             self.message, self.status_code, self.request_url, self.response) \
             .encode('ascii', 'replace')
+
+class DatetimeJsonEncoder(json.JSONEncoder):
+    # Custon JSON encoder
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+
+        return json.JSONEncoder.default(self, obj)

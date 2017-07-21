@@ -88,6 +88,7 @@ class ShiftPlugin(plugins.SingletonPlugin):
     def get_actions(self):
         return {
             'shift_submit': action.shift_submit,
+            'shift_hook': action.shift_hook,
             }
 
     # IAuthFunctions

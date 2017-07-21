@@ -47,7 +47,7 @@ class TestShiftDataIntoDatastore(object):
 
         """
         # A URL that just returns a static file (simple.csv by default).
-        source_url = 'http://www.source.org/static/file'
+        source_url = 'http://www.example.com/static/file'
         httpretty.register_uri(httpretty.GET, source_url,
                                body=get_sample_file(filename),
                                content_type=content_type)
@@ -66,7 +66,7 @@ class TestShiftDataIntoDatastore(object):
                                content_type='application/json')
 
         # A URL that mocks the response that CKAN's resource_update API would
-        # give after successfully upddating a resource.
+        # give after successfully updating a resource.
         resource_update_url = (
             'http://www.ckan.org/api/3/action/resource_update')
         httpretty.register_uri(httpretty.POST, resource_update_url,
@@ -78,6 +78,11 @@ class TestShiftDataIntoDatastore(object):
         # resource from the datastore.
         datastore_del_url = 'http://www.ckan.org/api/3/action/datastore_delete'
         httpretty.register_uri(httpretty.POST, datastore_del_url,
+                               body=json.dumps({'success': True}),
+                               content_type='application/json')
+
+        self.callback_url = 'http://www.ckan.org/api/3/action/shift_hook'
+        httpretty.register_uri(httpretty.POST, self.callback_url,
                                body=json.dumps({'success': True}),
                                content_type='application/json')
 
@@ -102,7 +107,7 @@ class TestShiftDataIntoDatastore(object):
             header_dict=OrderedDict([(c.key, str(c.type))
                                     for c in table.columns]),
             rows=result.fetchall(),
-            )
+        )
 
     def get_load_logs(self, task_id):
         conn = jobs_db.ENGINE.connect()
@@ -113,22 +118,24 @@ class TestShiftDataIntoDatastore(object):
 
     @httpretty.activate
     def test_simple_csv(self):
-        # Test successfully fetching and parsing a simple CSV file.
-        #
-        # When given dry_run=True and a resource with a simple CSV file the
-        # push_to_datastore job should fetch and parse the file and return the
-        # right headers and data rows from the file.
+        # Test not only the load and shift_hook is called at the end
         self.register_urls()
         data = {
             'api_key': self.api_key,
-            'job_type': 'push_to_datastore',
+            'job_type': 'shift_to_datastore',
+            'result_url': self.callback_url,
             'metadata': {
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
         }
 
-        jobs.shift_data_into_datastore('fake_job_id', data)
+        with mock.patch('ckanext.shift.jobs.set_datastore_active_flag') \
+                as mocked_set_datastore_active_flag:
+            result = jobs.shift_data_into_datastore('fake_job_id', data)
+
+        eq_(result, True)
+        # Check the load
         data = self.get_datastore_table()
         eq_(data['headers'],
             ['_id', '_full_text', 'date', 'temperature', 'place'])
@@ -140,6 +147,19 @@ class TestShiftDataIntoDatastore(object):
         eq_(data['rows'][0][2:],
             (u'2011-01-01', u'1', u'Galway'))
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
+
+        eq_(httpretty.last_request().path, u'/api/3/action/shift_hook')
+        eq_(httpretty.last_request().parsed_body['status'],
+            u'complete')
+        eq_(httpretty.last_request().parsed_body,
+            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
+        # Check it wanted to set the datastore_active=True
+        mocked_set_datastore_active_flag.assert_called_once()
+        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
+            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
 
 
 class Logs(list):
