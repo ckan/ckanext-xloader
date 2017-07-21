@@ -38,7 +38,9 @@ Loads CSV (and similar) data into DataStore. Designed as a replacement for DataP
 Requirements
 ------------
 
-Designed for CKAN 2.7+ but may possibly work with earlier.
+Works with CKAN 2.7.0 and later.
+
+Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 
 
 ------------

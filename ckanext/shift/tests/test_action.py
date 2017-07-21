@@ -2,7 +2,11 @@ from nose.tools import eq_
 import mock
 
 import ckan.plugins as p
-from ckan.tests import helpers, factories
+try:
+    from ckan.tests import helpers, factories
+except ImportError:
+    # older ckans
+    from ckan.new_tests import helpers, factories
 
 
 class TestAction(object):

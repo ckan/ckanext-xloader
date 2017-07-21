@@ -11,7 +11,11 @@ import ckan.lib.helpers as h
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
-from ckan.common import config
+try:
+    from ckan.common import config
+except ImportError:
+    # older ckans
+    from pylons import config
 
 import ckanext.shift.schema
 import interfaces as shift_interfaces

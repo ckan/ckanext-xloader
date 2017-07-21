@@ -5,7 +5,16 @@ import os.path
 import tempfile
 import psycopg2
 
-import ckanext.datastore.backend.postgres as datastore_db
+try:
+    import ckanext.datastore.backend.postgres as datastore_db
+    get_write_engine = datastore_db.get_write_engine
+except ImportError:
+    # older versions of ckan
+    def get_write_engine():
+        from ckanext.datastore.db import _get_engine
+        from pylons import config
+        data_dict = {'connection_url': config['ckan.datastore.write_url']}
+        return _get_engine(data_dict)
 
 from sqlalchemy import String, Integer, Table, Column
 from sqlalchemy.dialects.postgresql import TSVECTOR
@@ -105,7 +114,7 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
         # Implement the creation
         metadata.create_all()
 
-        print('Copying...')
+        print('Copying to database...')
 
         # Options for loading into postgres:
         # 1. \copy - can't use as that is a psql meta-command and not accessible
@@ -159,7 +168,7 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     finally:
         os.remove(csv_filepath)  # i.e. the tempfile
 
-    print('Done')
+    print('...copying done')
 
 
 def get_config_value_without_loading_ckan_environment(config_filepath, key):

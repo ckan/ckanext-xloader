@@ -1,5 +1,3 @@
-import urllib2
-import socket
 import logging
 import hashlib
 import cStringIO
@@ -51,9 +49,11 @@ def shift_data_into_datastore(job_id, input):
     try:
         shift_data_into_datastore_(job_id, input)
         result = 'complete'
-    except Exception:
+    except Exception as e:
         # TODO capture error better
         result = 'fail'
+        log = logging.getLogger(__name__)
+        log.error('Shift error: {}'.format(e))
     finally:
         job_dict = dict(
             metadata=input['metadata'],
