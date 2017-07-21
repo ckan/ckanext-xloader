@@ -21,6 +21,10 @@ import ckanext.shift.schema
 import interfaces as shift_interfaces
 import job_queue
 import jobs
+try:
+    enqueue_job = p.toolkit.enqueue_job
+except AttributeError:
+    from ckanext.rq.jobs import enqueue as enqueue_job
 
 log = logging.getLogger(__name__)
 _get_or_bust = logic.get_or_bust
@@ -131,58 +135,13 @@ def shift_submit(context, data_dict):
             'original_url': resource_dict.get('url'),
             }
         }
-    job_id = uuid.uuid4().hex[:10]
     try:
-        job = job_queue.get_queue().enqueue(
-            jobs.shift_data_into_datastore, job_id, data, job_id=job_id)
+        job = enqueue_job(jobs.shift_data_into_datastore, [data])
     except Exception as e:
         import pdb; pdb.set_trace()
         # todo
 
-    #     r = requests.post(
-    #         urlparse.urljoin(shift_url, 'job'),
-    #         headers={
-    #             'Content-Type': 'application/json'
-    #         },
-    #         data=json.dumps({
-    #             'api_key': user['apikey'],
-    #             'job_type': 'push_to_datastore',
-    #             'result_url': callback_url,
-    #             'metadata': {
-    #                 'ignore_hash': data_dict.get('ignore_hash', False),
-    #                 'ckan_url': site_url,
-    #                 'resource_id': res_id,
-    #                 'set_url_type': data_dict.get('set_url_type', False),
-    #                 'task_created': task['last_updated'],
-    #                 'original_url': resource_dict.get('url'),
-    #             }
-    #         }))
-    #     r.raise_for_status()
-    # except requests.exceptions.ConnectionError, e:
-    #     error = {'message': 'Could not connect to DataPusher.',
-    #              'details': str(e)}
-    #     task['error'] = json.dumps(error)
-    #     task['state'] = 'error'
-    #     task['last_updated'] = str(datetime.datetime.utcnow()),
-    #     p.toolkit.get_action('task_status_update')(context, task)
-    #     raise p.toolkit.ValidationError(error)
-
-    # except requests.exceptions.HTTPError, e:
-    #     m = 'An Error occurred while sending the job: {0}'.format(e.message)
-    #     try:
-    #         body = e.response.json()
-    #     except ValueError:
-    #         body = e.response.text
-    #     error = {'message': m,
-    #              'details': body,
-    #              'status_code': r.status_code}
-    #     task['error'] = json.dumps(error)
-    #     task['state'] = 'error'
-    #     task['last_updated'] = str(datetime.datetime.utcnow()),
-    #     p.toolkit.get_action('task_status_update')(context, task)
-    #     raise p.toolkit.ValidationError(error)
-
-    value = json.dumps({'job_id': job_id,
+    value = json.dumps({'job_id': job.id,
                         'job_key': None})  # job_key is not needed?
 
     task['value'] = value

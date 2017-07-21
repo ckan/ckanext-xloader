@@ -7,6 +7,7 @@ import requests
 import json
 import datetime
 import urlparse
+from rq import get_current_job
 
 from pylons import config
 import ckan.lib.search as search
@@ -38,7 +39,7 @@ MAX_CONTENT_LENGTH = config.get('ckanext.shift.max_content_length') \
 #     'original_url': resource_dict.get('url'),
 #     }
 
-def shift_data_into_datastore(job_id, input):
+def shift_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
     shift_data_into_datastore, and makes sure it finishes by calling
     shift_hook to update the task_status with the result.
@@ -47,7 +48,7 @@ def shift_data_into_datastore(job_id, input):
     we return False (but that's not stored anywhere currently).
     '''
     try:
-        shift_data_into_datastore_(job_id, input)
+        shift_data_into_datastore_(input)
         result = 'complete'
     except Exception as e:
         # TODO capture error better
@@ -63,7 +64,7 @@ def shift_data_into_datastore(job_id, input):
                                    job_dict=job_dict)
 
 
-def shift_data_into_datastore_(job_id, input):
+def shift_data_into_datastore_(input):
     '''This function:
     * downloads the resource (metadata) from CKAN
     * downloads the data
@@ -72,7 +73,7 @@ def shift_data_into_datastore_(job_id, input):
 
     (DataPusher called this function 'push_to_datastore')
     '''
-
+    job_id = get_current_job().id
     handler = StoringHandler(job_id, input)
     logger = logging.getLogger(job_id)
     #handler.setFormatter(logging.Formatter('%(message)s'))
