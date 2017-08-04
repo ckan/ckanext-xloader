@@ -23,8 +23,7 @@ import messytables
 
 
 def load_csv(csv_filepath, get_config_value=None, table_name='test1',
-             mimetype='text/csv'):
-
+             mimetype='text/csv', logger=None):
     # hash
     # file_hash = hashlib.md5(f.read()).hexdigest()
     # f.seek(0)
@@ -75,7 +74,7 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     # encoding (and line ending?)- use chardet
     # It is easier to reencode it as UTF8 than convert the name of the encoding
     # to one that pgloader will understand.
-    print('Re-encoding...')
+    logger.info('Re-encoding...')
     f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
         with open(csv_filepath, 'rb') as f_read:
@@ -114,7 +113,7 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
         # Implement the creation
         metadata.create_all()
 
-        print('Copying to database...')
+        logger.info('Copying to database...')
 
         # Options for loading into postgres:
         # 1. \copy - can't use as that is a psql meta-command and not accessible
@@ -168,7 +167,7 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
     finally:
         os.remove(csv_filepath)  # i.e. the tempfile
 
-    print('...copying done')
+    logger.info('...copying done')
 
 
 def get_config_value_without_loading_ckan_environment(config_filepath, key):
@@ -184,6 +183,13 @@ def get_config_value_without_loading_ckan_environment(config_filepath, key):
         raise ValueError(err)
 
 
+class PrintLogger(object):
+    def __getattr__(self, log_level):
+        def print_func(msg):
+            print '{}: {}'.format(log_level.capitalize(), msg)
+        return print_func
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ckan_ini', metavar='CKAN_INI',
@@ -195,4 +201,4 @@ if __name__ == '__main__':
         return get_config_value_without_loading_ckan_environment(
             args.ckan_ini, key)
     load_csv(args.csv_filepath, get_config_value=get_config_value,
-             mimetype='text/csv')
+             mimetype='text/csv', logger=PrintLogger())

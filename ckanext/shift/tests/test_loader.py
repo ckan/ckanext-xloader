@@ -29,7 +29,7 @@ class TestLoadCsv():
         def get_config_value(key):
             return config[key]
         loader.load_csv(csv_filepath, get_config_value, table_name='test1',
-                        mimetype='text/csv')
+                        mimetype='text/csv', logger=loader.PrintLogger())
 
         assert_equal(self._get_records('test1'),
                      [(1, None, u'2011-01-01', u'1', u'Galway'),
@@ -50,7 +50,7 @@ class TestLoadCsv():
         def get_config_value(key):
             return config[key]
         loader.load_csv(csv_filepath, get_config_value, table_name='test1',
-                        mimetype='text/csv')
+                        mimetype='text/csv', logger=loader.PrintLogger())
 
         records = self._get_records('test1')
         print records

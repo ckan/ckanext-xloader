@@ -171,7 +171,8 @@ def shift_data_into_datastore_(input):
         logger.info('Loading CSV')
         loader.load_csv(f_.name, get_config_value=get_config_value,
                         table_name=resource['id'],
-                        mimetype=resource.get('format'))
+                        mimetype=resource.get('format'),
+                        logger=logger)
         logger.info('Finished loading CSV')
 
     # try:
