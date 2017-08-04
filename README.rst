@@ -34,6 +34,43 @@ ckanext-shift
 
 Loads CSV (and similar) data into DataStore. Designed as a replacement for DataPusher.
 
+-------------------------------
+Key differences from DataPusher
+-------------------------------
+
+Simpler queueing tech
+----------------------
+
+DataPusher - job queue is done by ckan-service-provider which is complicated and stores jobs in a sqlite database.
+
+ckanext-shift - job queue is done by RQ, which is simpler and is backed by Redis and allows access to the CKAN model.
+
+Speed of loading
+----------------
+
+DataPusher - parses CSV rows, converts to detected column types, converts the data to a JSON string, calls datastore_create for each batch of rows, which reformats the data into an INSERT statement string, which is passed to PostgreSQL.
+
+ckanext-shift - pipes the CSV file directly into PostgreSQL using COPY.
+
+We tested the load of a very large CSV (1000000 rows, 475MB):
+* DataPusher: 35 minutes
+* ckanext-shift: 1 minute
+
+Robustness
+----------
+
+DataPusher - one cause of failure was when casting cells. The type of a column was detected on the values of the first few rows, so if a column is mainly numeric or dates, but a string (like "Null") comes later on, then this will cause the load to finish at that point.
+
+ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want. In future it could do automatic compaison
+
+Not yet complete
+----------------
+
+* Only supports CSVs, not XLS etc
+* Loading logs aren't working
+* No support for private datasets
+* Once loaded in Datastore, search is not yet working.
+
 ------------
 Requirements
 ------------
@@ -55,7 +92,8 @@ To install ckanext-shift:
 
 2. Install the ckanext-shift Python package into your virtual environment::
 
-     pip install ckanext-shift
+..     pip install ckanext-shift
+     pip install git+https://github.com/davidread/ckanext-shift.git
 
 3. Add ``shift`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
