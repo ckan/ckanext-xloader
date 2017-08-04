@@ -3,11 +3,9 @@
 import logging
 import json
 import datetime
-import uuid
 
 from dateutil.parser import parse as parse_date
 
-import ckan.lib.helpers as h
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
@@ -67,10 +65,8 @@ def shift_submit(context, data_dict):
     except logic.NotFound:
         return False
 
-    # shift_url = config.get('ckanext.shift.url')
-
-    site_url = h.url_for('/', qualified=True)
-    callback_url = h.url_for('/api/3/action/shift_hook', qualified=True)
+    site_url = config['ckan.site_url']
+    callback_url = site_url + '/api/3/action/shift_hook'
 
     user = p.toolkit.get_action('user_show')(context, {'id': context['user']})
 
