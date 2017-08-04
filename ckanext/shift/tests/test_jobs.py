@@ -12,11 +12,11 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 from pylons import config
 
-import ckan.plugins as p
-from ckan.tests import helpers, factories
+from ckan.tests import helpers
 import ckanext.datastore.backend.postgres as datastore_db
 from ckanext.shift import jobs
 from ckanext.shift import db as jobs_db
+
 
 class TestShiftDataIntoDatastore(object):
 
@@ -132,7 +132,11 @@ class TestShiftDataIntoDatastore(object):
 
         with mock.patch('ckanext.shift.jobs.set_datastore_active_flag') \
                 as mocked_set_datastore_active_flag:
-            result = jobs.shift_data_into_datastore('fake_job_id', data)
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.shift.jobs.get_current_job',
+                            return_value=mock.Mock(id='test123')):
+                result = jobs.shift_data_into_datastore(data)
 
         eq_(result, True)
         # Check the load
