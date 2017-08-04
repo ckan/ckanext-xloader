@@ -138,10 +138,16 @@ class ShiftCommand(cli.CkanCommand):
                 print 'Fail'
 
     def _print_status(self):
-        from ckanext.shift.job_queue import get_queued_jobs
-        for job in get_queued_jobs():
+        try:
+            import ckan.lib.jobs as rq_jobs
+        except ImportError:
+            import ckanext.rq.jobs as rq_jobs
+        jobs = rq_jobs.get_queue().jobs
+        if not jobs:
+            print 'No jobs currently queued'
+        for job in jobs:
             job_params = eval(job.description.replace(
-                'ckanext.shift.jobs.shift_data_into_datastore', ''))[1]
+                'ckanext.shift.jobs.shift_data_into_datastore', ''))
             job_metadata = job_params['metadata']
             print '{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} ' \
                 'url={url}'.format(
