@@ -126,9 +126,13 @@ def shift_data_into_datastore_(input):
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
-        logger.error('URL error: {}'.format(str(e.reason)))
+        try:
+            err_message = str(e.reason)
+        except AttributeError:
+            err_message = str(e)
+        logger.error('URL error: {}'.format(err_message))
         raise HTTPError(
-            message=str(e.reason), status_code=None,
+            message=err_message, status_code=None,
             request_url=resource.get('url'), response=None)
     logger.info('Downloaded ok')
 
