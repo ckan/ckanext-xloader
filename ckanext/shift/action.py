@@ -17,12 +17,16 @@ except ImportError:
 
 import ckanext.shift.schema
 import interfaces as shift_interfaces
-import job_queue
 import jobs
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:
     from ckanext.rq.jobs import enqueue as enqueue_job
+try:
+    import ckan.lib.jobs as rq_jobs
+except ImportError:
+    import ckanext.rq.jobs as rq_jobs
+get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
 _get_or_bust = logic.get_or_bust
@@ -78,6 +82,7 @@ def shift_submit(context, data_dict):
             log.info(msg)
             return False
 
+    # Check if this resource is already in the process of being shifted
     task = {
         'entity_id': res_id,
         'entity_type': 'resource',
@@ -96,11 +101,29 @@ def shift_submit(context, data_dict):
         })
         assume_task_stale_after = datetime.timedelta(seconds=int(
             config.get('ckanext.shift.assume_task_stale_after', 3600)))
+        assume_task_stillborn_after = \
+            datetime.timedelta(seconds=int(
+                config.get('ckanext.shift.assume_task_stillborn_after', 5)))
         if existing_task.get('state') == 'pending':
+            import re  # here because it takes a moment to load
+            queued_res_ids = [
+                re.search(r"'resource_id': u'([^']+)'",
+                          job.description).groups()[0]
+                for job in get_queue().get_jobs()]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
             time_since_last_updated = datetime.datetime.utcnow() - updated
-            if time_since_last_updated > assume_task_stale_after:
+            if (res_id not in queued_res_ids and
+                    time_since_last_updated > assume_task_stillborn_after):
+                # it's not on the queue (and if it had just been started then
+                # its taken too long to update the task_status from pending -
+                # the first thing it should do in the shift job).
+                # Let it be restarted.
+                log.info('A pending task was found %r, but its not found in '
+                         'the queue %r and is %s hours old',
+                         existing_task['id'], queued_res_ids,
+                         time_since_last_updated)
+            elif time_since_last_updated > assume_task_stale_after:
                 # it's been a while since the job was last updated - it's more
                 # likely something went wrong with it and the state wasn't
                 # updated than its still in progress. Let it be restarted.
@@ -133,9 +156,10 @@ def shift_submit(context, data_dict):
         }
     try:
         job = enqueue_job(jobs.shift_data_into_datastore, [data])
-    except Exception as e:
-        import pdb; pdb.set_trace()
-        # todo
+    except Exception:
+        log.exception('Unable to enqueued shift res_id=%s', job.id, res_id)
+        return False
+    log.debug('Enqueued shift job=%s res_id=%s', job.id, res_id)
 
     value = json.dumps({'job_id': job.id,
                         'job_key': None})  # job_key is not needed?

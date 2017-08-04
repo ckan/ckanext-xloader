@@ -47,6 +47,15 @@ def shift_data_into_datastore(input):
     Errors are stored in task_status / job log. If saving those fails, then
     we return False (but that's not stored anywhere currently).
     '''
+    # First flag that this task is running, to indicate the job is not
+    # stillborn, for when shift_submit is deciding whether another job would
+    # be a duplicate or not
+    job_dict = dict(metadata=input['metadata'],
+                    status='running')
+    callback_shift_hook(result_url=input['result_url'],
+                        api_key=input['api_key'],
+                        job_dict=job_dict)
+
     try:
         shift_data_into_datastore_(input)
         result = 'complete'
