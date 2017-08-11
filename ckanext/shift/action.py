@@ -176,11 +176,31 @@ def shift_hook(context, data_dict):
     ''' Update shift task. This action is typically called by ckanext-shift
     whenever the status of a job changes.
 
-    :param metadata: metadata produced by shift service must have
-       resource_id property.
+    :param metadata: metadata provided when submitting job. key-value pairs.
+                     Must have resource_id property.
     :type metadata: dict
-    :param status: status of the job from the shift service
+    :param status: status of the job from the shift service. Allowed values:
+                   pending, running, complete, error
+                   (which must all be valid values for task_status too)
     :type status: string
+    :param error: Error raised during job execution
+    :type error: string
+
+    NB here are other params which are in the equivalent object in
+    ckan-service-provider (from job_status):
+        :param sent_data: Input data for job
+        :type sent_data: json encodable data
+        :param job_id: An identifier for the job
+        :type job_id: string
+        :param result_url: Callback url
+        :type result_url: url string
+        :param data: Results from job.
+        :type data: json encodable data
+        :param requested_timestamp: Time the job started
+        :type requested_timestamp: timestamp
+        :param finished_timestamp: Time the job finished
+        :type finished_timestamp: timestamp
+
     '''
 
     metadata, status = _get_or_bust(data_dict, ['metadata', 'status'])
@@ -199,6 +219,7 @@ def shift_hook(context, data_dict):
 
     task['state'] = status
     task['last_updated'] = str(datetime.datetime.utcnow())
+    task['error'] = data_dict.get('error')
 
     resubmit = False
 

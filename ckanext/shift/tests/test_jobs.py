@@ -139,6 +139,16 @@ class TestShiftDataIntoDatastore(object):
                 result = jobs.shift_data_into_datastore(data)
 
         eq_(result, True)
+
+        # Check it said it was successful
+        eq_(httpretty.last_request().path, u'/api/3/action/shift_hook')
+        assert httpretty.last_request().parsed_body['status'] == u'complete', \
+            httpretty.last_request().parsed_body
+        eq_(httpretty.last_request().parsed_body,
+            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
         # Check the load
         data = self.get_datastore_table()
         eq_(data['headers'],
@@ -151,14 +161,6 @@ class TestShiftDataIntoDatastore(object):
         eq_(data['rows'][0][2:],
             (u'2011-01-01', u'1', u'Galway'))
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
-
-        eq_(httpretty.last_request().path, u'/api/3/action/shift_hook')
-        eq_(httpretty.last_request().parsed_body['status'],
-            u'complete')
-        eq_(httpretty.last_request().parsed_body,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
-                           u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
 
         # Check it wanted to set the datastore_active=True
         mocked_set_datastore_active_flag.assert_called_once()

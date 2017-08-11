@@ -55,19 +55,16 @@ def shift_data_into_datastore(input):
     callback_shift_hook(result_url=input['result_url'],
                         api_key=input['api_key'],
                         job_dict=job_dict)
-
     try:
         shift_data_into_datastore_(input)
-        result = 'complete'
+        job_dict['status'] = 'complete'
     except Exception as e:
-        # TODO capture error better
-        result = 'fail'
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
         log.error('Shift error: {}'.format(e))
     finally:
-        job_dict = dict(
-            metadata=input['metadata'],
-            status=result)
+        # job_dict is defined in shift_hook's docstring
         return callback_shift_hook(result_url=input['result_url'],
                                    api_key=input['api_key'],
                                    job_dict=job_dict)
