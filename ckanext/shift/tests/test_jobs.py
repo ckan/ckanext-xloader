@@ -1,5 +1,6 @@
 import os
 import json
+import random
 try:
     from collections import OrderedDict  # from python 2.7
 except ImportError:
@@ -129,22 +130,23 @@ class TestShiftDataIntoDatastore(object):
                 'resource_id': self.resource_id
             }
         }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
 
         with mock.patch('ckanext.shift.jobs.set_datastore_active_flag') \
                 as mocked_set_datastore_active_flag:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.shift.jobs.get_current_job',
-                            return_value=mock.Mock(id='test123')):
+                            return_value=mock.Mock(id=job_id)):
                 result = jobs.shift_data_into_datastore(data)
 
         eq_(result, True)
 
         # Check it said it was successful
         eq_(httpretty.last_request().path, u'/api/3/action/shift_hook')
-        assert httpretty.last_request().parsed_body['status'] == u'complete', \
-            httpretty.last_request().parsed_body
-        eq_(httpretty.last_request().parsed_body,
+        job_dict = httpretty.last_request().parsed_body
+        assert job_dict['status'] == u'complete', job_dict
+        eq_(job_dict,
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
@@ -166,6 +168,9 @@ class TestShiftDataIntoDatastore(object):
         mocked_set_datastore_active_flag.assert_called_once()
         eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
             {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+
+        logs = self.get_load_logs(job_id)
+        logs.assert_no_errors()
 
 
 class Logs(list):

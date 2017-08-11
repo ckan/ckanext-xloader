@@ -81,10 +81,13 @@ def shift_data_into_datastore_(input):
     '''
     job_id = get_current_job().id
     handler = StoringHandler(job_id, input)
+    level = logging.DEBUG
+    handler.setLevel(level)
     logger = logging.getLogger(job_id)
-    #handler.setFormatter(logging.Formatter('%(message)s'))
-    #logger.addHandler(handler)  # saves logs to the db TODO
-    logger.addHandler(logging.StreamHandler())  # also show them on stderr
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(handler)  # saves logs to the db TODO
+    # also show logs on stderr
+    logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
 
     validate_input(input)
