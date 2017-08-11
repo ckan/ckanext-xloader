@@ -67,7 +67,6 @@ Not yet complete
 ----------------
 
 * Only supports CSVs, not XLS etc
-* Loading logs aren't working
 * No support for private datasets
 * Once loaded in Datastore, search is not yet working.
 
@@ -95,11 +94,27 @@ To install ckanext-shift:
 ..     pip install ckanext-shift
      pip install git+https://github.com/davidread/ckanext-shift.git
 
+3. Install dependencies::
+
+     pip install -r requirements.txt
+     pip install -U requests[security]
+
 3. Add ``shift`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 
-4. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
+4. If it is a production server, you'll want to store jobs info in a more robust
+   database the default sqlite file::
+
+     sudo -u postgres createdb -O ckan_default shift_jobs -E utf-8
+
+   And add this list to the config::
+
+     ckanext.shift.jobs_db.uri postgresql://ckan_default:pass@localhost/shift_jobs
+
+   (This step can be skipped when just developing or testing.)
+
+5. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
 
      sudo service apache2 reload
 
@@ -116,16 +131,22 @@ Configuration:
 
 ::
 
+    # The connection string for the jobs database used by ckanext-shift. The
+    # default of an sqlite file is fine for development. For production use a
+    # Postgresql database.
+    ckanext.shift.jobs_db.uri = sqlite:////tmp/shift_jobs.db
+
     # The formats that are accepted. If the value of the resource.format is
     # anything else then it won't be 'shifted' to DataStore (and will therefore
     # only be available to users in the form of the original download/link).
     # Case insensitive.
     # (optional, defaults are listed in plugin.py - FORMATS).
-    ckanext.shift.formats = csv application/csv xls application/vnd.ms-excel
+    ckanext.shift.formats = csv application/csv
+    # In future we hope to add: xls application/vnd.ms-excel
 
     # The maximum size of files to load into DataStore. In bytes. Default is 1MB
     # (i.e. 10485760 bytes)
-    ckanext.shift.max_content_length = 20000000
+    ckanext.shift.max_content_length = 100000000
 
 
 ------------------------

@@ -80,6 +80,7 @@ def shift_data_into_datastore_(input):
     (DataPusher called this function 'push_to_datastore')
     '''
     job_id = get_current_job().id
+    db.init(config)
     handler = StoringHandler(job_id, input)
     level = logging.DEBUG
     handler.setLevel(level)
