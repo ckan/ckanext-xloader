@@ -8,9 +8,12 @@ import json
 import datetime
 import urlparse
 from rq import get_current_job
+import traceback
+import sys
 
 from pylons import config
 import ckan.lib.search as search
+import sqlalchemy as sa
 
 import loader
 import db
@@ -55,10 +58,21 @@ def shift_data_into_datastore(input):
     callback_shift_hook(result_url=input['result_url'],
                         api_key=input['api_key'],
                         job_dict=job_dict)
+
+    job_id = get_current_job().id
     try:
         shift_data_into_datastore_(input)
         job_dict['status'] = 'complete'
+        db.mark_job_as_completed(job_id, job_dict)
+    except JobError as e:
+        db.mark_job_as_errored(job_id, e.as_dict())
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
+        log = logging.getLogger(__name__)
+        log.error('Shift error: {}'.format(e))
     except Exception as e:
+        db.mark_job_as_errored(
+            job_id, traceback.format_tb(sys.exc_traceback)[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
@@ -77,10 +91,18 @@ def shift_data_into_datastore_(input):
     * calls the loader to load the data into DataStore
     * calls back to CKAN with the new status
 
-    (DataPusher called this function 'push_to_datastore')
+    (ckanext-shift called this function 'shift_to_datastore')
     '''
     job_id = get_current_job().id
     db.init(config)
+
+    # Store details of the job in the db
+    try:
+        db.add_pending_job(job_id, **input)
+    except sa.exc.IntegrityError:
+        raise JobError('job_id {} already exists'.format(job_id))
+
+    # Set-up logging to the db
     handler = StoringHandler(job_id, input)
     level = logging.DEBUG
     handler.setLevel(level)

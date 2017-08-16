@@ -3,21 +3,18 @@
 import logging
 import json
 import datetime
+import time
 
 from dateutil.parser import parse as parse_date
 
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
-try:
-    from ckan.common import config
-except ImportError:
-    # older ckans
-    from pylons import config
 
 import ckanext.shift.schema
 import interfaces as shift_interfaces
 import jobs
+import db
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:
@@ -29,6 +26,7 @@ except ImportError:
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
+config = p.toolkit.config
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
@@ -143,7 +141,7 @@ def shift_submit(context, data_dict):
 
     data = {
         'api_key': user['apikey'],
-        'job_type': 'push_to_datastore',
+        'job_type': 'shift_to_datastore',
         'result_url': callback_url,
         'metadata': {
             'ignore_hash': data_dict.get('ignore_hash', False),
@@ -161,8 +159,7 @@ def shift_submit(context, data_dict):
         return False
     log.debug('Enqueued shift job=%s res_id=%s', job.id, res_id)
 
-    value = json.dumps({'job_id': job.id,
-                        'job_key': None})  # job_key is not needed?
+    value = json.dumps({'job_id': job.id})
 
     task['value'] = value
     task['state'] = 'pending'
@@ -272,3 +269,56 @@ def shift_hook(context, data_dict):
                   'resubmitting to DataPusher'.format(res_id))
         p.toolkit.get_action('shift_submit')(
             context, {'resource_id': res_id})
+
+
+def shift_status(context, data_dict):
+    ''' Get the status of a ckanext-shift job for a certain resource.
+
+    :param resource_id: The resource id of the resource that you want the
+        status for.
+    :type resource_id: string
+    '''
+
+    p.toolkit.check_access('shift_status', context, data_dict)
+
+    if 'id' in data_dict:
+        data_dict['resource_id'] = data_dict['id']
+    res_id = _get_or_bust(data_dict, 'resource_id')
+
+    task = p.toolkit.get_action('task_status_show')(context, {
+        'entity_id': res_id,
+        'task_type': 'shift',
+        'key': 'shift'
+    })
+
+    datapusher_url = config.get('ckan.datapusher.url')
+    if not datapusher_url:
+        raise p.toolkit.ValidationError(
+            {'configuration': ['ckan.datapusher.url not in config file']})
+
+    value = json.loads(task['value'])
+    job_id = value.get('job_id')
+    url = None
+    job_detail = None
+
+    if job_id:
+        # get logs from the shift db
+        db.init(config)
+        job_detail = db.get_job(job_id)
+
+        # timestamp is a date, so not sure why this code was there
+        # for log in job_detail['logs']:
+        #     if 'timestamp' in log:
+        #         date = time.strptime(
+        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
+        #         date = datetime.datetime.utcfromtimestamp(
+        #             time.mktime(date))
+        #         log['timestamp'] = date
+    return {
+        'status': task['state'],
+        'job_id': job_id,
+        'job_url': url,
+        'last_updated': task['last_updated'],
+        'task_info': job_detail,
+        'error': json.loads(task['error'])
+    }

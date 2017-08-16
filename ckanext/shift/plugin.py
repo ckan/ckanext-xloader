@@ -2,6 +2,7 @@ from ckan import model
 import ckan.plugins as plugins
 
 from ckanext.shift import action, auth
+import ckanext.shift.helpers as shift_helpers
 
 log = __import__('logging').getLogger(__name__)
 p = plugins
@@ -18,11 +19,20 @@ DEFAULT_FORMATS = [
 
 
 class ShiftPlugin(plugins.SingletonPlugin):
+    plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
+    plugins.implements(plugins.IRoutes, inherit=True)
+    plugins.implements(plugins.ITemplateHelpers)
+
+    # IConfigurer
+
+    def update_config(self, config):
+        templates_base = config.get('ckan.base_templates_folder')
+        p.toolkit.add_template_directory(config, templates_base)
 
     # IConfigurable
 
@@ -89,6 +99,7 @@ class ShiftPlugin(plugins.SingletonPlugin):
         return {
             'shift_submit': action.shift_submit,
             'shift_hook': action.shift_hook,
+            'shift_status': action.shift_status,
             }
 
     # IAuthFunctions
@@ -96,4 +107,23 @@ class ShiftPlugin(plugins.SingletonPlugin):
     def get_auth_functions(self):
         return {
             'shift_submit': auth.shift_submit,
+            'shift_status': auth.shift_status,
             }
+
+    # IRoutes
+
+    def before_map(self, m):
+        m.connect(
+            'resource_data_shift', '/dataset/{id}/resource_data/{resource_id}',
+            controller='ckanext.shift.controllers:ResourceDataController',
+            action='resource_data', ckan_icon='cloud-upload')
+        return m
+
+    # ITemplateHelpers
+
+    def get_helpers(self):
+        return {
+            'shift_status': shift_helpers.shift_status,
+            'shift_status_description':
+            shift_helpers.shift_status_description,
+        }

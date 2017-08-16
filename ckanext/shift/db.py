@@ -100,13 +100,6 @@ def get_job(job_id):
         mean that there was no API key: CKAN Service Provider deletes the API
         key from the database after it has posted the result to the result_url.
 
-    "job_key": The key that users must provide (in the Authorization header of
-        the HTTP request) to be authorized to modify the job (unicode).
-        For example requests to the CKAN Service Provider API need this to get
-        the status or output data of a job or to delete a job.
-        If you login to CKAN Service Provider as an administrator then you can
-        administer any job without providing its job_key.
-
     "metadata": Any custom metadata associated with the job (dict)
 
     "logs": Any logs associated with the job (list)
@@ -142,7 +135,7 @@ def get_job(job_id):
     return result_dict
 
 
-def add_pending_job(job_id, job_key, job_type, api_key,
+def add_pending_job(job_id, job_type, api_key,
                     data=None, metadata=None, result_url=None):
     """Add a new job with status "pending" to the jobs table.
 
@@ -157,12 +150,9 @@ def add_pending_job(job_id, job_key, job_type, api_key,
         ckanserviceprovider's "jobs" database table
     :type job_id: unicode
 
-    :param job_key: the key required to administer the job via the API
-    :type job_key: unicode
-
     :param job_type: the name of the job function that will be executed for
         this job
-    :type job_key: unicode
+    :type job_type: unicode
 
     :param api_key: the client site API key that ckanserviceprovider will use
         when posting the job result to the result_url
@@ -195,8 +185,6 @@ def add_pending_job(job_id, job_key, job_type, api_key,
         result_url = unicode(result_url)
     if api_key:
         api_key = unicode(api_key)
-    if job_key:
-        job_key = unicode(job_key)
     data = unicode(data)
 
     if not metadata:
@@ -212,8 +200,7 @@ def add_pending_job(job_id, job_key, job_type, api_key,
             requested_timestamp=datetime.datetime.now(),
             sent_data=data,
             result_url=result_url,
-            api_key=api_key,
-            job_key=job_key))
+            api_key=api_key))
 
         # Insert any (key, value) metadata pairs that the job has into the
         # metadata table.
@@ -422,8 +409,6 @@ def _init_jobs_table():
         sqlalchemy.Column('result_url', sqlalchemy.UnicodeText),
         # CKAN API key:
         sqlalchemy.Column('api_key', sqlalchemy.UnicodeText),
-        # Key to administer job:
-        sqlalchemy.Column('job_key', sqlalchemy.UnicodeText),
         )
     return _jobs_table
 

@@ -53,6 +53,8 @@ class ShiftCommand(cli.CkanCommand):
             print self.usage
             sys.exit(1)
         if self.args[0] == 'submit':
+            if len(self.args) < 2:
+                self.parser.error('This command requires an argument')
             if self.args[1] == 'all':
                 if self.options.force:
                     self._confirm_or_abort()
@@ -62,21 +64,15 @@ class ShiftCommand(cli.CkanCommand):
                 self._confirm_or_abort()
                 self._load_config()
                 self._submit_all_existing()
-            elif len(self.args) > 1:
+            else:
                 pkg_name_or_id = self.args[1]
                 self._load_config()
                 self._submit_package(pkg_name_or_id)
-            else:
-                print 'This command requires an argument\n'
-                print self.usage
-                sys.exit(1)
         elif self.args[0] == 'status':
             self._load_config()
             self._print_status()
         else:
-            print 'Unrecognized command\n'
-            print self.usage
-            sys.exit(1)
+            self.parser.error('Unrecognized command')
 
     def _confirm_or_abort(self):
         if self.options.yes:

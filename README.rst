@@ -41,9 +41,11 @@ Key differences from DataPusher
 Simpler queueing tech
 ----------------------
 
-DataPusher - job queue is done by ckan-service-provider which is complicated and stores jobs in a sqlite database.
+DataPusher - job queue is done by ckan-service-provider which is bespoke, complicated and stores jobs in its own database (sqlite by default).
 
-ckanext-shift - job queue is done by RQ, which is simpler and is backed by Redis and allows access to the CKAN model.
+ckanext-shift - job queue is done by RQ, which is simpler and is backed by Redis and allows access to the CKAN model. You can also debug jobs easily using pdb. Job results are currently still stored in its own database, but the intention is to move this relatively small amount of data into CKAN's database, to reduce the complication of install.
+
+(The other obvious candidate is Celery, but we don't need its heavyweight architecture and its jobs are not debuggable with pdb.)
 
 Speed of loading
 ----------------
@@ -63,12 +65,20 @@ DataPusher - one cause of failure was when casting cells. The type of a column w
 
 ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want. In future it could do automatic compaison
 
+Separate web server
+-------------------
+
+DataPusher - has the complication that the queue jobs are done by a separate (Flask) web app, aside from CKAN. This was the design because the job requires intensive processing to convert every line of the data into JSON. However it means more complicated code as info needs to be passed between the services in http requests, more for the user to set-up and manage - another app config, another apache config, separate log files.
+
+ckanext-shift - the job runs in a worker process, in the same app as CKAN, so can access the CKAN config, db and logging directly and avoids many HTTP calls. This simplification makes sense because the shift job doesn't need to do much processing - mainly it is streaming the CSV file from disk into PostgreSQL.
+
 Not yet complete
 ----------------
 
 * Only supports CSVs, not XLS etc
 * No support for private datasets
 * Once loaded in Datastore, search is not yet working.
+
 
 ------------
 Requirements
