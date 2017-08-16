@@ -31,7 +31,8 @@ class ShiftPlugin(plugins.SingletonPlugin):
     # IConfigurer
 
     def update_config(self, config):
-        templates_base = config.get('ckan.base_templates_folder')
+        templates_base = config.get('ckan.base_templates_folder',
+                                    'templates-bs2')  # for ckan < 2.8
         p.toolkit.add_template_directory(config, templates_base)
 
     # IConfigurable
