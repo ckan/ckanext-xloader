@@ -21,8 +21,10 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
 
+import ckan.plugins as p
 
-def load_csv(csv_filepath, get_config_value=None, table_name='test1',
+
+def load_csv(csv_filepath, resource_id, get_config_value=None,
              mimetype='text/csv', logger=None):
     # hash
     # file_hash = hashlib.md5(f.read()).hexdigest()
@@ -97,21 +99,24 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
 
         # If table exists, delete (TODO something more sophis)
         metadata = MetaData(engine)
-        if engine.dialect.has_table(engine, table_name):
-            table = Table(table_name, metadata, autoload=True,
+        if engine.dialect.has_table(engine, resource_id):
+            table = Table(resource_id, metadata, autoload=True,
                           autoload_with=engine)
             table.drop()
         metadata = MetaData(engine)  # refresh it so it knows the table is gone
 
         # Create table
+        from ckan import model
+        context = {'model': model, 'ignore_auth': True}
+        p.toolkit.get_action('datastore_create')(context, dict(
+            resource_id=resource_id,
+            fields=[{'id': header_name, 'type': 'text'}
+                    for header_name in headers],
+            records=None,  # just create an empty table
+            force=True,  # TODO check this - I don't fully understand
+                         # read-only/datastore resources
+            ))
         # All columns are text type - convert them later
-        columns = [Column(header_name, String) for header_name in headers]
-        columns.insert(0, Column('_id', Integer, primary_key=True))
-        columns.insert(1, Column('_full_text', TSVECTOR))
-        Table(table_name, metadata,
-              *columns)  # extend_existing=True, # edit columns
-        # Implement the creation
-        metadata.create_all()
 
         logger.info('Copying to database...')
 
@@ -137,12 +142,12 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
                     # for filter values that are single quoted.
                     try:
                         cur.copy_expert(
-                            "COPY \"{table_name}\" ({column_names}) "
+                            "COPY \"{resource_id}\" ({column_names}) "
                             "FROM STDIN "
                             "WITH (DELIMITER ',', FORMAT csv, HEADER 1, "
                             "      ENCODING '{encoding}');"
                             .format(
-                                table_name=table_name,
+                                resource_id=resource_id,
                                 column_names=', '.join(['"{}"'.format(h)
                                                         for h in headers]),
                                 encoding='UTF8',
@@ -155,9 +160,9 @@ def load_csv(csv_filepath, get_config_value=None, table_name='test1',
                     # Maybe make this a datastore function, called from the queue?
                     # full_text = [_to_full_text(fields, record)]
                     # cur.execute(
-                    #     'UPDATE "{table_name}" '
+                    #     'UPDATE "{resource_id}" '
                     #     'SET _full_text = to_tsvector({text});'
-                    #     .format(table_name=table_name,
+                    #     .format(resource_id=resource_id,
                     #             full_text=full_text)
                     #     ))
             finally:

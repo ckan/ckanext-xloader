@@ -201,8 +201,9 @@ def shift_data_into_datastore_(input):
         def get_config_value(key):
             return config[key]
         logger.info('Loading CSV')
-        loader.load_csv(f_.name, get_config_value=get_config_value,
-                        table_name=resource['id'],
+        loader.load_csv(f_.name,
+                        resource_id=resource['id'],
+                        get_config_value=get_config_value,
                         mimetype=resource.get('format'),
                         logger=logger)
         logger.info('Finished loading CSV')

@@ -13,27 +13,27 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 from pylons import config
 
-from ckan.tests import helpers
 import ckanext.datastore.backend.postgres as datastore_db
 from ckanext.shift import jobs
 from ckanext.shift import db as jobs_db
+import util
+from ckan.tests import factories
 
 
-class TestShiftDataIntoDatastore(object):
+class TestShiftDataIntoDatastore(util.PluginsMixin):
+    _load_plugins = ['datastore']
 
     @classmethod
     def setup_class(cls):
         cls.host = 'www.ckan.org'
         cls.api_key = 'my-fake-key'
         cls.resource_id = 'foo-bar-42'
+        factories.Resource(id=cls.resource_id)
         jobs_db.init(config, echo=False)
         # drop test table
         engine, conn = cls.get_datastore_engine_and_connection()
         conn.execute('DROP TABLE IF EXISTS "{}"'.format(cls.resource_id))
-
-    @classmethod
-    def teardown_class(cls):
-        helpers.reset_db()
+        super(TestShiftDataIntoDatastore, cls).setup_class()
 
     def register_urls(self, filename='simple.csv', format='CSV',
                       content_type='application/csv'):
@@ -155,10 +155,10 @@ class TestShiftDataIntoDatastore(object):
         data = self.get_datastore_table()
         eq_(data['headers'],
             ['_id', '_full_text', 'date', 'temperature', 'place'])
-        eq_(data['header_dict']['date'], 'VARCHAR')
+        eq_(data['header_dict']['date'], 'TEXT')
         # 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['temperature'], 'VARCHAR')  # 'NUMERIC')
-        eq_(data['header_dict']['place'], 'VARCHAR')  # 'TEXT')
+        eq_(data['header_dict']['temperature'], 'TEXT')  # 'NUMERIC')
+        eq_(data['header_dict']['place'], 'TEXT')  # 'TEXT')
         eq_(data['num_rows'], 6)
         eq_(data['rows'][0][2:],
             (u'2011-01-01', u'1', u'Galway'))
