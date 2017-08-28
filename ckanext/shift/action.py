@@ -314,11 +314,16 @@ def shift_status(context, data_dict):
         #         date = datetime.datetime.utcfromtimestamp(
         #             time.mktime(date))
         #         log['timestamp'] = date
+    try:
+        error = json.loads(task['error'])
+    except ValueError:
+        # this happens occasionally, such as when the job times out
+        error = task['error']
     return {
         'status': task['state'],
         'job_id': job_id,
         'job_url': url,
         'last_updated': task['last_updated'],
         'task_info': job_detail,
-        'error': json.loads(task['error'])
+        'error': error,
     }

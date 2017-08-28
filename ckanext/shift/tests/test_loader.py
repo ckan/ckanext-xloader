@@ -7,6 +7,7 @@ from ckan.common import config
 from ckan.tests import helpers, factories
 import ckanext.datastore.backend.postgres as db
 from ckanext.shift import loader
+import ckan.plugins as p
 import util
 
 def get_sample_filepath(filename):
@@ -27,8 +28,6 @@ class TestLoadCsv(util.PluginsMixin):
 
     def test_simple(self):
         csv_filepath = get_sample_filepath('simple.csv')
-        def get_config_value(key):
-            return config[key]
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
@@ -54,8 +53,6 @@ class TestLoadCsv(util.PluginsMixin):
 
     def test_boston_311(self):
         csv_filepath = get_sample_filepath('boston_311_sample.csv')
-        def get_config_value(key):
-            return config[key]
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
@@ -78,6 +75,65 @@ class TestLoadCsv(util.PluginsMixin):
         assert_equal(self._get_column_types('test1'),
                      [u'int4', u'tsvector'] +
                      [u'text'] * (len(records[0]) - 1))
+
+    def test_reload(self):
+        csv_filepath = get_sample_filepath('simple.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        get_config_value=get_config_value,
+                        mimetype='text/csv', logger=loader.PrintLogger())
+
+        # Load it again unchanged
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        get_config_value=get_config_value,
+                        mimetype='text/csv', logger=loader.PrintLogger())
+
+        assert_equal(len(self._get_records('test1')), 6)
+        assert_equal(
+            self._get_column_names('test1'),
+            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
+        assert_equal(
+            self._get_column_types('test1'),
+            [u'int4', u'tsvector', u'text', u'text', u'text'])
+
+    def test_reload_with_overridden_types(self):
+        csv_filepath = get_sample_filepath('simple.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        get_config_value=get_config_value,
+                        mimetype='text/csv', logger=loader.PrintLogger())
+        # Change types, as it would be done by Data Dictionary
+        rec = p.toolkit.get_action('datastore_search')(None, {
+            'resource_id': resource_id,
+            'limit': 0})
+        fields = [f for f in rec['fields'] if not f['id'].startswith('_')]
+        fields[0]['info'] = {'type_override': 'timestamp'}
+        fields[1]['info'] = {'type_override': 'numeric'}
+        p.toolkit.get_action('datastore_create')({'ignore_auth': True}, {
+            'resource_id': resource_id,
+            'force': True,
+            'fields': fields
+            })
+        # [{
+        #         'id': f['id'],
+        #         'type': f['type'],
+        #         'info': fi if isinstance(fi, dict) else {}
+        #         } for f, fi in izip_longest(fields, info)]
+
+        # Load it again with new types
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        get_config_value=get_config_value,
+                        mimetype='text/csv', logger=loader.PrintLogger())
+
+        assert_equal(len(self._get_records('test1')), 6)
+        assert_equal(
+            self._get_column_names('test1'),
+            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
+        assert_equal(
+            self._get_column_types('test1'),
+            [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
 
     def _get_records(self, table_name, limit=None,
                      exclude_full_text_column=True):
@@ -112,3 +168,5 @@ class TestLoadCsv(util.PluginsMixin):
         records = results.fetchall()
         return [r[0] for r in records]
 
+def get_config_value(key):
+    return config[key]

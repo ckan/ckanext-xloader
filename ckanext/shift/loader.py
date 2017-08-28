@@ -22,6 +22,7 @@ from sqlalchemy import create_engine, MetaData
 import messytables
 
 import ckan.plugins as p
+from job_exceptions import JobError
 
 
 def load_csv(csv_filepath, resource_id, get_config_value=None,
@@ -76,7 +77,7 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
     # encoding (and line ending?)- use chardet
     # It is easier to reencode it as UTF8 than convert the name of the encoding
     # to one that pgloader will understand.
-    logger.info('Re-encoding...')
+    logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
         with open(csv_filepath, 'rb') as f_read:
@@ -97,26 +98,50 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
                 get_config_value('ckan.datastore.write_url')
             engine = create_engine(datastore_sqlalchemy_url)
 
-        # If table exists, delete (TODO something more sophis)
-        metadata = MetaData(engine)
-        if engine.dialect.has_table(engine, resource_id):
-            table = Table(resource_id, metadata, autoload=True,
-                          autoload_with=engine)
-            table.drop()
-        metadata = MetaData(engine)  # refresh it so it knows the table is gone
+        # get column info from existing table
+        existing = datastore_resource_exists(resource_id)
+        existing_info = {}
+        if existing:
+            existing_info = dict((f['id'], f['info'])
+                                 for f in existing.get('fields', [])
+                                 if 'info' in f)
+
+            '''
+            Delete existing datastore table before proceeding. Otherwise
+            the COPY will append to the existing table. And if
+            the fields have significantly changed, it may also fail.
+            '''
+            logger.info('Deleting "{res_id}" from DataStore.'.format(
+                res_id=resource_id))
+            delete_datastore_resource(resource_id)
+
+        # Columns types are either set (overridden) in the Data Dictionary page
+        # or default to text type (which is robust)
+        fields = [
+            {'id': header_name,
+             'type': existing_info.get(header_name, {})\
+             .get('type_override') or 'text',
+             }
+            for header_name in headers]
+
+        # Maintain data dictionaries from matching column names
+        if existing_info:
+            for f in fields:
+                if f['id'] in existing_info:
+                    f['info'] = existing_info[f['id']]
+
+        logger.info('Fields: {}'.format(fields))
 
         # Create table
         from ckan import model
         context = {'model': model, 'ignore_auth': True}
         p.toolkit.get_action('datastore_create')(context, dict(
             resource_id=resource_id,
-            fields=[{'id': header_name, 'type': 'text'}
-                    for header_name in headers],
+            fields=fields,
             records=None,  # just create an empty table
             force=True,  # TODO check this - I don't fully understand
                          # read-only/datastore resources
             ))
-        # All columns are text type - convert them later
 
         logger.info('Copying to database...')
 
@@ -146,7 +171,7 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
                             "FROM STDIN "
                             "WITH (DELIMITER ',', FORMAT csv, HEADER 1, "
                             "      ENCODING '{encoding}');"
-                            .format(
+                        .format(
                                 resource_id=resource_id,
                                 column_names=', '.join(['"{}"'.format(h)
                                                         for h in headers]),
@@ -154,17 +179,10 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
                                 ),
                             f)
                     except psycopg2.DataError as e:
-                        import pdb; pdb.set_trace()
+                        logger.error(e)
+                        raise JobError('Error during the load into PostgreSQL:'
+                                       ' {}'.format(e))
 
-                    # TODO populate _full_text column, something like this.
-                    # Maybe make this a datastore function, called from the queue?
-                    # full_text = [_to_full_text(fields, record)]
-                    # cur.execute(
-                    #     'UPDATE "{resource_id}" '
-                    #     'SET _full_text = to_tsvector({text});'
-                    #     .format(resource_id=resource_id,
-                    #             full_text=full_text)
-                    #     ))
             finally:
                 cur.close()
         finally:
@@ -173,6 +191,29 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
         os.remove(csv_filepath)  # i.e. the tempfile
 
     logger.info('...copying done')
+
+
+def datastore_resource_exists(resource_id):
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    try:
+        response = p.toolkit.get_action('datastore_search')(context, dict(
+            id=resource_id, limit=0))
+    except p.toolkit.ObjectNotFound:
+        return False
+    return response or {'fields': []}
+
+
+def delete_datastore_resource(resource_id):
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    try:
+        response = p.toolkit.get_action('datastore_delete')(context, dict(
+            id=resource_id, force=True))
+    except p.toolkit.ObjectNotFound:
+        # this is ok
+        return
+    return
 
 
 def get_config_value_without_loading_ckan_environment(config_filepath, key):
