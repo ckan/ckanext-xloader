@@ -22,6 +22,7 @@ class TestLoadCsv(util.PluginsMixin):
         engine = db.get_write_engine()
         self.Session = orm.scoped_session(orm.sessionmaker(bind=engine))
         helpers.reset_db()
+        util.reset_datastore_db()
 
     def teardown(self):
         self.Session.close()

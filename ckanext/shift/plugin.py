@@ -3,6 +3,7 @@ import ckan.plugins as plugins
 
 from ckanext.shift import action, auth
 import ckanext.shift.helpers as shift_helpers
+from ckanext.shift.loader import fulltext_function_exists, get_write_engine
 
 log = __import__('logging').getLogger(__name__)
 p = plugins
@@ -48,6 +49,11 @@ class ShiftPlugin(plugins.SingletonPlugin):
                 raise Exception(
                     'Config option `{0}` must be set to use ckanext-shift.'
                     .format(config_option))
+
+        connection = get_write_engine().connect()
+        if not fulltext_function_exists(connection):
+            raise Exception('populate_full_text_trigger is not defined. See '
+                            'ckanext-shift\'s README.rst for more details.')
 
     # IDomainObjectModification
     # IResourceUrlChange

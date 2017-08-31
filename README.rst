@@ -109,11 +109,26 @@ To install ckanext-shift:
      pip install -r requirements.txt
      pip install -U requests[security]
 
-3. Add ``shift`` to the ``ckan.plugins`` setting in your CKAN
+4. If you are using CKAN version before 2.8 you need to define the
+   `populate_full_text_trigger` in your database::
+
+     sudo -u postgres psql datastore_default -f full_text_function.sql
+
+   If successful it will print::
+
+     CREATE FUNCTION
+     ALTER FUNCTION
+
+   NB this assumes you used the defaults for the database name and username.
+   If in doubt, check your config's ckan.datastore.write_url. If you don't have
+   database name `datastore_default` and username `ckan_default` then adjust
+   the psql option and full_text_function.sql before running this.
+
+5. Add ``shift`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 
-4. If it is a production server, you'll want to store jobs info in a more robust
+6. If it is a production server, you'll want to store jobs info in a more robust
    database the default sqlite file::
 
      sudo -u postgres createdb -O ckan_default shift_jobs -E utf-8
@@ -124,7 +139,7 @@ To install ckanext-shift:
 
    (This step can be skipped when just developing or testing.)
 
-5. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
+7. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
 
      sudo service apache2 reload
 
@@ -188,6 +203,9 @@ Running the Tests
 To run the tests, do::
 
     nosetests --nologcapture --with-pylons=test.ini
+
+If you get error `function populate_full_text_trigger() does not exist` then
+you need a CKAN with https://github.com/ckan/ckan/pull/3786. (Even if you create the function on the test database, it gets cleared by: https://github.com/ckan/ckan/pull/3786/files#diff-33d20faeb53559a9b8940bcb418cb5b4R75 )
 
 .. To run the tests and produce a coverage report, first make sure you have
 .. coverage installed in your virtualenv (``pip install coverage``) then run::

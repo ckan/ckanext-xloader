@@ -25,6 +25,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
 
     @classmethod
     def setup_class(cls):
+        super(TestShiftDataIntoDatastore, cls).setup_class()
         cls.host = 'www.ckan.org'
         cls.api_key = 'my-fake-key'
         cls.resource_id = 'foo-bar-42'
@@ -33,7 +34,13 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
         # drop test table
         engine, conn = cls.get_datastore_engine_and_connection()
         conn.execute('DROP TABLE IF EXISTS "{}"'.format(cls.resource_id))
-        super(TestShiftDataIntoDatastore, cls).setup_class()
+
+    @classmethod
+    def teardown_class(cls):
+        super(TestShiftDataIntoDatastore, cls).teardown_class()
+        if '_datastore' in dir(cls):
+            connection = cls._datastore[1]
+            connection.close()
 
     def register_urls(self, filename='simple.csv', format='CSV',
                       content_type='application/csv'):
@@ -139,7 +146,6 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
             with mock.patch('ckanext.shift.jobs.get_current_job',
                             return_value=mock.Mock(id=job_id)):
                 result = jobs.shift_data_into_datastore(data)
-
         eq_(result, True)
 
         # Check it said it was successful

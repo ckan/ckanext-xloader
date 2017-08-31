@@ -12,10 +12,7 @@ class PluginsMixin(object):
         for plugin in getattr(cls, '_load_plugins', []):
             p.load(plugin)
         helpers.reset_db()
-
-        engine = db.get_write_engine()
-        Session = orm.scoped_session(orm.sessionmaker(bind=engine))
-        datastore_helpers.clear_db(Session)
+        reset_datastore_db()
 
     @classmethod
     def teardown_class(cls):
@@ -23,3 +20,9 @@ class PluginsMixin(object):
         for plugin in reversed(getattr(cls, '_load_plugins', [])):
             p.unload(plugin)
         helpers.reset_db()
+
+
+def reset_datastore_db():
+    engine = db.get_write_engine()
+    Session = orm.scoped_session(orm.sessionmaker(bind=engine))
+    datastore_helpers.clear_db(Session)

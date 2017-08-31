@@ -142,6 +142,9 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
             force=True,  # TODO check this - I don't fully understand
                          # read-only/datastore resources
             ))
+        connection = engine.connect()
+        if not fulltext_trigger_exists(connection, resource_id):
+            _create_fulltext_trigger(connection, resource_id)
 
         logger.info('Copying to database...')
 
@@ -228,6 +231,50 @@ def get_config_value_without_loading_ckan_environment(config_filepath, key):
             config_filepath, key, e)
         raise ValueError(err)
 
+def fulltext_function_exists(connection):
+    '''Check to see if the fulltext function is set-up in postgres.
+    This is done during install of CKAN if it is new enough to have:
+    https://github.com/ckan/ckan/pull/3786
+    or otherwise it is checked on startup of this plugin.
+    '''
+    res = connection.execute('''
+        select * from pg_proc where proname = 'populate_full_text_trigger';
+        ''')
+    return bool(res.rowcount)
+
+def fulltext_trigger_exists(connection, resource_id):
+    '''Check to see if the fulltext trigger is set-up on this resource's table.
+    This will only be the case if your CKAN is new enough to have:
+    https://github.com/ckan/ckan/pull/3786
+    '''
+    res = connection.execute('''
+        SELECT pg_trigger.tgname FROM pg_class
+        JOIN pg_trigger ON pg_class.oid=pg_trigger.tgrelid
+        WHERE pg_class.relname={table}
+        AND pg_trigger.tgname='zfulltext';
+        '''.format(
+        table=literal_string(resource_id)))
+    return bool(res.rowcount)
+
+################################
+#    datastore copied code     #
+# (for use with older ckans that lack this)
+
+def _create_fulltext_trigger(connection, resource_id):
+    connection.execute(
+        u'''CREATE TRIGGER zfulltext
+        BEFORE INSERT OR UPDATE ON {table}
+        FOR EACH ROW EXECUTE PROCEDURE populate_full_text_trigger()'''.format(
+            table=identifier(resource_id)))
+
+def identifier(s):
+    return u'"' + s.replace(u'"', u'""').replace(u'\0', '') + u'"'
+
+def literal_string(s):
+    return u"'" + s.replace(u"'", u"''").replace(u'\0', '') + u"'"
+
+# end of datastore copied code #
+################################
 
 class PrintLogger(object):
     def __getattr__(self, log_level):
