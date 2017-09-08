@@ -63,7 +63,7 @@ Robustness
 
 DataPusher - one cause of failure was when casting cells. The type of a column was detected on the values of the first few rows, so if a column is mainly numeric or dates, but a string (like "Null") comes later on, then this will cause the load to finish at that point.
 
-ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want. In future it could do automatic compaison
+ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want (Data Dictionary feature). In future it could do automatic detection and conversion.
 
 Separate web server
 -------------------
@@ -128,8 +128,11 @@ To install ckanext-shift:
    config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 
+   You should also remove ``datapusher`` if it is in the list, to avoid them
+   both trying to load resources into the DataStore.
+
 6. If it is a production server, you'll want to store jobs info in a more robust
-   database the default sqlite file::
+   database than the default sqlite file::
 
      sudo -u postgres createdb -O ckan_default shift_jobs -E utf-8
 

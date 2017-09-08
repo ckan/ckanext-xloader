@@ -26,7 +26,10 @@ except ImportError:
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-config = p.toolkit.config
+try:
+    config = p.toolkit.config
+except AttributeError:
+    from pylons import config
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
