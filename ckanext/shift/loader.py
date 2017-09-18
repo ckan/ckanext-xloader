@@ -22,23 +22,13 @@ from sqlalchemy import create_engine, MetaData
 import messytables
 
 import ckan.plugins as p
-from job_exceptions import JobError
+from job_exceptions import LoaderError
 
 
 def load_csv(csv_filepath, resource_id, get_config_value=None,
              mimetype='text/csv', logger=None):
-    # hash
-    # file_hash = hashlib.md5(f.read()).hexdigest()
-    # f.seek(0)
-    # if (resource.get('hash') == file_hash
-    #         and not data.get('ignore_hash')):
-    #     logger.info('Ignoring resource - the file hash hasn\'t changed: '
-    #                 '{hash}.'.format(hash=file_hash))
-    #     return
-    # resource['hash'] = file_hash
 
-    # http_content_type = \
-    #     response.info().getheader('content-type').split(';', 1)[0]
+    # use messytables to determine the header row
     extension = os.path.splitext(csv_filepath)[1]
     with open(csv_filepath, 'rb') as f:
         try:
@@ -52,8 +42,10 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
             #     table_set = messytables.any_tableset(f, mimetype=format,
             #                                          extension=format)
             # except Exception:
-                raise 'Messytables error: {}'.format(e)
+                raise LoaderError('Messytables error: {}'.format(e))
 
+        if not table_set.tables:
+            raise LoaderError('Could not detect tabular data in this file')
         row_set = table_set.tables.pop()
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
@@ -135,13 +127,27 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
         # Create table
         from ckan import model
         context = {'model': model, 'ignore_auth': True}
-        p.toolkit.get_action('datastore_create')(context, dict(
-            resource_id=resource_id,
-            fields=fields,
-            records=None,  # just create an empty table
-            force=True,  # TODO check this - I don't fully understand
-                         # read-only/datastore resources
-            ))
+        try:
+            p.toolkit.get_action('datastore_create')(context, dict(
+                resource_id=resource_id,
+                fields=fields,
+                records=None,  # just create an empty table
+                force=True,  # TODO check this - I don't fully understand
+                             # read-only/datastore resources
+                ))
+        except p.toolkit.ValidationError as e:
+            if 'fields' in e.error_dict:
+                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
+                error_message = e.error_dict['fields'][0]
+                raise LoaderError('Error with field definition: {}'
+                                  .format(error_message))
+            else:
+                raise LoaderError(
+                    'Validation error when creating the database table: {}'
+                    .format(str(e)))
+        except Exception as e:
+            raise LoaderError('Could not create the database table: {}'
+                              .format(e))
         connection = engine.connect()
         if not fulltext_trigger_exists(connection, resource_id):
             _create_fulltext_trigger(connection, resource_id)
@@ -183,7 +189,7 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
                             f)
                     except psycopg2.DataError as e:
                         logger.error(e)
-                        raise JobError('Error during the load into PostgreSQL:'
+                        raise LoaderError('Error during the load into PostgreSQL:'
                                        ' {}'.format(e))
 
             finally:

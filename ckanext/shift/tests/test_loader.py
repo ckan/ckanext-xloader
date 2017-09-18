@@ -1,12 +1,14 @@
 import os
 
 import sqlalchemy.orm as orm
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_raises, assert_in
 
 from ckan.common import config
 from ckan.tests import helpers, factories
 import ckanext.datastore.backend.postgres as db
 from ckanext.shift import loader
+from ckanext.shift.job_exceptions import LoaderError
+
 import ckan.plugins as p
 import util
 
@@ -168,6 +170,57 @@ class TestLoadCsv(util.PluginsMixin):
         results = c.execute(sql)
         records = results.fetchall()
         return [r[0] for r in records]
+
+
+class TestLoadUnhandledTypes(util.PluginsMixin):
+    _load_plugins = ['datastore']
+
+    def setup(self):
+        engine = db.get_write_engine()
+        self.Session = orm.scoped_session(orm.sessionmaker(bind=engine))
+        helpers.reset_db()
+        util.reset_datastore_db()
+
+    def teardown(self):
+        self.Session.close()
+
+    def test_kml(self):
+        filepath = get_sample_filepath('polling_locations.kml')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        with assert_raises(LoaderError) as exception:
+            loader.load_csv(filepath, resource_id=resource_id,
+                            get_config_value=get_config_value,
+                            mimetype='text/csv', logger=loader.PrintLogger())
+        assert_in('Error with field definition',
+                  str(exception.exception))
+        assert_in('"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name',
+                  str(exception.exception))
+
+    def test_geojson(self):
+        filepath = get_sample_filepath('polling_locations.geojson')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        with assert_raises(LoaderError) as exception:
+            loader.load_csv(filepath, resource_id=resource_id,
+                            get_config_value=get_config_value,
+                            mimetype='text/csv', logger=loader.PrintLogger())
+        assert_in('Error with field definition',
+                  str(exception.exception))
+        assert_in('"{"type":"FeatureCollection"" is not a valid field name',
+                  str(exception.exception))
+
+    def test_shapefile_zip(self):
+        filepath = get_sample_filepath('polling_locations.shapefile.zip')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        with assert_raises(LoaderError) as exception:
+            loader.load_csv(filepath, resource_id=resource_id,
+                            get_config_value=get_config_value,
+                            mimetype='text/csv', logger=loader.PrintLogger())
+        assert_in('Error during the load into PostgreSQL: '
+                  'unquoted carriage return found in data',
+                  str(exception.exception))
 
 def get_config_value(key):
     return config[key]
