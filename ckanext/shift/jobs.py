@@ -11,7 +11,10 @@ from rq import get_current_job
 import traceback
 import sys
 
-from pylons import config
+try:
+    from ckan.plugins.toolkit import config
+except ImportError:
+    from pylons import config
 import ckan.lib.search as search
 import sqlalchemy as sa
 
@@ -109,7 +112,7 @@ def shift_data_into_datastore_(input):
     handler.setLevel(level)
     logger = logging.getLogger(job_id)
     handler.setFormatter(logging.Formatter('%(message)s'))
-    logger.addHandler(handler)  # saves logs to the db TODO
+    logger.addHandler(handler)
     # also show logs on stderr
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
@@ -199,14 +202,15 @@ def shift_data_into_datastore_(input):
         f_.seek(0)
 
         # Load it
-        def get_config_value(key):
-            return config[key]
         logger.info('Loading CSV')
-        loader.load_csv(f_.name,
-                        resource_id=resource['id'],
-                        get_config_value=get_config_value,
-                        mimetype=resource.get('format'),
-                        logger=logger)
+        try:
+            loader.load_csv(f_.name,
+                            resource_id=resource['id'],
+                            mimetype=resource.get('format'),
+                            logger=logger)
+        except JobError as e:
+            logger.error('Error during load: {}'.format(e))
+            raise
         logger.info('Finished loading CSV')
 
     # try:

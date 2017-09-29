@@ -1,9 +1,14 @@
 'Load a CSV into postgres'
-import argparse
 import os
 import os.path
 import tempfile
+import itertools
+
 import psycopg2
+from sqlalchemy import String, Integer, Table, Column
+from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import create_engine, MetaData
+import messytables
 
 try:
     import ckanext.datastore.backend.postgres as datastore_db
@@ -15,18 +20,17 @@ except ImportError:
         from pylons import config
         data_dict = {'connection_url': config['ckan.datastore.write_url']}
         return _get_engine(data_dict)
-
-from sqlalchemy import String, Integer, Table, Column
-from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlalchemy import create_engine, MetaData
-import messytables
+try:
+    from ckan.plugins.toolkit import config
+except ImportError:
+    # older versions of ckan
+    from pylons import config
 
 import ckan.plugins as p
 from job_exceptions import LoaderError
 
 
-def load_csv(csv_filepath, resource_id, get_config_value=None,
-             mimetype='text/csv', logger=None):
+def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # use messytables to determine the header row
     extension = os.path.splitext(csv_filepath)[1]
@@ -82,13 +86,7 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
         # check tables exists
 
         # datastore db connection
-        if not get_config_value:
-            engine = datastore_db.get_write_engine()
-        else:
-            # i.e. when running from this file's cli
-            datastore_sqlalchemy_url = \
-                get_config_value('ckan.datastore.write_url')
-            engine = create_engine(datastore_sqlalchemy_url)
+        engine = get_write_engine()
 
         # get column info from existing table
         existing = datastore_resource_exists(resource_id)
@@ -202,6 +200,171 @@ def load_csv(csv_filepath, resource_id, get_config_value=None,
     logger.info('...copying done')
 
 
+def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
+    '''Loads an Excel file (or other tabular data recognized by messytables)
+    into Datastore.
+
+    Largely copied from datapusher - see below. Is slower than load_csv.
+    '''
+
+    # use messytables to determine the header row
+    ct = mimetype
+    format = os.path.splitext(table_filepath)[1]  # filename extension
+    with open(table_filepath, 'rb') as tmp:
+
+        #
+        # Copied from datapusher/jobs.py:push_to_datastore
+        #
+
+        try:
+            table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
+        except messytables.ReadError as e:
+            ## try again with format
+            tmp.seek(0)
+            try:
+                ### Assume format is csv
+                ### format = resource.get('format')
+                table_set = messytables.any_tableset(tmp, mimetype=format, extension=format)
+            except:
+                raise LoaderError(e)
+
+        row_set = table_set.tables.pop()
+        offset, headers = messytables.headers_guess(row_set.sample)
+
+        existing = datastore_resource_exists(resource_id)
+        existing_info = None
+        if existing:
+            existing_info = dict((f['id'], f['info'])
+                for f in existing.get('fields', []) if 'info' in f)
+
+        # Some headers might have been converted from strings to floats and such.
+        headers = [unicode(header) for header in headers]
+
+        row_set.register_processor(messytables.headers_processor(headers))
+        row_set.register_processor(messytables.offset_processor(offset + 1))
+        TYPES, TYPE_MAPPING = get_types()
+        types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
+
+        # override with types user requested
+        if existing_info:
+            types = [{
+                'text': messytables.StringType(),
+                'numeric': messytables.DecimalType(),
+                'timestamp': messytables.DateUtilType(),
+                }.get(existing_info.get(h, {}).get('type_override'), t)
+                for t, h in zip(types, headers)]
+
+        row_set.register_processor(messytables.types_processor(types))
+
+        headers = [header.strip() for header in headers if header.strip()]
+        headers_set = set(headers)
+
+        def row_iterator():
+            for row in row_set:
+                data_row = {}
+                for index, cell in enumerate(row):
+                    column_name = cell.column.strip()
+                    if column_name not in headers_set:
+                        continue
+                    data_row[column_name] = cell.value
+                yield data_row
+        result = row_iterator()
+
+        '''
+        Delete existing datstore resource before proceeding. Otherwise
+        'datastore_create' will append to the existing datastore. And if
+        the fields have significantly changed, it may also fail.
+        '''
+        if existing:
+            logger.info('Deleting "{res_id}" from datastore.'.format(
+                res_id=resource_id))
+            delete_datastore_resource(resource_id, api_key, ckan_url)
+
+        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
+                         for field in zip(headers, types)]
+
+        # Maintain data dictionaries from matching column names
+        if existing_info:
+            for h in headers_dicts:
+                if h['id'] in existing_info:
+                    h['info'] = existing_info[h['id']]
+                    # create columns with types user requested
+                    type_override = existing_info[h['id']].get('type_override')
+                    if type_override in _TYPE_MAPPING.values():
+                        h['type'] = type_override
+
+        logger.info('Determined headers and types: {headers}'.format(
+            headers=headers_dicts))
+
+        ### Commented - this is only for tests
+        # if dry_run:
+        #     return headers_dicts, result
+
+        count = 0
+        for i, records in enumerate(chunky(result, 250)):
+            count += len(records)
+            logger.info('Saving chunk {number}'.format(number=i))
+            send_resource_to_datastore(resource_id, headers_dicts, records)
+
+        logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
+            n=count, res_id=resource_id))
+
+        ### Commented - this is done by the caller in jobs.py
+        # if data.get('set_url_type', False):
+        #     update_resource(resource, api_key, ckan_url)
+
+
+_TYPE_MAPPING = {
+    'String': 'text',
+    # 'int' may not be big enough,
+    # and type detection may not realize it needs to be big
+    'Integer': 'numeric',
+    'Decimal': 'numeric',
+    'DateUtil': 'timestamp'
+}
+
+
+def get_types():
+    _TYPES = [messytables.StringType, messytables.DecimalType,
+              messytables.IntegerType, messytables.DateUtilType]
+    # TODO make this configurable
+    #TYPES = web.app.config.get('TYPES', _TYPES)
+    TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
+    return _TYPES, TYPE_MAPPING
+
+
+def chunky(iterable, n):
+    """
+    Generates chunks of data that can be loaded into ckan
+
+    :param n: Size of each chunks
+    :type n: int
+    """
+    it = iter(iterable)
+    item = list(itertools.islice(it, n))
+    while item:
+        yield item
+        item = list(itertools.islice(it, n))
+
+
+def send_resource_to_datastore(resource_id, headers, records):
+    """
+    Stores records in CKAN datastore
+    """
+    request = {'resource_id': resource_id,
+               'fields': headers,
+               'force': True,
+               'records': records}
+
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    try:
+        p.toolkit.get_action('datastore_create')(context, request)
+    except p.toolkit.ValidationError as e:
+        raise LoaderError('Validation error writing rows to db: {}'
+                          .format(str(e)))
+
+
 def datastore_resource_exists(resource_id):
     from ckan import model
     context = {'model': model, 'ignore_auth': True}
@@ -224,18 +387,6 @@ def delete_datastore_resource(resource_id):
         return
     return
 
-
-def get_config_value_without_loading_ckan_environment(config_filepath, key):
-    '''May raise exception ValueError'''
-    import ConfigParser
-    config = ConfigParser.ConfigParser()
-    try:
-        config.read(os.path.expanduser(config_filepath))
-        return config.get('app:main', key)
-    except ConfigParser.Error, e:
-        err = 'Error reading CKAN config file %s to get key %s: %s' % (
-            config_filepath, key, e)
-        raise ValueError(err)
 
 def fulltext_function_exists(connection):
     '''Check to see if the fulltext function is set-up in postgres.
@@ -287,17 +438,3 @@ class PrintLogger(object):
         def print_func(msg):
             print '{}: {}'.format(log_level.capitalize(), msg)
         return print_func
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('ckan_ini', metavar='CKAN_INI',
-                        help='CSV configuration (.ini) filepath')
-    parser.add_argument('csv_filepath', metavar='csv-filepath',
-                        help='CSV filepath')
-    args = parser.parse_args()
-    def get_config_value(key):
-        return get_config_value_without_loading_ckan_environment(
-            args.ckan_ini, key)
-    load_csv(args.csv_filepath, get_config_value=get_config_value,
-             mimetype='text/csv', logger=PrintLogger())
