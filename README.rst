@@ -146,6 +146,28 @@ To install ckanext-shift:
 
      sudo service apache2 reload
 
+8. Run the worker. First test it on the command-line::
+
+     paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
+
+   or if you have CKAN version 2.6.x or less and are using ckanext-rq::
+
+     paster --plugin=ckanext-rq jobs -c /etc/ckan/default/ckan.ini worker
+
+   Test it will load a CSV ok by submitting a `CSV in the web interface <http://docs.ckan.org/projects/datapusher/en/latest/using.html#ckan-2-2-and-above>`_
+   or in another shell::
+
+     paster --plugin=ckanext-shift shift submit <dataset-name> -c /etc/ckan/default/ckan.ini
+
+   Clearly, running the worker on the command-line is only for testing - for
+   production services see:
+
+       http://docs.ckan.org/en/ckan-2.7.0/maintaining/background-tasks.html#using-supervisor
+
+   If you have CKAN version 2.6.x or less then you'll need to download
+   `supervisor-ckan-worker.conf <https://raw.githubusercontent.com/ckan/ckan/master/ckan/config/supervisor-ckan-worker.conf>`_ and adjust the ``command`` to reference
+   ckanext-rq.
+
 
 ---------------
 Config Settings
@@ -188,6 +210,7 @@ do::
     cd ckanext-shift
     python setup.py develop
     pip install -r dev-requirements.txt
+
 
 -------------------------
 Upgrading from DataPusher
