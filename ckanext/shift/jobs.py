@@ -51,8 +51,9 @@ def shift_data_into_datastore(input):
     shift_data_into_datastore, and makes sure it finishes by calling
     shift_hook to update the task_status with the result.
 
-    Errors are stored in task_status / job log. If saving those fails, then
-    we return False (but that's not stored anywhere currently).
+    Errors are stored in task_status and job log and this method returns
+    'error' to let RQ know too. Should task_status fails, then we also return
+    'error'.
     '''
     # First flag that this task is running, to indicate the job is not
     # stillborn, for when shift_submit is deciding whether another job would
@@ -64,6 +65,7 @@ def shift_data_into_datastore(input):
                         job_dict=job_dict)
 
     job_id = get_current_job().id
+    errored = False
     try:
         shift_data_into_datastore_(input)
         job_dict['status'] = 'complete'
@@ -74,6 +76,7 @@ def shift_data_into_datastore(input):
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
         log.error('Shift error: {}'.format(e))
+        errored = True
     except Exception as e:
         db.mark_job_as_errored(
             job_id, traceback.format_tb(sys.exc_traceback)[-1] + repr(e))
@@ -81,11 +84,14 @@ def shift_data_into_datastore(input):
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
         log.error('Shift error: {}'.format(e))
+        errored = True
     finally:
         # job_dict is defined in shift_hook's docstring
-        return callback_shift_hook(result_url=input['result_url'],
-                                   api_key=input['api_key'],
-                                   job_dict=job_dict)
+        is_saved_ok = callback_shift_hook(result_url=input['result_url'],
+                                          api_key=input['api_key'],
+                                          job_dict=job_dict)
+        errored = errored or not is_saved_ok
+    return 'error' if errored else None
 
 
 def shift_data_into_datastore_(input):

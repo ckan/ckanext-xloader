@@ -158,7 +158,7 @@ def shift_submit(context, data_dict):
     try:
         job = enqueue_job(jobs.shift_data_into_datastore, [data])
     except Exception:
-        log.exception('Unable to enqueued shift res_id=%s', job.id, res_id)
+        log.exception('Unable to enqueued shift res_id=%s', res_id)
         return False
     log.debug('Enqueued shift job=%s res_id=%s', job.id, res_id)
 
