@@ -156,7 +156,12 @@ def shift_submit(context, data_dict):
             }
         }
     try:
-        job = enqueue_job(jobs.shift_data_into_datastore, [data])
+        try:
+            job = enqueue_job(jobs.shift_data_into_datastore, [data],
+                              timeout=100)
+        except TypeError:
+            # older ckans didn't allow the timeout keyword
+            job = _enqueue(jobs.shift_data_into_datastore, [data], timeout=100)
     except Exception:
         log.exception('Unable to enqueued shift res_id=%s', res_id)
         return False
@@ -170,6 +175,26 @@ def shift_submit(context, data_dict):
     p.toolkit.get_action('task_status_update')(context, task)
 
     return True
+
+
+def _enqueue(fn, args=None, kwargs=None, title=None, queue='default',
+             timeout=180):
+    '''Same as latest ckan.lib.jobs.enqueue - earlier CKAN versions dont have
+    the timeout param'''
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+    job = get_queue(queue).enqueue_call(func=fn, args=args, kwargs=kwargs,
+                                        timeout=timeout)
+    job.meta[u'title'] = title
+    job.save()
+    msg = u'Added background job {}'.format(job.id)
+    if title:
+        msg = u'{} ("{}")'.format(msg, title)
+    msg = u'{} to queue "{}"'.format(msg, queue)
+    log.info(msg)
+    return job
 
 
 def shift_hook(context, data_dict):
