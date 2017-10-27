@@ -71,7 +71,7 @@ def shift_data_into_datastore(input):
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
     except JobError as e:
-        db.mark_job_as_errored(job_id, e.as_dict())
+        db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
@@ -214,6 +214,7 @@ def shift_data_into_datastore_(input):
                             resource_id=resource['id'],
                             mimetype=resource.get('format'),
                             logger=logger)
+            logger.info('Finished loading CSV')
         except JobError as e:
             logger.error('Error during load: {}'.format(e))
             logger.info('Trying again with messytables')

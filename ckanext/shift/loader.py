@@ -278,7 +278,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         if existing:
             logger.info('Deleting "{res_id}" from datastore.'.format(
                 res_id=resource_id))
-            delete_datastore_resource(resource_id, api_key, ckan_url)
+            delete_datastore_resource(resource_id)
 
         headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
                          for field in zip(headers, types)]

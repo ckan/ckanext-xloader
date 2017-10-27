@@ -1,1 +1,2 @@
 messytables==0.15.2
+pdftables>=0.0.4  # optional messytables dep

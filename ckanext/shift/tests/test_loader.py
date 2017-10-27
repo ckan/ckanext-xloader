@@ -115,6 +115,27 @@ class TestLoadCsv(TestLoadBase):
                      [u'int4', u'tsvector'] +
                      [u'text'] * (len(records[0]) - 1))
 
+    def test_brazilian(self):
+        csv_filepath = get_sample_filepath('brazilian_sample.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=loader.PrintLogger())
+
+        records = self._get_records('test1')
+        print records
+        assert_equal(
+            records[0],
+            (1, u'01/01/1996 12:00:00 AM', u'1100015', u"ALTA FLORESTA D'OESTE", u'RO', None, u'128', u'0', u'8', u'119', u'1', u'0', u'3613', u'3051', u'130', u'7', u'121', u'3716', u'3078', u'127', u'7', None, None, None, None, u'6794', u'5036', u'1758', None, None, None, None, None, None, u'337', u'0.26112759', u'0.17210683', u'0.43323442', u'0.13353115', u'24.833692447908199', None, None, u'22.704964', u'67.080006197818605', u'65.144188573097907', u'74.672390253375497', u'16.7913561569619', u'19.4894563570641', u'8.649237411458509', u'7.60165422117368', u'11.1540090366186', u'17.263407056738099', u'8.5269823', u'9.2213373', u'5.3085136', u'52.472769803217503', None, None, None, None, None, None, u'25.0011414302354', u'22.830887000000001', u'66.8150490097632', u'64.893674212235595', u'74.288246611754104', u'17.0725384713319', u'19.8404105332814', u'8.856561911292371', u'7.74275834336647', u'11.357671741889', u'17.9410577459881', u'8.3696527', u'8.9979973', u'5.0570836', u'53.286314230720798', None, None, None, None, None, u'122988', None, u'10.155015000000001', u'14.826086999999999', u'11.671533', u'9.072917', None, None, None, None, None, None, None, None))
+        print self._get_column_names('test1')
+        assert_equal(
+            self._get_column_names('test1'),
+            [u'_id', u'_full_text', u'NU_ANO_CENSO', u'CO_MUNICIPIO', u'MUNIC', u'SIGLA', u'CO_UF', u'SCHOOLS_NU', u'SCHOOLS_FED_NU', u'SCHOOLS_ESTADUAL_NU', u'SCHOOLS_MUN_NU', u'SCHOOLS_PRIV_NU', u'SCHOOLS_FED_STUD', u'SCHOOLS_ESTADUAL_STUD', u'SCHOOLS_MUN_STUD', u'SCHOOLS_PRIV_STUD', u'SCHOOLS_URBAN_NU', u'SCHOOLS_RURAL_NU', u'SCHOOLS_URBAN_STUD', u'SCHOOLS_RURAL_STUD', u'SCHOOLS_NIVFUND_1_NU', u'SCHOOLS_NIVFUND_2_NU', u'SCHOOLS_EIGHTYEARS_NU', u'SCHOOLS_NINEYEARS_NU', u'SCHOOLS_EIGHTYEARS_STUD', u'SCHOOLS_NINEYEARS_STUD', u'MATFUND_NU', u'MATFUND_I_NU', u'MATFUND_T_NU', u'SCHOOLS_INTERNET_AVG', u'SCHOOLS_WATER_PUBLIC_AVG', u'SCHOOLS_WATER_AVG', u'SCHOOLS_ELECTR_PUB_AVG', u'SCHOOLS_SEWAGE_PUB_AVG', u'SCHOOLS_SEWAGE_AVG', u'PROFFUNDTOT_NU', u'PROFFUNDINC_PC', u'PROFFUNDCOMP_PC', u'PROFMED_PC', u'PROFSUP_PC', u'CLASSSIZE', u'CLASSSIZE_I', u'CLASSSIZE_T', u'STUDTEACH', u'RATE_APROV', u'RATE_APROV_I', u'RATE_APROV_T', u'RATE_FAILURE', u'RATE_FAILURE_I', u'RATE_FAILURE_T', u'RATE_ABANDON', u'RATE_ABANDON_I', u'RATE_ABANDON_T', u'RATE_TRANSFER', u'RATE_TRANSFER_I', u'RATE_TRANSFER_T', u'RATE_OVERAGE', u'RATE_OVERAGE_I', u'RATE_OVERAGE_T', u'PROVA_MEAN_PORT_I', u'PROVA_MEAN_PORT_T', u'PROVA_MEAN_MAT_I', u'PROVA_MEAN_MAT_T', u'CLASSSIZE_PUB', u'STUDTEACH_PUB', u'RATE_APROV_PUB', u'RATE_APROV_I_PUB', u'RATE_APROV_T_PUB', u'RATE_FAILURE_PUB', u'RATE_FAILURE_I_PUB', u'RATE_FAILURE_T_PUB', u'RATE_ABANDON_PUB', u'RATE_ABANDON_I_PUB', u'RATE_ABANDON_T_PUB', u'RATE_TRANSFER_PUB', u'RATE_TRANSFER_I_PUB', u'RATE_TRANSFER_T_PUB', u'RATE_OVERAGE_PUB', u'RATE_OVERAGE_I_PUB', u'RATE_OVERAGE_T_PUB', u'PROVA_MEAN_PORT_I_PUB', u'PROVA_MEAN_PORT_T_PUB', u'PROVA_MEAN_MAT_I_PUB', u'PROFFUNDTOT_NU_PUB', u'PROVA_MEAN_MAT_T_PUB', u'EDUCTEACH_PUB', u'EDUCTEACH_FEDERAL', u'EDUCTEACH_STATE', u'EDUCTEACH_MUN', u'PROVA_MEAN_PORT_I_STATE', u'PROVA_MEAN_PORT_T_STATE', u'PROVA_MEAN_MAT_I_STATE', u'PROVA_MEAN_MAT_T_STATE', u'PROVA_MEAN_PORT_I_MUN', u'PROVA_MEAN_PORT_T_MUN', u'PROVA_MEAN_MAT_I_MUN', u'PROVA_MEAN_MAT_T_MUN'])
+        print self._get_column_types('test1')
+        assert_equal(self._get_column_types('test1'),
+                     [u'int4', u'tsvector'] +
+                     [u'text'] * (len(records[0]) - 1))
+
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
