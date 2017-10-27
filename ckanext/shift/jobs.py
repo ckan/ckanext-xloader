@@ -216,111 +216,16 @@ def shift_data_into_datastore_(input):
                             logger=logger)
         except JobError as e:
             logger.error('Error during load: {}'.format(e))
-            raise
-        logger.info('Finished loading CSV')
-
-    # try:
-    #     table_set = messytables.any_tableset(f, mimetype=ct, extension=ct)
-    # except messytables.ReadError as e:
-    #     # try again with format
-    #     f.seek(0)
-    #     try:
-    #         format = resource.get('format')
-    #         table_set = messytables.any_tableset(f, mimetype=format,
-    #                                              extension=format)
-    #     except Exception:
-    #         raise JobError(e)
-
-    # row_set = table_set.tables.pop()
-    # header_offset, headers = messytables.headers_guess(row_set.sample)
-
-    # # Some headers might have been converted from strings to floats and such.
-    # headers = [unicode(header) for header in headers]
-
-    # # Setup the converters that run when you iterate over the row_set.
-    # # With pgloader only the headers will be iterated over.
-    # row_set.register_processor(messytables.headers_processor(headers))
-    # row_set.register_processor(
-    #     messytables.offset_processor(header_offset + 1))
-    # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
-
-    # headers = [header.strip() for header in headers if header.strip()]
-    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
-    #                  for field in zip(headers, types)]
-
-    # # pgloader only handles csv
-    # use_pgloader = web.app.config.get('USE_PGLOADER', True) and \
-    #     isinstance(row_set, messytables.CSVRowSet)
-
-    # # Delete existing datastore resource before proceeding. Otherwise
-    # # 'datastore_create' will append to the existing datastore. And if
-    # # the fields have significantly changed, it may also fail.
-    # existing = datastore_resource_exists(resource_id, api_key, ckan_url)
-    # if existing:
-    #     if not dry_run:
-    #         logger.info('Deleting "{res_id}" from datastore.'.format(
-    #             res_id=resource_id))
-    #         delete_datastore_resource(resource_id, api_key, ckan_url)
-    # elif use_pgloader:
-    #     # Create datastore table - pgloader needs this
-    #     logger.info('Creating datastore table for resource: %s',
-    #                 resource['id'])
-    #     # create it by calling update with 0 records
-    #     send_resource_to_datastore(resource['id'], headers_dicts,
-    #                                [], api_key, ckan_url)
-    #     # it also sets "datastore_active=True" on the resource
-
-    # # Maintain data dictionaries from matching column names
-    # if existing:
-    #     existing_info = dict(
-    #         (f['id'], f['info'])
-    #         for f in existing.get('fields', []) if 'info' in f)
-    #     for h in headers_dicts:
-    #         if h['id'] in existing_info:
-    #             h['info'] = existing_info[h['id']]
-
-    # logger.info('Determined headers and types: {headers}'.format(
-    #     headers=headers_dicts))
-
-    # if use_pgloader:
-    #     csv_dialect = row_set._dialect()
-    #     f.seek(0)
-    #     # Save CSV to a file
-    #     # TODO rather than save it, pipe in the data:
-    #     # http://stackoverflow.com/questions/163542/python-how-do-i-pass-a-string-into-subprocess-popen-using-the-stdin-argument
-    #     # then it won't be all in memory at once.
-    #     with tempfile.NamedTemporaryFile() as saved_file:
-    #         # csv_buffer = f.read()
-    #         # pgloader doesn't detect encoding. Use chardet then. It is easier
-    #         # to reencode it as UTF8 than convert the name of the encoding to
-    #         # one that pgloader will understand.
-    #         csv_decoder = messytables.commas.UTF8Recoder(f, encoding=None)
-    #         csv_unicode = csv_decoder.reader.read()
-    #         csv_buffer = csv_unicode.encode('utf8')
-    #         # pgloader only allows a single character line terminator. See:
-    #         # https://github.com/dimitri/pgloader/issues/508#issuecomment-275878600
-    #         # However we can't use that solution because the last column may
-    #         # not be of type text. Therefore change the line endings before
-    #         # giving it to pgloader.
-    #         if len(csv_dialect.lineterminator) > 1:
-    #             csv_buffer = csv_buffer.replace(
-    #                 csv_dialect.lineterminator, b'\n')
-    #             csv_dialect.lineterminator = b'\n'
-    #         saved_file.write(csv_buffer)
-    #         saved_file.flush()
-    #         csv_filepath = saved_file.name
-    #         skip_header_rows = header_offset + 1
-    #         load_data_with_pgloader(
-    #             resource['id'], csv_filepath, headers, skip_header_rows,
-    #             csv_dialect, ckan_url, api_key, dry_run, logger)
-    # else:
-    #     row_set.register_processor(messytables.types_processor(types))
-
-    #     ret = convert_and_load_data(
-    #         resource['id'], row_set, headers, headers_dicts,
-    #         ckan_url, api_key, dry_run, logger)
-    #     if dry_run:
-    #         return ret
+            logger.info('Trying again with messytables')
+            try:
+                loader.load_table(f_.name,
+                                  resource_id=resource['id'],
+                                  mimetype=resource.get('format'),
+                                  logger=logger)
+            except JobError as e:
+                logger.error('Error during messytables load: {}'.format(e))
+                raise
+            logger.info('Finished loading with messytables')
 
     # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
