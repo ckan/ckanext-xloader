@@ -178,7 +178,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                             "FROM STDIN "
                             "WITH (DELIMITER ',', FORMAT csv, HEADER 1, "
                             "      ENCODING '{encoding}');"
-                        .format(
+                            .format(
                                 resource_id=resource_id,
                                 column_names=', '.join(['"{}"'.format(h)
                                                         for h in headers]),
@@ -188,7 +188,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                     except psycopg2.DataError as e:
                         logger.error(e)
                         raise LoaderError('Error during the load into PostgreSQL:'
-                                       ' {}'.format(e))
+                                          ' {}'.format(e))
 
             finally:
                 cur.close()
