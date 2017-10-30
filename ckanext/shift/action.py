@@ -3,7 +3,6 @@
 import logging
 import json
 import datetime
-import time
 
 from dateutil.parser import parse as parse_date
 
@@ -155,13 +154,14 @@ def shift_submit(context, data_dict):
             'original_url': resource_dict.get('url'),
             }
         }
+    timeout = config.get('ckanext.shift.job_timeout', '600')
     try:
         try:
             job = enqueue_job(jobs.shift_data_into_datastore, [data],
-                              timeout=100)
+                              timeout=timeout)
         except TypeError:
             # older ckans didn't allow the timeout keyword
-            job = _enqueue(jobs.shift_data_into_datastore, [data], timeout=100)
+            job = _enqueue(jobs.shift_data_into_datastore, [data], timeout=timeout)
     except Exception:
         log.exception('Unable to enqueued shift res_id=%s', res_id)
         return False

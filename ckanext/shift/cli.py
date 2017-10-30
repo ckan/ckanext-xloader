@@ -121,14 +121,14 @@ class ShiftCommand(cli.CkanCommand):
         print 'Submitting %d datastore resources' % len(resources)
         user = p.toolkit.get_action('get_site_user')(
             {'model': model, 'ignore_auth': True}, {})
-        datapusher_submit = p.toolkit.get_action('shift_submit')
+        shift_submit = p.toolkit.get_action('shift_submit')
         for resource_id in resources:
             print ('Submitting %s...' % resource_id),
             data_dict = {
                 'resource_id': resource_id,
                 'ignore_hash': True,
             }
-            if datapusher_submit({'user': user['name']}, data_dict):
+            if shift_submit({'user': user['name']}, data_dict):
                 print 'OK'
             else:
                 print 'Fail'

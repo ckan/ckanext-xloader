@@ -198,6 +198,9 @@ Configuration:
     # (i.e. 10485760 bytes)
     ckanext.shift.max_content_length = 100000000
 
+    # The maximum time for the loading of a resource before it is aborted.
+    # Give an amount in seconds.
+    ckanext.shift.job_timeout = 600
 
 ------------------------
 Development Installation
