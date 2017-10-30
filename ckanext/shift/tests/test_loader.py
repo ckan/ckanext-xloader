@@ -19,6 +19,13 @@ def get_sample_filepath(filename):
                                         filename))
 
 
+class PrintLogger(object):
+    def __getattr__(self, log_level):
+        def print_func(msg):
+            print '{}: {}'.format(log_level.capitalize(), msg)
+        return print_func
+
+
 class TestLoadBase(util.PluginsMixin):
     _load_plugins = ['datastore']
 
@@ -72,7 +79,7 @@ class TestLoadCsv(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         assert_equal(self._get_records(
             'test1', limit=1, exclude_full_text_column=False),
@@ -96,7 +103,7 @@ class TestLoadCsv(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         records = self._get_records('test1')
         print records
@@ -120,7 +127,7 @@ class TestLoadCsv(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         records = self._get_records('test1')
         print records
@@ -141,11 +148,11 @@ class TestLoadCsv(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         # Load it again unchanged
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         assert_equal(len(self._get_records('test1')), 6)
         assert_equal(
@@ -160,7 +167,7 @@ class TestLoadCsv(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
         # Change types, as it would be done by Data Dictionary
         rec = p.toolkit.get_action('datastore_search')(None, {
             'resource_id': resource_id,
@@ -181,7 +188,7 @@ class TestLoadCsv(TestLoadBase):
 
         # Load it again with new types
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=loader.PrintLogger())
+                        mimetype='text/csv', logger=PrintLogger())
 
         assert_equal(len(self._get_records('test1')), 6)
         assert_equal(
@@ -200,7 +207,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
         factories.Resource(id=resource_id)
         with assert_raises(LoaderError) as exception:
             loader.load_csv(filepath, resource_id=resource_id,
-                            mimetype='text/csv', logger=loader.PrintLogger())
+                            mimetype='text/csv', logger=PrintLogger())
         assert_in('Error with field definition',
                   str(exception.exception))
         assert_in('"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name',
@@ -212,7 +219,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
         factories.Resource(id=resource_id)
         with assert_raises(LoaderError) as exception:
             loader.load_csv(filepath, resource_id=resource_id,
-                            mimetype='text/csv', logger=loader.PrintLogger())
+                            mimetype='text/csv', logger=PrintLogger())
         assert_in('Error with field definition',
                   str(exception.exception))
         assert_in('"{"type":"FeatureCollection"" is not a valid field name',
@@ -224,7 +231,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
         factories.Resource(id=resource_id)
         with assert_raises(LoaderError) as exception:
             loader.load_csv(filepath, resource_id=resource_id,
-                            mimetype='text/csv', logger=loader.PrintLogger())
+                            mimetype='text/csv', logger=PrintLogger())
         assert_in('Error during the load into PostgreSQL: '
                   'unquoted carriage return found in data',
                   str(exception.exception))
@@ -237,7 +244,7 @@ class TestLoadXls(TestLoadBase):
         resource_id = 'test1'
         factories.Resource(id=resource_id)
         loader.load_table(csv_filepath, resource_id=resource_id,
-                          mimetype='xls', logger=loader.PrintLogger())
+                          mimetype='xls', logger=PrintLogger())
 
         assert_equal(self._get_records(
             'test1', limit=1, exclude_full_text_column=False),
@@ -260,3 +267,5 @@ class TestLoadXls(TestLoadBase):
         assert_equal(
             self._get_column_types('test1'),
             [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
+
+

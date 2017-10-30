@@ -432,9 +432,3 @@ def literal_string(s):
 
 # end of datastore copied code #
 ################################
-
-class PrintLogger(object):
-    def __getattr__(self, log_level):
-        def print_func(msg):
-            print '{}: {}'.format(log_level.capitalize(), msg)
-        return print_func
