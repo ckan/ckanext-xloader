@@ -8,7 +8,7 @@ except ImportError:
 
 from nose.tools import eq_
 import mock
-import httpretty
+import responses
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 from pylons import config
@@ -44,7 +44,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
 
     def register_urls(self, filename='simple.csv', format='CSV',
                       content_type='application/csv'):
-        """Mock some test URLs with httpretty.
+        """Mock some test URLs with responses.
 
         Mocks some URLs related to a data file and a CKAN resource that
         contains the data file, including the URL of the data file itself and
@@ -54,45 +54,47 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
             resource_show URL for the resource that contains the data file
 
         """
+        responses.add_passthru(config['solr_url'])
+
         # A URL that just returns a static file (simple.csv by default).
         source_url = 'http://www.example.com/static/file'
-        httpretty.register_uri(httpretty.GET, source_url,
-                               body=get_sample_file(filename),
-                               content_type=content_type)
+        responses.add(responses.GET, source_url,
+                      body=get_sample_file(filename),
+                      content_type=content_type)
         # A URL that mocks CKAN's resource_show API.
         res_url = 'http://www.ckan.org/api/3/action/resource_show'
-        httpretty.register_uri(httpretty.POST, res_url,
-                               body=json.dumps({
-                                   'success': True,
-                                   'result': {
-                                       'id': self.resource_id,
-                                       'name': 'short name',
-                                       'url': source_url,
-                                       'format': format
-                                   }
-                               }),
-                               content_type='application/json')
+        responses.add(responses.POST, res_url,
+                      body=json.dumps({
+                           'success': True,
+                           'result': {
+                               'id': self.resource_id,
+                               'name': 'short name',
+                               'url': source_url,
+                               'format': format
+                           }
+                      }),
+                      content_type='application/json')
 
         # A URL that mocks the response that CKAN's resource_update API would
         # give after successfully updating a resource.
         resource_update_url = (
             'http://www.ckan.org/api/3/action/resource_update')
-        httpretty.register_uri(httpretty.POST, resource_update_url,
-                               body=json.dumps({'success': True}),
-                               content_type='application/json')
+        responses.add(responses.POST, resource_update_url,
+                      body=json.dumps({'success': True}),
+                      content_type='application/json')
 
         # A URL that mock's the response that CKAN's datastore plugin's
         # datastore_delete API would give after successfully deleting a
         # resource from the datastore.
         datastore_del_url = 'http://www.ckan.org/api/3/action/datastore_delete'
-        httpretty.register_uri(httpretty.POST, datastore_del_url,
-                               body=json.dumps({'success': True}),
-                               content_type='application/json')
+        responses.add(responses.POST, datastore_del_url,
+                      body=json.dumps({'success': True}),
+                      content_type='application/json')
 
         self.callback_url = 'http://www.ckan.org/api/3/action/shift_hook'
-        httpretty.register_uri(httpretty.POST, self.callback_url,
-                               body=json.dumps({'success': True}),
-                               content_type='application/json')
+        responses.add(responses.POST, self.callback_url,
+                      body=json.dumps({'success': True}),
+                      content_type='application/json')
 
     @classmethod
     def get_datastore_engine_and_connection(cls):
@@ -124,7 +126,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
                               .where(logs.c.job_id == task_id))
         return Logs(result.fetchall())
 
-    @httpretty.activate
+    @responses.activate
     def test_simple_csv(self):
         # Test not only the load and shift_hook is called at the end
         self.register_urls()
@@ -146,11 +148,11 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
             with mock.patch('ckanext.shift.jobs.get_current_job',
                             return_value=mock.Mock(id=job_id)):
                 result = jobs.shift_data_into_datastore(data)
-        eq_(result, True)
+        eq_(result, None)
 
         # Check it said it was successful
-        eq_(httpretty.last_request().path, u'/api/3/action/shift_hook')
-        job_dict = httpretty.last_request().parsed_body
+        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/shift_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
