@@ -209,11 +209,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('...copying done')
 
     logger.info('Creating search index...')
-    _populate_fulltext(connection, resource_id, column_names=headers)
+    _populate_fulltext(connection, resource_id, fields=fields)
     create_indexes(context, data_dict)
     logger.info('...index done')
-    _enable_fulltext_trigger(connection, resource_id)
-
+    #_enable_fulltext_trigger(connection, resource_id)
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -437,16 +436,17 @@ def _enable_fulltext_trigger(connection, resource_id):
     connection.execute('ALTER TABLE {table} ENABLE TRIGGER zfulltext;'
                        .format(table=identifier(resource_id)))
 
-def _populate_fulltext(connection, resource_id, column_names):
+def _populate_fulltext(connection, resource_id, fields):
     '''Populates the _full_text column. i.e. the same as datastore_run_triggers
     but it runs in 1/9 of the time.
 
     The downside is that it reimplements the code that calculates the text to
     index, breaking DRY. And its annoying to pass in the column names.
+
+    fields: list of dicts giving the each column's 'id' (name) and 'type'
+            (text/numeric/timestamp)
     '''
-    column_names = [col for col in column_names
-                    if not col.startswith('_')]
-    connection.execute(
+    sql = \
         u'''
         UPDATE {table}
         SET _full_text = to_tsvector({cols});
@@ -454,10 +454,16 @@ def _populate_fulltext(connection, resource_id, column_names):
             # coalesce copes with blank cells
             table=identifier(resource_id),
             cols=" || ' ' || ".join(
-                'coalesce({}, \'\')'.format(identifier(col))
-                for col in column_names)
+                'coalesce({}, \'\')'.format(
+                    identifier(field['id'])
+                    + ('::text' if field['type'] != 'text' else '')
+                    )
+                for field in fields
+                if not field['id'].startswith('_')
+                )
             )
-        )
+    print sql
+    connection.execute(sql)
 
 ################################
 #    datastore copied code     #

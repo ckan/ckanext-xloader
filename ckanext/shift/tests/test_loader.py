@@ -1,7 +1,7 @@
 import os
 
 import sqlalchemy.orm as orm
-from nose.tools import assert_equal, assert_raises, assert_in
+from nose.tools import assert_equal, assert_raises, assert_in, nottest
 import datetime
 from decimal import Decimal
 
@@ -90,14 +90,44 @@ class TestLoadCsv(TestLoadBase):
                       (2, u'2011-01-02', u'-1', u'Galway'),
                       (3, u'2011-01-03', u'0', u'Galway'),
                       (4, u'2011-01-01', u'6', u'Berkeley'),
-                      (5, u'2011-01-02', u'8', u'Berkeley'),
-                      (6, u'2011-01-03', u'5', u'Berkeley')])
+                      (5, None, None, u'Berkeley'),
+                      (6, u'2011-01-03', u'5', None)])
         assert_equal(
             self._get_column_names('test1'),
             [u'_id', u'_full_text', u'date', u'temperature', u'place'])
         assert_equal(
             self._get_column_types('test1'),
             [u'int4', u'tsvector', u'text', u'text', u'text'])
+
+    # test disabled by default to avoid adding large file to repo and slow test
+    @nottest
+    def test_boston_311_complete(self):
+        # to get the test file:
+        # curl -o ckanext/shift/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
+        csv_filepath = get_sample_filepath('boston_311.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        import time
+        t0 = time.time()
+        print '{} Start load'.format(time.strftime('%H:%M:%S', time.localtime(t0)))
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+        print 'Load: {}s'.format(time.time() - t0)
+
+    # test disabled by default to avoid adding large file to repo and slow test
+    @nottest
+    def test_boston_311_sample5(self):
+        # to create the test file:
+        # head -n 100001 ckanext/shift/tests/samples/boston_311.csv > ckanext/shift/tests/samples/boston_311_sample5.csv
+        csv_filepath = get_sample_filepath('boston_311_sample5.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        import time
+        t0 = time.time()
+        print '{} Start load'.format(time.strftime('%H:%M:%S', time.localtime(t0)))
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+        print 'Load: {}s'.format(time.time() - t0)
 
     def test_boston_311(self):
         csv_filepath = get_sample_filepath('boston_311_sample.csv')
@@ -199,6 +229,17 @@ class TestLoadCsv(TestLoadBase):
             self._get_column_types('test1'),
             [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
 
+        # check that rows with nulls are indexed correctly
+        records = self._get_records('test1', exclude_full_text_column=False)
+        print records
+        assert_equal(
+            records[4][1],
+            "'berkeley':1"
+            )
+        assert_equal(
+            records[5][1],
+            "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
+            )
 
 class TestLoadUnhandledTypes(TestLoadBase):
 
