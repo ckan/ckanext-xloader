@@ -131,50 +131,33 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             resource_id=resource_id,
             fields=fields,
             )
-        # Two ways to create a table
-        if True:
-            metadata = MetaData(engine)
-
-            # All columns are text type - convert them later
-            columns = [Column(header_name, Text) for header_name in headers]
-            columns.insert(0, Column('_id', Integer, primary_key=True))
-            columns.insert(1, Column('_full_text', TSVECTOR))
-            Table(resource_id, metadata,
-                  *columns)  # extend_existing=True, # edit columns
-            # Implement the creation
-            metadata.create_all()
-            # Create trigger
-            connection = context['connection'] = engine.connect()
+        data_dict['records'] = None  # just create an empty table
+        data_dict['force'] = True  # TODO check this - I don't fully
+            # understand read-only/datastore resources
+        try:
+            p.toolkit.get_action('datastore_create')(context, data_dict)
+        except p.toolkit.ValidationError as e:
+            if 'fields' in e.error_dict:
+                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
+                error_message = e.error_dict['fields'][0]
+                raise LoaderError('Error with field definition: {}'
+                                  .format(error_message))
+            else:
+                raise LoaderError(
+                    'Validation error when creating the database table: {}'
+                    .format(str(e)))
+        except Exception as e:
+            raise LoaderError('Could not create the database table: {}'
+                              .format(e))
+        connection = context['connection'] = engine.connect()
+        if not fulltext_trigger_exists(connection, resource_id):
+            logger.info('Trigger created')
             _create_fulltext_trigger(connection, resource_id)
-            _disable_fulltext_trigger(connection, resource_id)
-        else:
-            data_dict['records'] = None  # just create an empty table
-            data_dict['force'] = True  # TODO check this - I don't fully
-                # understand read-only/datastore resources
-            try:
-                p.toolkit.get_action('datastore_create')(context, data_dict)
-            except p.toolkit.ValidationError as e:
-                if 'fields' in e.error_dict:
-                    # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
-                    error_message = e.error_dict['fields'][0]
-                    raise LoaderError('Error with field definition: {}'
-                                      .format(error_message))
-                else:
-                    raise LoaderError(
-                        'Validation error when creating the database table: {}'
-                        .format(str(e)))
-            except Exception as e:
-                raise LoaderError('Could not create the database table: {}'
-                                  .format(e))
-            connection = context['connection'] = engine.connect()
-            if not fulltext_trigger_exists(connection, resource_id):
-                logger.info('Trigger created')
-                _create_fulltext_trigger(connection, resource_id)
 
-            logger.info('Disabling trigger')
-            _disable_fulltext_trigger(connection, resource_id)
-            logger.info('Dropping indexes')
-            _drop_indexes(context, data_dict, False)
+        # logger.info('Disabling row index trigger')
+        _disable_fulltext_trigger(connection, resource_id)
+        # logger.info('Dropping indexes')
+        _drop_indexes(context, data_dict, False)
 
         logger.info('Copying to database...')
 
