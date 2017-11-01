@@ -22,7 +22,8 @@ def get_sample_filepath(filename):
 class PrintLogger(object):
     def __getattr__(self, log_level):
         def print_func(msg):
-            print '{}: {}'.format(log_level.capitalize(), msg)
+            time = datetime.datetime.now().strftime('%H:%M:%S')
+            print '{} {}: {}'.format(time, log_level.capitalize(), msg)
         return print_func
 
 

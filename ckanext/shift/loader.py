@@ -5,7 +5,7 @@ import tempfile
 import itertools
 
 import psycopg2
-from sqlalchemy import String, Integer, Table, Column
+from sqlalchemy import Text, Integer, Table, Column
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
@@ -13,6 +13,8 @@ import messytables
 try:
     import ckanext.datastore.backend.postgres as datastore_db
     get_write_engine = datastore_db.get_write_engine
+    create_indexes = datastore_db.create_indexes
+    _drop_indexes = datastore_db._drop_indexes
 except ImportError:
     # older versions of ckan
     def get_write_engine():
@@ -125,30 +127,54 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # Create table
         from ckan import model
         context = {'model': model, 'ignore_auth': True}
-        try:
-            p.toolkit.get_action('datastore_create')(context, dict(
-                resource_id=resource_id,
-                fields=fields,
-                records=None,  # just create an empty table
-                force=True,  # TODO check this - I don't fully understand
-                             # read-only/datastore resources
-                ))
-        except p.toolkit.ValidationError as e:
-            if 'fields' in e.error_dict:
-                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
-                error_message = e.error_dict['fields'][0]
-                raise LoaderError('Error with field definition: {}'
-                                  .format(error_message))
-            else:
-                raise LoaderError(
-                    'Validation error when creating the database table: {}'
-                    .format(str(e)))
-        except Exception as e:
-            raise LoaderError('Could not create the database table: {}'
-                              .format(e))
-        connection = engine.connect()
-        if not fulltext_trigger_exists(connection, resource_id):
+        data_dict = dict(
+            resource_id=resource_id,
+            fields=fields,
+            )
+        # Two ways to create a table
+        if True:
+            metadata = MetaData(engine)
+
+            # All columns are text type - convert them later
+            columns = [Column(header_name, Text) for header_name in headers]
+            columns.insert(0, Column('_id', Integer, primary_key=True))
+            columns.insert(1, Column('_full_text', TSVECTOR))
+            Table(resource_id, metadata,
+                  *columns)  # extend_existing=True, # edit columns
+            # Implement the creation
+            metadata.create_all()
+            # Create trigger
+            connection = context['connection'] = engine.connect()
             _create_fulltext_trigger(connection, resource_id)
+            _disable_fulltext_trigger(connection, resource_id)
+        else:
+            data_dict['records'] = None  # just create an empty table
+            data_dict['force'] = True  # TODO check this - I don't fully
+                # understand read-only/datastore resources
+            try:
+                p.toolkit.get_action('datastore_create')(context, data_dict)
+            except p.toolkit.ValidationError as e:
+                if 'fields' in e.error_dict:
+                    # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
+                    error_message = e.error_dict['fields'][0]
+                    raise LoaderError('Error with field definition: {}'
+                                      .format(error_message))
+                else:
+                    raise LoaderError(
+                        'Validation error when creating the database table: {}'
+                        .format(str(e)))
+            except Exception as e:
+                raise LoaderError('Could not create the database table: {}'
+                                  .format(e))
+            connection = context['connection'] = engine.connect()
+            if not fulltext_trigger_exists(connection, resource_id):
+                logger.info('Trigger created')
+                _create_fulltext_trigger(connection, resource_id)
+
+            logger.info('Disabling trigger')
+            _disable_fulltext_trigger(connection, resource_id)
+            logger.info('Dropping indexes')
+            _drop_indexes(context, data_dict, False)
 
         logger.info('Copying to database...')
 
@@ -165,9 +191,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # with psycopg2.connect(DSN) as conn:
         #     with conn.cursor() as curs:
         #         curs.execute(SQL)
-        connection = engine.raw_connection()
+        raw_connection = engine.raw_connection()
         try:
-            cur = connection.cursor()
+            cur = raw_connection.cursor()
             try:
                 with open(csv_filepath, 'rb') as f:
                     # can't use :param for table name because params are only
@@ -193,11 +219,18 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             finally:
                 cur.close()
         finally:
-            connection.commit()
+            raw_connection.commit()
     finally:
         os.remove(csv_filepath)  # i.e. the tempfile
 
     logger.info('...copying done')
+
+    logger.info('Creating search index...')
+    _populate_fulltext(connection, resource_id, column_names=headers)
+    create_indexes(context, data_dict)
+    logger.info('...index done')
+    _enable_fulltext_trigger(connection, resource_id)
+
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -412,6 +445,36 @@ def fulltext_trigger_exists(connection, resource_id):
         '''.format(
         table=literal_string(resource_id)))
     return bool(res.rowcount)
+
+def _disable_fulltext_trigger(connection, resource_id):
+    connection.execute('ALTER TABLE {table} DISABLE TRIGGER zfulltext;'
+                       .format(table=identifier(resource_id)))
+
+def _enable_fulltext_trigger(connection, resource_id):
+    connection.execute('ALTER TABLE {table} ENABLE TRIGGER zfulltext;'
+                       .format(table=identifier(resource_id)))
+
+def _populate_fulltext(connection, resource_id, column_names):
+    '''Populates the _full_text column. i.e. the same as datastore_run_triggers
+    but it runs in 1/9 of the time.
+
+    The downside is that it reimplements the code that calculates the text to
+    index, breaking DRY. And its annoying to pass in the column names.
+    '''
+    column_names = [col for col in column_names
+                    if not col.startswith('_')]
+    connection.execute(
+        u'''
+        UPDATE {table}
+        SET _full_text = to_tsvector({cols});
+        '''.format(
+            # coalesce copes with blank cells
+            table=identifier(resource_id),
+            cols=" || ' ' || ".join(
+                'coalesce({}, \'\')'.format(identifier(col))
+                for col in column_names)
+            )
+        )
 
 ################################
 #    datastore copied code     #
