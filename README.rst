@@ -32,11 +32,27 @@
 ckanext-shift
 =============
 
-Loads CSV (and similar) data into DataStore. Designed as a replacement for DataPusher.
+Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher, since it offers roughly twice the speed and more robustness.
 
 -------------------------------
 Key differences from DataPusher
 -------------------------------
+
+Speed of loading
+----------------
+
+DataPusher - parses CSV rows, converts to detected column types, converts the data to a JSON string, calls datastore_create for each batch of rows, which reformats the data into an INSERT statement string, which is passed to PostgreSQL.
+
+ckanext-shift - pipes the CSV file directly into PostgreSQL using COPY.
+
+In [tests](https://github.com/davidread/ckanext-shift/issues/22), ckanext-shift is 35-50% faster than DataPusher.
+
+Robustness
+----------
+
+DataPusher - one cause of failure was when casting cells to a guessed type. The type of a column was decided by looking at the values of only the first few rows. So if a column is mainly numeric or dates, but a string (like "N/A") comes later on, then this will cause the load to error at that point, leaving it half-loaded into DataStore.
+
+ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want (using the Data Dictionary feature). In future it could do automatic detection and conversion.
 
 Simpler queueing tech
 ----------------------
@@ -47,44 +63,24 @@ ckanext-shift - job queue is done by RQ, which is simpler and is backed by Redis
 
 (The other obvious candidate is Celery, but we don't need its heavyweight architecture and its jobs are not debuggable with pdb.)
 
-Speed of loading
-----------------
-
-DataPusher - parses CSV rows, converts to detected column types, converts the data to a JSON string, calls datastore_create for each batch of rows, which reformats the data into an INSERT statement string, which is passed to PostgreSQL.
-
-ckanext-shift - pipes the CSV file directly into PostgreSQL using COPY.
-
-We tested the load of a very large CSV (1000000 rows, 475MB):
-* DataPusher: 35 minutes
-* ckanext-shift: 1 minute
-
-Robustness
-----------
-
-DataPusher - one cause of failure was when casting cells. The type of a column was detected on the values of the first few rows, so if a column is mainly numeric or dates, but a string (like "Null") comes later on, then this will cause the load to finish at that point.
-
-ckanext-shift - loads all the cells as text, before allowing the admin to convert columns to the types they want (Data Dictionary feature). In future it could do automatic detection and conversion.
-
 Separate web server
 -------------------
 
-DataPusher - has the complication that the queue jobs are done by a separate (Flask) web app, aside from CKAN. This was the design because the job requires intensive processing to convert every line of the data into JSON. However it means more complicated code as info needs to be passed between the services in http requests, more for the user to set-up and manage - another app config, another apache config, separate log files.
+DataPusher - has the complication that the queue jobs are done by a separate (Flask) web app, apart from CKAN. This was the design because the job requires intensive processing to convert every line of the data into JSON. However it means more complicated code as info needs to be passed between the services in http requests, more for the user to set-up and manage - another app config, another apache config, separate log files.
 
 ckanext-shift - the job runs in a worker process, in the same app as CKAN, so can access the CKAN config, db and logging directly and avoids many HTTP calls. This simplification makes sense because the shift job doesn't need to do much processing - mainly it is streaming the CSV file from disk into PostgreSQL.
 
-Not yet complete
-----------------
+Caveats
+-------
 
-* Only supports CSVs, not XLS etc
-* No support for private datasets
-* Once loaded in Datastore, search is not yet working.
+* No support yet for private datasets
 
 
 ------------
 Requirements
 ------------
 
-Works with CKAN 2.7.0 and later.
+Works with CKAN 2.7.x and later.
 
 Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 
@@ -109,7 +105,7 @@ To install ckanext-shift:
      pip install -r requirements.txt
      pip install -U requests[security]
 
-4. If you are using CKAN version before 2.8 you need to define the
+4. If you are using CKAN version before 2.8.x you need to define the
    `populate_full_text_trigger` in your database::
 
      sudo -u postgres psql datastore_default -f full_text_function.sql
@@ -150,7 +146,7 @@ To install ckanext-shift:
 
      paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
 
-   or if you have CKAN version 2.6.x or less and are using ckanext-rq::
+   or if you have CKAN version 2.6.x or less (and are therefore using ckanext-rq)::
 
      paster --plugin=ckanext-rq jobs -c /etc/ckan/default/ckan.ini worker
 
@@ -175,10 +171,6 @@ Config Settings
 
 Configuration:
 
-    .. # The minimum number of hours to wait before re-checking a resource
-    .. # (optional, default: 24).
-    .. ckanext.shift.url =
-
 ::
 
     # The connection string for the jobs database used by ckanext-shift. The
@@ -190,28 +182,27 @@ Configuration:
     # anything else then it won't be 'shifted' to DataStore (and will therefore
     # only be available to users in the form of the original download/link).
     # Case insensitive.
-    # (optional, defaults are listed in plugin.py - FORMATS).
-    ckanext.shift.formats = csv application/csv
-    # In future we hope to add: xls application/vnd.ms-excel
+    # (optional, defaults are listed in plugin.py - DEFAULT_FORMATS).
+    ckanext.shift.formats = csv application/csv xls application/vnd.ms-excel
 
-    # The maximum size of files to load into DataStore. In bytes. Default is 1MB
-    # (i.e. 10485760 bytes)
-    ckanext.shift.max_content_length = 100000000
+    # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
+    ckanext.shift.max_content_length = 1000000000
 
     # The maximum time for the loading of a resource before it is aborted.
-    # Give an amount in seconds.
-    ckanext.shift.job_timeout = 600
+    # Give an amount in seconds. Default is 60 minutes
+    ckanext.shift.job_timeout = 3600
 
 ------------------------
 Development Installation
 ------------------------
 
 To install ckanext-shift for development, activate your CKAN virtualenv and
-do::
+in the directory up from your local ckan repo::
 
     git clone https://github.com/davidread/ckanext-shift.git
     cd ckanext-shift
     python setup.py develop
+    pip install -r requirements.txt
     pip install -r dev-requirements.txt
 
 
@@ -221,9 +212,19 @@ Upgrading from DataPusher
 
 To upgrade from DataPusher to ckanext-shift:
 
-1. In your config, on the `ckan.plugins` line replace `datapusher` with `shift`.
+1. Install ckanext-shift as above, including running the shift worker.
 
-TBC
+2. If you've not already, change the enabled plugin in your config - on the
+   `ckan.plugins` line replace `datapusher` with `shift`.
+
+3. Stop the datapusher worker::
+
+       sudo a2dissite datapusher
+
+4. Restart CKAN::
+
+       sudo service apache2 reload
+       sudo service nginx reload
 
 -----------------
 Running the Tests

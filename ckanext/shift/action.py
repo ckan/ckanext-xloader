@@ -154,7 +154,7 @@ def shift_submit(context, data_dict):
             'original_url': resource_dict.get('url'),
             }
         }
-    timeout = config.get('ckanext.shift.job_timeout', '600')
+    timeout = config.get('ckanext.shift.job_timeout', '3600')
     try:
         try:
             job = enqueue_job(jobs.shift_data_into_datastore, [data],

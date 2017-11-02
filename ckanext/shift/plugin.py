@@ -12,10 +12,10 @@ p = plugins
 # resource.formats accepted by ckanext-shift. Must be lowercase here.
 DEFAULT_FORMATS = [
     'csv', 'application/csv',
-    # 'xls', 'xlsx', 'tsv',
-    # 'application/vnd.ms-excel',
-    # 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    # 'ods', 'application/vnd.oasis.opendocument.spreadsheet',
+    'xls', 'xlsx', 'tsv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ods', 'application/vnd.oasis.opendocument.spreadsheet',
 ]
 
 
@@ -44,7 +44,7 @@ class ShiftPlugin(plugins.SingletonPlugin):
         shift_formats = config.get('ckanext.shift.formats', '').lower()
         self.shift_formats = shift_formats.lower().split() or DEFAULT_FORMATS
 
-        for config_option in ('ckan.site_url',): #'ckanext.shift.url',):
+        for config_option in ('ckan.site_url',):
             if not config.get(config_option):
                 raise Exception(
                     'Config option `{0}` must be set to use ckanext-shift.'
