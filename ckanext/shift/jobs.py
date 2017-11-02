@@ -22,8 +22,6 @@ import loader
 import db
 from job_exceptions import JobError, HTTPError
 
-DOWNLOAD_TIMEOUT = 30
-
 if config.get('ckanext.shift.ssl_verify') in [False, 'False', 'FALSE', '0']:
     SSL_VERIFY = False
 else:
@@ -33,6 +31,9 @@ if not SSL_VERIFY:
 
 MAX_CONTENT_LENGTH = config.get('ckanext.shift.max_content_length') \
     or 10485760
+CHUNK_SIZE = 16 * 1024  # 16kb
+DOWNLOAD_TIMEOUT = 30
+
 
 # 'api_key': user['apikey'],
 # 'job_type': 'push_to_datastore',
@@ -144,8 +145,16 @@ def shift_data_into_datastore_(input):
                     'managed with the Datastore API')
         return
 
+    # check scheme
+    url = resource.get('url')
+    scheme = urlparse.urlsplit(url).scheme
+    if scheme not in ('http', 'https', 'ftp'):
+        raise util.JobError(
+            'Only http, https, and ftp resources may be fetched.'
+        )
+
     # fetch the resource data
-    logger.info('Fetching from: {0}'.format(resource.get('url')))
+    logger.info('Fetching from: {0}'.format(url))
     try:
         headers = {}
         if resource.get('url_type') == 'upload':
@@ -154,15 +163,42 @@ def shift_data_into_datastore_(input):
             headers['Authorization'] = api_key
 
         response = requests.get(
-            resource.get('url'), headers=headers, timeout=DOWNLOAD_TIMEOUT)
+            url,
+            headers=headers,
+            timeout=DOWNLOAD_TIMEOUT,
+            verify=SSL_VERIFY,
+            stream=True,  # just gets the headers for now
+            )
         response.raise_for_status()
+
+        cl = response.headers.get('content-length')
+        if cl and int(cl) > MAX_CONTENT_LENGTH:
+            error_msg = 'Resource too large to download: {cl} > max ({max_cl}).'\
+                .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
+            logger.error(error_msg)
+            raise JobError(error_msg)
+
+        # download the file to a tempfile on disk
+        filename = url.split('/')[-1].split('#')[0].split('?')[0]
+        tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
+        length = 0
+        m = hashlib.md5()
+        for chunk in response.iter_content(CHUNK_SIZE):
+            length += len(chunk)
+            if length > MAX_CONTENT_LENGTH:
+                raise util.JobError(
+                    'Resource too large to process: {cl} > max ({max_cl}).'
+                    .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
+            tmp_file.write(chunk)
+            m.update(chunk)
+
     except requests.exceptions.HTTPError as error:
         # status code error
         logger.error('HTTP error: {}'.format(error))
         raise HTTPError(
             "DataPusher received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
-            request_url=resource.get('url'), response=error)
+            request_url=url, response=error)
     except requests.exceptions.Timeout:
         logger.error('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
         raise JobError('Connection timed out after {}s'.format(
@@ -175,19 +211,11 @@ def shift_data_into_datastore_(input):
         logger.error('URL error: {}'.format(err_message))
         raise HTTPError(
             message=err_message, status_code=None,
-            request_url=resource.get('url'), response=None)
+            request_url=url, response=None)
+
     logger.info('Downloaded ok')
-
-    cl = response.headers.get('content-length')
-    if cl and int(cl) > MAX_CONTENT_LENGTH:
-        error_msg = 'Resource too large to download: {cl} > max ({max_cl}).'\
-            .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-        logger.error(error_msg)
-        raise JobError(error_msg)
-
-    f = cStringIO.StringIO(response.content)
-    file_hash = hashlib.md5(f.read()).hexdigest()
-    f.seek(0)
+    file_hash = m.hexdigest()
+    tmp_file.seek(0)
 
     if (resource.get('hash') == file_hash
             and not data.get('ignore_hash')):
@@ -195,38 +223,30 @@ def shift_data_into_datastore_(input):
                     '{hash}.'.format(hash=file_hash))
         return
     logger.info('File hash: {}'.format(file_hash))
-
     resource['hash'] = file_hash
 
-    # Write it to a tempfile on disk
-    # TODO Can't we just pass the stringio object?
-    # TODO or stream it straight to disk and avoid it all being in memory?
-    url = resource.get('url')
-    filename = url.split('/')[-1].split('#')[0].split('?')[0]
-    with tempfile.NamedTemporaryFile(suffix=filename) as f_:
-        f_.write(f.read())
-        f_.seek(0)
-
-        # Load it
-        logger.info('Loading CSV')
+    # Load it
+    logger.info('Loading CSV')
+    try:
+        loader.load_csv(tmp_file.name,
+                        resource_id=resource['id'],
+                        mimetype=resource.get('format'),
+                        logger=logger)
+        logger.info('Finished loading CSV')
+    except JobError as e:
+        logger.error('Error during load: {}'.format(e))
+        logger.info('Trying again with messytables')
         try:
-            loader.load_csv(f_.name,
-                            resource_id=resource['id'],
-                            mimetype=resource.get('format'),
-                            logger=logger)
-            logger.info('Finished loading CSV')
+            loader.load_table(tmp_file.name,
+                              resource_id=resource['id'],
+                              mimetype=resource.get('format'),
+                              logger=logger)
         except JobError as e:
-            logger.error('Error during load: {}'.format(e))
-            logger.info('Trying again with messytables')
-            try:
-                loader.load_table(f_.name,
-                                  resource_id=resource['id'],
-                                  mimetype=resource.get('format'),
-                                  logger=logger)
-            except JobError as e:
-                logger.error('Error during messytables load: {}'.format(e))
-                raise
-            logger.info('Finished loading with messytables')
+            logger.error('Error during messytables load: {}'.format(e))
+            raise
+        logger.info('Finished loading with messytables')
+
+    tmp_file.close()
 
     # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
