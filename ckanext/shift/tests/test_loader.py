@@ -279,7 +279,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
                   str(exception.exception))
 
 
-class TestLoadXls(TestLoadBase):
+class TestLoadMessytables(TestLoadBase):
 
     def test_simple(self):
         csv_filepath = get_sample_filepath('simple.xls')
@@ -310,4 +310,56 @@ class TestLoadXls(TestLoadBase):
             self._get_column_types('test1'),
             [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
 
+    # test disabled by default to avoid adding large file to repo and slow test
+    @nottest
+    def test_boston_311_complete(self):
+        # to get the test file:
+        # curl -o ckanext/shift/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
+        csv_filepath = get_sample_filepath('boston_311.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        import time
+        t0 = time.time()
+        print '{} Start load'.format(time.strftime('%H:%M:%S', time.localtime(t0)))
+        loader.load_table(csv_filepath, resource_id=resource_id,
+                          mimetype='csv', logger=PrintLogger())
+        print 'Load: {}s'.format(time.time() - t0)
 
+    # test disabled by default to avoid adding large file to repo and slow test
+    @nottest
+    def test_boston_311_sample5(self):
+        # to create the test file:
+        # head -n 100001 ckanext/shift/tests/samples/boston_311.csv > ckanext/shift/tests/samples/boston_311_sample5.csv
+        csv_filepath = get_sample_filepath('boston_311_sample5.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        import time
+        t0 = time.time()
+        print '{} Start load'.format(time.strftime('%H:%M:%S', time.localtime(t0)))
+        loader.load_table(csv_filepath, resource_id=resource_id,
+                          mimetype='csv', logger=PrintLogger())
+        print 'Load: {}s'.format(time.time() - t0)
+
+    def test_boston_311(self):
+        csv_filepath = get_sample_filepath('boston_311_sample.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        loader.load_table(csv_filepath, resource_id=resource_id,
+                          mimetype='csv', logger=PrintLogger())
+
+        records = self._get_records('test1')
+        print records
+        assert_equal(
+            records,
+            [(1, Decimal('101002153891'), datetime.datetime(2017, 7, 6, 23, 38, 43), datetime.datetime(2017, 7, 21, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Street Light Outages', u'Public Works Department', u'Street Lights', u'Street Light Outages', u'PWDx_Street Light Outages', u'PWDx', u'', u'', u'480 Harvard St  Dorchester  MA  02124', Decimal('8'), Decimal('7'), Decimal('4'), u'B3', u'Greater Mattapan', Decimal('9'), u'Ward 14', Decimal('1411'), u'480 Harvard St', Decimal('2124'), Decimal('42.288'), Decimal('-71.0927'), u'Citizens Connect App'),
+            (2, Decimal('101002153890'), datetime.datetime(2017, 7, 6, 23, 29, 13), datetime.datetime(2017, 9, 11, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg', u'', u'522 Saratoga St  East Boston  MA  02128', Decimal('1'), Decimal('9'), Decimal('1'), u'A7', u'East Boston', Decimal('1'), u'Ward 1', Decimal('110'), u'522 Saratoga St', Decimal('2128'), Decimal('42.3807'), Decimal('-71.0259'), u'Citizens Connect App'),
+            (3, Decimal('101002153889'), datetime.datetime(2017, 7, 6, 23, 24, 20), datetime.datetime(2017, 9, 11, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg', u'', u'965 Bennington St  East Boston  MA  02128', Decimal('1'), Decimal('9'), Decimal('1'), u'A7', u'East Boston', Decimal('1'), u'Ward 1', Decimal('112'), u'965 Bennington St', Decimal('2128'), Decimal('42.386'), Decimal('-71.008'), u'Citizens Connect App')]
+            )
+        print self._get_column_names('test1')
+        assert_equal(
+            self._get_column_names('test1'),
+            [u'_id', u'_full_text', u'CASE_ENQUIRY_ID', u'open_dt', u'target_dt', u'closed_dt', u'OnTime_Status', u'CASE_STATUS', u'CLOSURE_REASON', u'CASE_TITLE', u'SUBJECT', u'REASON', u'TYPE', u'QUEUE', u'Department', u'SubmittedPhoto', u'ClosedPhoto', u'Location', u'Fire_district', u'pwd_district', u'city_council_district', u'police_district', u'neighborhood', u'neighborhood_services_district', u'ward', u'precinct', u'LOCATION_STREET_NAME', u'LOCATION_ZIPCODE', u'Latitude', u'Longitude', u'Source'])
+        print self._get_column_types('test1')
+        assert_equal(self._get_column_types('test1'),
+                     [u'int4', u'tsvector',
+                      u'numeric', u'timestamp', u'timestamp', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'numeric', u'numeric', u'numeric', u'text', u'text', u'numeric', u'text', u'numeric', u'text', u'numeric', u'numeric', u'numeric', u'text'])

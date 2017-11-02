@@ -223,6 +223,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     '''
 
     # use messytables to determine the header row
+    logger.info('Determining column names and types')
     ct = mimetype
     format = os.path.splitext(table_filepath)[1]  # filename extension
     with open(table_filepath, 'rb') as tmp:
@@ -315,11 +316,13 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         # if dry_run:
         #     return headers_dicts, result
 
+        logger.info('Copying to database...')
         count = 0
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
             logger.info('Saving chunk {number}'.format(number=i))
             send_resource_to_datastore(resource_id, headers_dicts, records)
+        logger.info('...copying done')
 
         logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
             n=count, res_id=resource_id))
