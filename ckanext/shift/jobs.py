@@ -22,7 +22,7 @@ import loader
 import db
 from job_exceptions import JobError, HTTPError
 
-if config.get('ckanext.shift.ssl_verify') in [False, 'False', 'FALSE', '0']:
+if config.get('ckanext.shift.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
 else:
     SSL_VERIFY = True
