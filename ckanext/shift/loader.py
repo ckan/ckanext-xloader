@@ -212,7 +212,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     _populate_fulltext(connection, resource_id, fields=fields)
     create_indexes(context, data_dict)
     logger.info('...index done')
-    #_enable_fulltext_trigger(connection, resource_id)
+    _enable_fulltext_trigger(connection, resource_id)
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -465,7 +465,6 @@ def _populate_fulltext(connection, resource_id, fields):
                 if not field['id'].startswith('_')
                 )
             )
-    print sql
     connection.execute(sql)
 
 ################################
