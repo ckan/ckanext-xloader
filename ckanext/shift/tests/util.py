@@ -2,7 +2,7 @@ import sqlalchemy.orm as orm
 
 from ckan.tests import helpers
 from ckanext.datastore.tests import helpers as datastore_helpers
-import ckanext.datastore.backend.postgres as db
+from ckanext.shift.loader import get_write_engine
 
 
 class PluginsMixin(object):
@@ -23,6 +23,6 @@ class PluginsMixin(object):
 
 
 def reset_datastore_db():
-    engine = db.get_write_engine()
+    engine = get_write_engine()
     Session = orm.scoped_session(orm.sessionmaker(bind=engine))
     datastore_helpers.clear_db(Session)

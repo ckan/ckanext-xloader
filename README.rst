@@ -238,15 +238,10 @@ To run the tests, do::
 
     nosetests --nologcapture --with-pylons=test.ini
 
-If you get error ``function populate_full_text_trigger() does not exist`` then
-you need a CKAN with https://github.com/ckan/ckan/pull/3786. (Even if you create
-the function on the test database, it gets cleared by:
-https://github.com/ckan/ckan/pull/3786/files#diff-33d20faeb53559a9b8940bcb418cb5b4R75 )
+To run the tests and produce a coverage report, first make sure you have
+coverage installed in your virtualenv (``pip install coverage``) then run::
 
-.. To run the tests and produce a coverage report, first make sure you have
-.. coverage installed in your virtualenv (``pip install coverage``) then run::
-
-..     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.shift --cover-inclusive --cover-erase --cover-tests
+    nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.shift --cover-inclusive --cover-erase --cover-tests
 
 ----------------------------------------
 Releasing a New Version of ckanext-shift

@@ -2,13 +2,18 @@ import os
 
 import sqlalchemy.orm as orm
 from nose.tools import assert_equal, assert_raises, assert_in, nottest
+from nose.plugins.skip import SkipTest
 import datetime
 from decimal import Decimal
 
-from ckan.common import config
+try:
+    from ckan.common import config
+except ImportError:
+    # for older CKANs
+    from pylons import config
 from ckan.tests import helpers, factories
-import ckanext.datastore.backend.postgres as db
 from ckanext.shift import loader
+from ckanext.shift.loader import get_write_engine
 from ckanext.shift.job_exceptions import LoaderError
 
 import ckan.plugins as p
@@ -31,7 +36,7 @@ class TestLoadBase(util.PluginsMixin):
     _load_plugins = ['datastore']
 
     def setup(self):
-        engine = db.get_write_engine()
+        engine = get_write_engine()
         self.Session = orm.scoped_session(orm.sessionmaker(bind=engine))
         helpers.reset_db()
         util.reset_datastore_db()
@@ -194,6 +199,8 @@ class TestLoadCsv(TestLoadBase):
             [u'int4', u'tsvector', u'text', u'text', u'text'])
 
     def test_reload_with_overridden_types(self):
+        if not p.toolkit.check_ckan_version(min_version='2.7'):
+            raise SkipTest('Requires CKAN 2.7 - see https://github.com/ckan/ckan/pull/3557')
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)

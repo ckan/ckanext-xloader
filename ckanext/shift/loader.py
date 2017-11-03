@@ -13,8 +13,6 @@ import messytables
 try:
     import ckanext.datastore.backend.postgres as datastore_db
     get_write_engine = datastore_db.get_write_engine
-    create_indexes = datastore_db.create_indexes
-    _drop_indexes = datastore_db._drop_indexes
 except ImportError:
     # older versions of ckan
     def get_write_engine():
@@ -22,6 +20,10 @@ except ImportError:
         from pylons import config
         data_dict = {'connection_url': config['ckan.datastore.write_url']}
         return _get_engine(data_dict)
+    import ckanext.datastore.db as datastore_db
+create_indexes = datastore_db.create_indexes
+_drop_indexes = datastore_db._drop_indexes
+
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -396,7 +398,7 @@ def datastore_resource_exists(resource_id):
 
 def delete_datastore_resource(resource_id):
     from ckan import model
-    context = {'model': model, 'ignore_auth': True}
+    context = {'model': model, 'user': '', 'ignore_auth': True}
     try:
         response = p.toolkit.get_action('datastore_delete')(context, dict(
             id=resource_id, force=True))

@@ -13,9 +13,9 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 from pylons import config
 
-import ckanext.datastore.backend.postgres as datastore_db
 from ckanext.shift import jobs
 from ckanext.shift import db as jobs_db
+from ckanext.shift.loader import get_write_engine
 import util
 from ckan.tests import factories
 
@@ -99,7 +99,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
     @classmethod
     def get_datastore_engine_and_connection(cls):
         if '_datastore' not in dir(cls):
-            engine = datastore_db.get_write_engine()
+            engine = get_write_engine()
             conn = engine.connect()
             cls._datastore = (engine, conn)
         return cls._datastore

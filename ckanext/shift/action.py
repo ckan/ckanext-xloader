@@ -141,6 +141,7 @@ def shift_submit(context, data_dict):
         pass
 
     context['ignore_auth'] = True
+    context['user'] = ''  # benign - needed for ckan 2.5
     p.toolkit.get_action('task_status_update')(context, task)
 
     data = {
