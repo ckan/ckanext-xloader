@@ -89,7 +89,7 @@ class TestLoadCsv(TestLoadBase):
 
         assert_equal(self._get_records(
             'test1', limit=1, exclude_full_text_column=False),
-                     [(1, "'-01':2,3 '1':4 '2011':1 'galway':5", u'2011-01-01', u'1', u'Galway')])
+                     [(1, None, u'2011-01-01', u'1', u'Galway')])
         assert_equal(self._get_records('test1'),
                      [(1, u'2011-01-01', u'1', u'Galway'),
                       (2, u'2011-01-02', u'-1', u'Galway'),
@@ -103,6 +103,19 @@ class TestLoadCsv(TestLoadBase):
         assert_equal(
             self._get_column_types('test1'),
             [u'int4', u'tsvector', u'text', u'text', u'text'])
+
+    def test_simple_with_indexing(self):
+        csv_filepath = get_sample_filepath('simple.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        fields = loader.load_csv(csv_filepath, resource_id=resource_id,
+                                 mimetype='text/csv', logger=PrintLogger())
+        loader.create_both_indexes(fields=fields, resource_id=resource_id,
+                                   logger=PrintLogger())
+
+        assert_equal(self._get_records(
+            'test1', limit=1, exclude_full_text_column=False)[0][1],
+                     "'-01':2,3 '1':4 '2011':1 'galway':5")
 
     # test disabled by default to avoid adding large file to repo and slow test
     @nottest
@@ -225,8 +238,10 @@ class TestLoadCsv(TestLoadBase):
         #         } for f, fi in izip_longest(fields, info)]
 
         # Load it again with new types
-        loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=PrintLogger())
+        fields = loader.load_csv(csv_filepath, resource_id=resource_id,
+                                 mimetype='text/csv', logger=PrintLogger())
+        loader.create_both_indexes(fields=fields, resource_id=resource_id,
+                                   logger=PrintLogger())
 
         assert_equal(len(self._get_records('test1')), 6)
         assert_equal(

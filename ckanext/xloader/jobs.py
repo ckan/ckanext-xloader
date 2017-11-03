@@ -227,11 +227,18 @@ def xloader_data_into_datastore_(input):
     # Load it
     logger.info('Loading CSV')
     try:
-        loader.load_csv(tmp_file.name,
-                        resource_id=resource['id'],
-                        mimetype=resource.get('format'),
-                        logger=logger)
-        logger.info('Finished loading CSV')
+        fields = loader.load_csv(
+            tmp_file.name,
+            resource_id=resource['id'],
+            mimetype=resource.get('format'),
+            logger=logger)
+        logger.info('Loaded the CSV. Next to create the indexes.')
+        set_datastore_active(data, resource, api_key, ckan_url, logger)
+        loader.create_both_indexes(
+            fields=fields,
+            resource_id=resource['id'],
+            logger=logger)
+        logger.info('Finished creating the indexes.')
     except JobError as e:
         logger.error('Error during load: {}'.format(e))
         logger.info('Trying again with messytables')
@@ -243,10 +250,14 @@ def xloader_data_into_datastore_(input):
         except JobError as e:
             logger.error('Error during messytables load: {}'.format(e))
             raise
+        set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
 
     tmp_file.close()
 
+    logger.info('Express Load completed')
+
+def set_datastore_active(data, resource, api_key, ckan_url, logger):
     # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
         logger.info('Setting resource.url_type = \'datapusher\'')
@@ -257,8 +268,6 @@ def xloader_data_into_datastore_(input):
         from ckan import model
         logger.info('Setting resource.datastore_active = True')
         set_datastore_active_flag(model=model, data_dict=data, flag=True)
-
-    logger.info('Express Load completed')
 
 def callback_xloader_hook(result_url, api_key, job_dict):
     '''Tells CKAN about the result of the xloader (i.e. calls the callback

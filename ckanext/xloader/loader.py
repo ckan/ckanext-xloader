@@ -35,6 +35,7 @@ from job_exceptions import LoaderError
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
+    '''Loads a CSV into DataStore. Does not create the indexes.'''
 
     # use messytables to determine the header row
     extension = os.path.splitext(csv_filepath)[1]
@@ -209,17 +210,31 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         os.remove(csv_filepath)  # i.e. the tempfile
 
     logger.info('...copying done')
+    return fields
 
+
+def create_both_indexes(fields, resource_id, logger):
     logger.info('Creating search index...')
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    data_dict = dict(
+        resource_id=resource_id,
+        fields=fields,
+        )
+    engine = get_write_engine()
+    connection = context['connection'] = engine.connect()
+
     _populate_fulltext(connection, resource_id, fields=fields)
+    logger.info('...search index created')
     create_indexes(context, data_dict)
-    logger.info('...index done')
     _enable_fulltext_trigger(connection, resource_id)
+
+    logger.info('...column indexes created. Search index complete.')
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads an Excel file (or other tabular data recognized by messytables)
-    into Datastore.
+    into Datastore and creates indexes.
 
     Largely copied from datapusher - see below. Is slower than load_csv.
     '''
@@ -468,6 +483,7 @@ def _populate_fulltext(connection, resource_id, fields):
                 )
             )
     connection.execute(sql)
+
 
 ################################
 #    datastore copied code     #
