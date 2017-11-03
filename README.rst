@@ -34,7 +34,7 @@ ckanext-shift
 
 Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher because it offers roughly twice the speed and more robustness.
 
-**OpenGov Inc.** has sponsored this development with the aim of benefiting open data infrastructure worldwide.
+**OpenGov Inc.** has sponsored this development, with the aim of benefiting open data infrastructure worldwide.
 
 -------------------------------
 Key differences from DataPusher
@@ -248,58 +248,28 @@ https://github.com/ckan/ckan/pull/3786/files#diff-33d20faeb53559a9b8940bcb418cb5
 
 ..     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.shift --cover-inclusive --cover-erase --cover-tests
 
+----------------------------------------
+Releasing a New Version of ckanext-shift
+----------------------------------------
 
-.. ---------------------------------
-.. Registering ckanext-shift on PyPI
-.. ---------------------------------
+ckanext-shift is availabe on PyPI as https://pypi.python.org/pypi/ckanext-shift.
+To publish a new version to PyPI follow these steps:
 
-.. ckanext-shift should be availabe on PyPI as
-.. https://pypi.python.org/pypi/ckanext-shift. If that link doesn't work, then
-.. you can register the project on PyPI for the first time by following these
-.. steps:
+1. Update the version number in the ``setup.py`` file.
+   See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
+   for how to choose version numbers.
 
-.. 1. Create a source distribution of the project::
+2. Create a source distribution of the new version::
 
-..      python setup.py sdist
+     python setup.py sdist
 
-.. 2. Register the project::
+3. Upload the source distribution to PyPI::
 
-..      python setup.py register
+     python setup.py sdist upload
 
-.. 3. Upload the source distribution to PyPI::
+4. Tag the new release of the project on GitHub with the version number from
+   the ``setup.py`` file. For example if the version number in ``setup.py`` is
+   0.0.2 then do::
 
-..      python setup.py sdist upload
-
-.. 4. Tag the first release of the project on GitHub with the version number from
-..    the ``setup.py`` file. For example if the version number in ``setup.py`` is
-..    0.0.1 then do::
-
-..        git tag 0.0.1
-..        git push --tags
-
-
-.. ----------------------------------------
-.. Releasing a New Version of ckanext-shift
-.. ----------------------------------------
-
-.. ckanext-shift is availabe on PyPI as https://pypi.python.org/pypi/ckanext-shift.
-.. To publish a new version to PyPI follow these steps:
-
-.. 1. Update the version number in the ``setup.py`` file.
-..    See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
-..    for how to choose version numbers.
-
-.. 2. Create a source distribution of the new version::
-
-..      python setup.py sdist
-
-.. 3. Upload the source distribution to PyPI::
-
-..      python setup.py sdist upload
-
-.. 4. Tag the new release of the project on GitHub with the version number from
-..    the ``setup.py`` file. For example if the version number in ``setup.py`` is
-..    0.0.2 then do::
-
-..        git tag 0.0.2
-..        git push --tags
+       git tag 0.0.2
+       git push --tags
