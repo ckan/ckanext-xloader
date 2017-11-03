@@ -14,7 +14,7 @@ int_validator = get_validator('int_validator')
 OneOf = get_validator('OneOf')
 
 
-def shift_submit_schema():
+def xloader_submit_schema():
     schema = {
         'resource_id': [not_missing, not_empty, unicode],
         'id': [ignore_missing],

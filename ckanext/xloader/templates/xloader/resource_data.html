@@ -4,10 +4,10 @@
 
 {% block primary_content_inner %}
 
-  {% set action = h.url_for(controller='ckanext.shift.controllers:ResourceDataController', action='resource_data', id=pkg.name, resource_id=res.id) %}
+  {% set action = h.url_for(controller='ckanext.xloader.controllers:ResourceDataController', action='resource_data', id=pkg.name, resource_id=res.id) %}
   {% set show_table = true %}
 
-  <form method="post" action="{{ action }}">
+  <form method="post" action="{{ action }}" class="datapusher-form">
     <button class="btn btn-primary" name="save" type="submit">
       <i class="fa fa-cloud-upload"></i> {{ _('Upload to DataStore') }}
     </button>
@@ -46,7 +46,7 @@
     </colgroup>
     <tr>
       <th>{{ _('Status') }}</th>
-      <td>{{ h.shift_status_description(status) }}</td>
+      <td>{{ h.xloader_status_description(status) }}</td>
     </tr>
     <tr>
       <th>{{ _('Last updated') }}</th>
@@ -73,7 +73,7 @@
             {% endfor %}
             <span class="date" title="{{ h.render_datetime(item.timestamp, with_hours=True) }}">
               {{ h.time_ago_from_timestamp(item.timestamp) }}
-              <a href="#" data-target="popover" data-content="<dl>{% for key, value in item.iteritems() %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl>" data-html="true">{{ _('Details') }}</a>
+              <a href="#" data-target="popover" data-content="<dl>{% for key, value in item.iteritems() %}<dt>{{ key }}</dt><dd>{{ h.clean_html(value) }}</dd>{% endfor %}</dl>" data-html="true">{{ _('Details') }}</a>
             </span>
           </p>
         </li>

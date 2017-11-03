@@ -22,14 +22,14 @@ import loader
 import db
 from job_exceptions import JobError, HTTPError
 
-if config.get('ckanext.shift.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
+if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
 else:
     SSL_VERIFY = True
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
-MAX_CONTENT_LENGTH = config.get('ckanext.shift.max_content_length') or 1e9
+MAX_CONTENT_LENGTH = config.get('ckanext.xloader.max_content_length') or 1e9
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
@@ -46,28 +46,28 @@ DOWNLOAD_TIMEOUT = 30
 #     'original_url': resource_dict.get('url'),
 #     }
 
-def shift_data_into_datastore(input):
+def xloader_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
-    shift_data_into_datastore, and makes sure it finishes by calling
-    shift_hook to update the task_status with the result.
+    xloader_data_into_datastore, and makes sure it finishes by calling
+    xloader_hook to update the task_status with the result.
 
     Errors are stored in task_status and job log and this method returns
     'error' to let RQ know too. Should task_status fails, then we also return
     'error'.
     '''
     # First flag that this task is running, to indicate the job is not
-    # stillborn, for when shift_submit is deciding whether another job would
+    # stillborn, for when xloader_submit is deciding whether another job would
     # be a duplicate or not
     job_dict = dict(metadata=input['metadata'],
                     status='running')
-    callback_shift_hook(result_url=input['result_url'],
+    callback_xloader_hook(result_url=input['result_url'],
                         api_key=input['api_key'],
                         job_dict=job_dict)
 
     job_id = get_current_job().id
     errored = False
     try:
-        shift_data_into_datastore_(input)
+        xloader_data_into_datastore_(input)
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
     except JobError as e:
@@ -75,7 +75,7 @@ def shift_data_into_datastore(input):
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
-        log.error('Shift error: {}'.format(e))
+        log.error('xloader error: {}'.format(e))
         errored = True
     except Exception as e:
         db.mark_job_as_errored(
@@ -83,25 +83,25 @@ def shift_data_into_datastore(input):
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
-        log.error('Shift error: {}'.format(e))
+        log.error('xloader error: {}'.format(e))
         errored = True
     finally:
-        # job_dict is defined in shift_hook's docstring
-        is_saved_ok = callback_shift_hook(result_url=input['result_url'],
+        # job_dict is defined in xloader_hook's docstring
+        is_saved_ok = callback_xloader_hook(result_url=input['result_url'],
                                           api_key=input['api_key'],
                                           job_dict=job_dict)
         errored = errored or not is_saved_ok
     return 'error' if errored else None
 
 
-def shift_data_into_datastore_(input):
+def xloader_data_into_datastore_(input):
     '''This function:
     * downloads the resource (metadata) from CKAN
     * downloads the data
     * calls the loader to load the data into DataStore
     * calls back to CKAN with the new status
 
-    (ckanext-shift called this function 'shift_to_datastore')
+    (ckanext-xloader called this function 'xloader_to_datastore')
     '''
     job_id = get_current_job().id
     db.init(config)
@@ -258,11 +258,11 @@ def shift_data_into_datastore_(input):
         logger.info('Setting resource.datastore_active = True')
         set_datastore_active_flag(model=model, data_dict=data, flag=True)
 
-    logger.info('Shift completed')
+    logger.info('Express Load completed')
 
-def callback_shift_hook(result_url, api_key, job_dict):
-    '''Tells CKAN about the result of the shift (i.e. calls the callback
-    function 'shift_hook'). Usually called by the shift queue job.
+def callback_xloader_hook(result_url, api_key, job_dict):
+    '''Tells CKAN about the result of the xloader (i.e. calls the callback
+    function 'xloader_hook'). Usually called by the xloader queue job.
     Returns whether it managed to call the sh
     '''
     api_key_from_job = job_dict.pop('api_key', None)

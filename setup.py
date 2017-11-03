@@ -10,18 +10,18 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='''ckanext-shift''',
+    name='''ckanext-xloader''',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # http://packaging.python.org/en/latest/tutorial.html#version
     version='0.1',
 
-    description='''"Shifts" data into CKAN DataStore''',
+    description='Express Loader - quickly load data into CKAN DataStore''',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/davidread/ckanext-shift',
+    url='https://github.com/davidread/ckanext-xloader',
 
     # Author details
     author='''David Read''',
@@ -80,13 +80,13 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points='''
         [ckan.plugins]
-        shift=ckanext.shift.plugin:ShiftPlugin
+        xloader=ckanext.xloader.plugin:xloaderPlugin
 
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan
 
         [paste.paster_command]
-        shift = ckanext.shift.cli:ShiftCommand
+        xloader = ckanext.xloader.cli:xloaderCommand
 
     ''',
 

@@ -12,9 +12,9 @@ except ImportError:
     # for older CKANs
     from pylons import config
 from ckan.tests import helpers, factories
-from ckanext.shift import loader
-from ckanext.shift.loader import get_write_engine
-from ckanext.shift.job_exceptions import LoaderError
+from ckanext.xloader import loader
+from ckanext.xloader.loader import get_write_engine
+from ckanext.xloader.job_exceptions import LoaderError
 
 import ckan.plugins as p
 import util
@@ -108,7 +108,7 @@ class TestLoadCsv(TestLoadBase):
     @nottest
     def test_boston_311_complete(self):
         # to get the test file:
-        # curl -o ckanext/shift/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
+        # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
         csv_filepath = get_sample_filepath('boston_311.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
@@ -123,7 +123,7 @@ class TestLoadCsv(TestLoadBase):
     @nottest
     def test_boston_311_sample5(self):
         # to create the test file:
-        # head -n 100001 ckanext/shift/tests/samples/boston_311.csv > ckanext/shift/tests/samples/boston_311_sample5.csv
+        # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
         csv_filepath = get_sample_filepath('boston_311_sample5.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
@@ -321,7 +321,7 @@ class TestLoadMessytables(TestLoadBase):
     @nottest
     def test_boston_311_complete(self):
         # to get the test file:
-        # curl -o ckanext/shift/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
+        # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv
         csv_filepath = get_sample_filepath('boston_311.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
@@ -336,7 +336,7 @@ class TestLoadMessytables(TestLoadBase):
     @nottest
     def test_boston_311_sample5(self):
         # to create the test file:
-        # head -n 100001 ckanext/shift/tests/samples/boston_311.csv > ckanext/shift/tests/samples/boston_311_sample5.csv
+        # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
         csv_filepath = get_sample_filepath('boston_311_sample5.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)

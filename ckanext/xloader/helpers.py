@@ -1,9 +1,9 @@
 import ckan.plugins.toolkit as toolkit
 
 
-def shift_status(resource_id):
+def xloader_status(resource_id):
     try:
-        return toolkit.get_action('shift_status')(
+        return toolkit.get_action('xloader_status')(
             {}, {'resource_id': resource_id})
     except toolkit.ObjectNotFound:
         return {
@@ -11,7 +11,7 @@ def shift_status(resource_id):
         }
 
 
-def shift_status_description(status):
+def xloader_status_description(status):
     _ = toolkit._
 
     if status.get('status'):

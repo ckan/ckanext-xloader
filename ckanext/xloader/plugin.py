@@ -1,15 +1,15 @@
 from ckan import model
 import ckan.plugins as plugins
 
-from ckanext.shift import action, auth
-import ckanext.shift.helpers as shift_helpers
-from ckanext.shift.loader import fulltext_function_exists, get_write_engine
+from ckanext.xloader import action, auth
+import ckanext.xloader.helpers as xloader_helpers
+from ckanext.xloader.loader import fulltext_function_exists, get_write_engine
 
 log = __import__('logging').getLogger(__name__)
 p = plugins
 
 
-# resource.formats accepted by ckanext-shift. Must be lowercase here.
+# resource.formats accepted by ckanext-xloader. Must be lowercase here.
 DEFAULT_FORMATS = [
     'csv', 'application/csv',
     'xls', 'xlsx', 'tsv',
@@ -19,7 +19,7 @@ DEFAULT_FORMATS = [
 ]
 
 
-class ShiftPlugin(plugins.SingletonPlugin):
+class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IDomainObjectModification)
@@ -41,19 +41,19 @@ class ShiftPlugin(plugins.SingletonPlugin):
     def configure(self, config):
         self.config = config
 
-        shift_formats = config.get('ckanext.shift.formats', '').lower()
-        self.shift_formats = shift_formats.lower().split() or DEFAULT_FORMATS
+        xloader_formats = config.get('ckanext.xloader.formats', '').lower()
+        self.xloader_formats = xloader_formats.lower().split() or DEFAULT_FORMATS
 
         for config_option in ('ckan.site_url',):
             if not config.get(config_option):
                 raise Exception(
-                    'Config option `{0}` must be set to use ckanext-shift.'
+                    'Config option `{0}` must be set to use ckanext-xloader.'
                     .format(config_option))
 
         connection = get_write_engine().connect()
         if not fulltext_function_exists(connection):
             raise Exception('populate_full_text_trigger is not defined. See '
-                            'ckanext-shift\'s README.rst for more details.')
+                            'ckanext-xloader\'s README.rst for more details.')
 
     # IDomainObjectModification
     # IResourceUrlChange
@@ -68,8 +68,8 @@ class ShiftPlugin(plugins.SingletonPlugin):
                 context = {'model': model, 'ignore_auth': True,
                            'defer_commit': True}
                 if (entity.format and
-                        entity.format.lower() in self.shift_formats and
-                        entity.url_type not in ('datapusher', 'shift')):
+                        entity.format.lower() in self.xloader_formats and
+                        entity.url_type not in ('datapusher', 'xloader')):
 
                     # try:
                     #     task = p.toolkit.get_action('task_status_show')(
@@ -89,13 +89,13 @@ class ShiftPlugin(plugins.SingletonPlugin):
                     #     pass
 
                     try:
-                        log.debug('Submitting resource {0} to be shifted'
+                        log.debug('Submitting resource {0} to be xloadered'
                                   .format(entity.id))
-                        p.toolkit.get_action('shift_submit')(context, {
+                        p.toolkit.get_action('xloader_submit')(context, {
                             'resource_id': entity.id
                         })
                     except p.toolkit.ValidationError, e:
-                        # If shift is offline, we want to catch error instead
+                        # If xloader is offline, we want to catch error instead
                         # of raising otherwise resource save will fail with 500
                         log.critical(e)
                         pass
@@ -104,25 +104,25 @@ class ShiftPlugin(plugins.SingletonPlugin):
 
     def get_actions(self):
         return {
-            'shift_submit': action.shift_submit,
-            'shift_hook': action.shift_hook,
-            'shift_status': action.shift_status,
+            'xloader_submit': action.xloader_submit,
+            'xloader_hook': action.xloader_hook,
+            'xloader_status': action.xloader_status,
             }
 
     # IAuthFunctions
 
     def get_auth_functions(self):
         return {
-            'shift_submit': auth.shift_submit,
-            'shift_status': auth.shift_status,
+            'xloader_submit': auth.xloader_submit,
+            'xloader_status': auth.xloader_status,
             }
 
     # IRoutes
 
     def before_map(self, m):
         m.connect(
-            'resource_data_shift', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.shift.controllers:ResourceDataController',
+            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
+            controller='ckanext.xloader.controllers:ResourceDataController',
             action='resource_data', ckan_icon='cloud-upload')
         return m
 
@@ -130,7 +130,7 @@ class ShiftPlugin(plugins.SingletonPlugin):
 
     def get_helpers(self):
         return {
-            'shift_status': shift_helpers.shift_status,
-            'shift_status_description':
-            shift_helpers.shift_status_description,
+            'xloader_status': xloader_helpers.xloader_status,
+            'xloader_status_description':
+            xloader_helpers.xloader_status_description,
         }

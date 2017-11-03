@@ -13,19 +13,19 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 from pylons import config
 
-from ckanext.shift import jobs
-from ckanext.shift import db as jobs_db
-from ckanext.shift.loader import get_write_engine
+from ckanext.xloader import jobs
+from ckanext.xloader import db as jobs_db
+from ckanext.xloader.loader import get_write_engine
 import util
 from ckan.tests import factories
 
 
-class TestShiftDataIntoDatastore(util.PluginsMixin):
+class TestxloaderDataIntoDatastore(util.PluginsMixin):
     _load_plugins = ['datastore']
 
     @classmethod
     def setup_class(cls):
-        super(TestShiftDataIntoDatastore, cls).setup_class()
+        super(TestxloaderDataIntoDatastore, cls).setup_class()
         cls.host = 'www.ckan.org'
         cls.api_key = 'my-fake-key'
         cls.resource_id = 'foo-bar-42'
@@ -37,7 +37,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
 
     @classmethod
     def teardown_class(cls):
-        super(TestShiftDataIntoDatastore, cls).teardown_class()
+        super(TestxloaderDataIntoDatastore, cls).teardown_class()
         if '_datastore' in dir(cls):
             connection = cls._datastore[1]
             connection.close()
@@ -91,7 +91,7 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
                       body=json.dumps({'success': True}),
                       content_type='application/json')
 
-        self.callback_url = 'http://www.ckan.org/api/3/action/shift_hook'
+        self.callback_url = 'http://www.ckan.org/api/3/action/xloader_hook'
         responses.add(responses.POST, self.callback_url,
                       body=json.dumps({'success': True}),
                       content_type='application/json')
@@ -128,11 +128,11 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
 
     @responses.activate
     def test_simple_csv(self):
-        # Test not only the load and shift_hook is called at the end
+        # Test not only the load and xloader_hook is called at the end
         self.register_urls()
         data = {
             'api_key': self.api_key,
-            'job_type': 'shift_to_datastore',
+            'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
                 'ckan_url': 'http://%s/' % self.host,
@@ -141,17 +141,17 @@ class TestShiftDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.shift.jobs.set_datastore_active_flag') \
+        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
                 as mocked_set_datastore_active_flag:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
-            with mock.patch('ckanext.shift.jobs.get_current_job',
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
                             return_value=mock.Mock(id=job_id)):
-                result = jobs.shift_data_into_datastore(data)
+                result = jobs.xloader_data_into_datastore(data)
         eq_(result, None)
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/shift_hook')
+        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,

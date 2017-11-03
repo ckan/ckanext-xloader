@@ -2,7 +2,7 @@ import sqlalchemy.orm as orm
 
 from ckan.tests import helpers
 from ckanext.datastore.tests import helpers as datastore_helpers
-from ckanext.shift.loader import get_write_engine
+from ckanext.xloader.loader import get_write_engine
 
 
 class PluginsMixin(object):

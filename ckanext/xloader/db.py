@@ -1,5 +1,5 @@
 '''
-Abstracts a database. Used for storing logging when it shifts a resource into
+Abstracts a database. Used for storing logging when it xloaders a resource into
 DataStore.
 
 Loosely based on ckan-service-provider's db.py
@@ -36,8 +36,8 @@ def init(config, echo=False):
 
     """
     global ENGINE, _METADATA, JOBS_TABLE, METADATA_TABLE, LOGS_TABLE
-    db_uri = config.get('ckanext.shift.jobs_db.uri',
-                        'sqlite:////tmp/shift_jobs.db')
+    db_uri = config.get('ckanext.xloader.jobs_db.uri',
+                        'sqlite:////tmp/xloader_jobs.db')
     ENGINE = sqlalchemy.create_engine(db_uri, echo=echo, convert_unicode=True)
     _METADATA = sqlalchemy.MetaData(ENGINE)
     JOBS_TABLE = _init_jobs_table()

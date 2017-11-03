@@ -9,15 +9,15 @@ except ImportError:
     import ckanext.datastore as datastore_backend
 
 
-class ShiftCommand(cli.CkanCommand):
-    '''Shift commands
+class xloaderCommand(cli.CkanCommand):
+    '''xloader commands
 
     Usage:
 
-        shift submit <pkg-name-or-id>
+        xloader submit <pkg-name-or-id>
               Submit the given dataset's resources to the DataStore.
 
-        shift submit all
+        xloader submit all
               Submit all datasets' resources to the DataStore.
 
               Unless you specify `--force`, resources that are already in the
@@ -25,11 +25,11 @@ class ShiftCommand(cli.CkanCommand):
               the content at the URL has changed. Override the prompt using
               `-y` or `--yes`.
 
-        shift submit all-existing
+        xloader submit all-existing
               Submit all datasets' resources that are already in the DataStore
               to the DataStore again.
 
-        shift status
+        xloader status
               Shows status of jobs
 
     '''
@@ -39,7 +39,7 @@ class ShiftCommand(cli.CkanCommand):
     min_args = 1
 
     def __init__(self, name):
-        super(ShiftCommand, self).__init__(name)
+        super(xloaderCommand, self).__init__(name)
 
         self.parser.add_option('-y', dest='yes',
                                action='store_true', default=False,
@@ -121,14 +121,14 @@ class ShiftCommand(cli.CkanCommand):
         print 'Submitting %d datastore resources' % len(resources)
         user = p.toolkit.get_action('get_site_user')(
             {'model': model, 'ignore_auth': True}, {})
-        shift_submit = p.toolkit.get_action('shift_submit')
+        xloader_submit = p.toolkit.get_action('xloader_submit')
         for resource_id in resources:
             print ('Submitting %s...' % resource_id),
             data_dict = {
                 'resource_id': resource_id,
                 'ignore_hash': True,
             }
-            if shift_submit({'user': user['name']}, data_dict):
+            if xloader_submit({'user': user['name']}, data_dict):
                 print 'OK'
             else:
                 print 'Fail'
@@ -143,7 +143,7 @@ class ShiftCommand(cli.CkanCommand):
             print 'No jobs currently queued'
         for job in jobs:
             job_params = eval(job.description.replace(
-                'ckanext.shift.jobs.shift_data_into_datastore', ''))
+                'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
             job_metadata = job_params['metadata']
             print '{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} ' \
                 'url={url}'.format(

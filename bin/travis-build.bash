@@ -32,7 +32,7 @@ cd ckan
 paster db init -c test-core.ini
 cd -
 
-echo "Installing ckanext-shift and its requirements..."
+echo "Installing ckanext-xloader and its requirements..."
 python setup.py develop
 pip install -r dev-requirements.txt
 
