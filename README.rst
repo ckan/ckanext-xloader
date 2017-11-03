@@ -47,7 +47,7 @@ DataPusher - parses CSV rows, converts to detected column types, converts the da
 
 ckanext-shift - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests<https://github.com/davidread/ckanext-shift/issues/22>`_, ckanext-shift is 35-50% faster than DataPusher.
+In `tests <https://github.com/davidread/ckanext-shift/issues/22>`_, ckanext-shift is 35-50% faster than DataPusher.
 
 Robustness
 ----------
