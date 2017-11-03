@@ -32,7 +32,9 @@
 ckanext-shift
 =============
 
-Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher, since it offers roughly twice the speed and more robustness.
+Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher because it offers roughly twice the speed and more robustness.
+
+**OpenGov Inc.** has sponsored this development with the aim of benefiting open data infrastructure worldwide.
 
 -------------------------------
 Key differences from DataPusher
@@ -45,7 +47,7 @@ DataPusher - parses CSV rows, converts to detected column types, converts the da
 
 ckanext-shift - pipes the CSV file directly into PostgreSQL using COPY.
 
-In [tests](https://github.com/davidread/ckanext-shift/issues/22), ckanext-shift is 35-50% faster than DataPusher.
+In `tests<https://github.com/davidread/ckanext-shift/issues/22>`_, ckanext-shift is 35-50% faster than DataPusher.
 
 Robustness
 ----------
@@ -106,18 +108,20 @@ To install ckanext-shift:
      pip install -U requests[security]
 
 4. If you are using CKAN version before 2.8.x you need to define the
-   `populate_full_text_trigger` in your database::
+   ``populate_full_text_trigger`` in your database
+   ::
 
      sudo -u postgres psql datastore_default -f full_text_function.sql
 
-   If successful it will print::
+   If successful it will print
+   ::
 
      CREATE FUNCTION
      ALTER FUNCTION
 
    NB this assumes you used the defaults for the database name and username.
    If in doubt, check your config's ckan.datastore.write_url. If you don't have
-   database name `datastore_default` and username `ckan_default` then adjust
+   database name ``datastore_default`` and username ``ckan_default`` then adjust
    the psql option and full_text_function.sql before running this.
 
 5. Add ``shift`` to the ``ckan.plugins`` setting in your CKAN
@@ -215,7 +219,7 @@ To upgrade from DataPusher to ckanext-shift:
 1. Install ckanext-shift as above, including running the shift worker.
 
 2. If you've not already, change the enabled plugin in your config - on the
-   `ckan.plugins` line replace `datapusher` with `shift`.
+   ``ckan.plugins`` line replace ``datapusher`` with ``shift``.
 
 3. Stop the datapusher worker::
 
@@ -234,8 +238,10 @@ To run the tests, do::
 
     nosetests --nologcapture --with-pylons=test.ini
 
-If you get error `function populate_full_text_trigger() does not exist` then
-you need a CKAN with https://github.com/ckan/ckan/pull/3786. (Even if you create the function on the test database, it gets cleared by: https://github.com/ckan/ckan/pull/3786/files#diff-33d20faeb53559a9b8940bcb418cb5b4R75 )
+If you get error ``function populate_full_text_trigger() does not exist`` then
+you need a CKAN with https://github.com/ckan/ckan/pull/3786. (Even if you create
+the function on the test database, it gets cleared by:
+https://github.com/ckan/ckan/pull/3786/files#diff-33d20faeb53559a9b8940bcb418cb5b4R75 )
 
 .. To run the tests and produce a coverage report, first make sure you have
 .. coverage installed in your virtualenv (``pip install coverage``) then run::
