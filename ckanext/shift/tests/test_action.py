@@ -49,12 +49,15 @@ class TestAction():
                 resource_id=res['id'])
 
         user = factories.User()
-        res = factories.Resource(user=user, format='csv')
+
         with mock.patch('ckanext.shift.action.enqueue_job',
                         return_value=mock.MagicMock(id=123)) as enqueue_mock:
             enqueue_mock.reset_mock()
-            submit(res, user)
-            # a second submit will not enqueue it again, because of the
+            # creating the resource causes it to be queued
+            res = factories.Resource(user=user, format='csv')
+            eq_(1, enqueue_mock.call_count)
+
+            # a second request to queue it will be stopped, because of the
             # existing task for this resource - shown by task_status_show
             submit(res, user)
             eq_(1, enqueue_mock.call_count)

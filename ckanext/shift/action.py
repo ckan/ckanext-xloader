@@ -72,7 +72,7 @@ def shift_submit(context, data_dict):
     site_url = config['ckan.site_url']
     callback_url = site_url + '/api/3/action/shift_hook'
 
-    user = p.toolkit.get_action('user_show')(context, {'id': context['user']})
+    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
 
     for plugin in p.PluginImplementations(shift_interfaces.IShift):
         upload = plugin.can_upload(res_id)
@@ -109,7 +109,9 @@ def shift_submit(context, data_dict):
             queued_res_ids = [
                 re.search(r"'resource_id': u'([^']+)'",
                           job.description).groups()[0]
-                for job in get_queue().get_jobs()]
+                for job in get_queue().get_jobs()
+                if 'shift_to_datastore' in str(job)  # filter out test_job etc
+                ]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
             time_since_last_updated = datetime.datetime.utcnow() - updated
@@ -142,7 +144,7 @@ def shift_submit(context, data_dict):
     p.toolkit.get_action('task_status_update')(context, task)
 
     data = {
-        'api_key': user['apikey'],
+        'api_key': site_user['apikey'],
         'job_type': 'shift_to_datastore',
         'result_url': callback_url,
         'metadata': {
