@@ -32,7 +32,7 @@
 Express Loader - ckanext-xloader
 ================================
 
-Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher because it offers roughly twice the speed and more robustness.
+Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher because it offers ten times the speed and more robustness.
 
 **OpenGov Inc.** has sponsored this development, with the aim of benefiting open data infrastructure worldwide.
 
@@ -47,7 +47,7 @@ DataPusher - parses CSV rows, converts to detected column types, converts the da
 
 Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests <https://github.com/davidread/ckanext-xloader/issues/22>`_, Express Loader is 35-50% faster than DataPusher.
+In `tests <https://github.com/davidread/ckanext-xloader/issues/25>`_, Express Loader is over ten times faster than DataPusher.
 
 Robustness
 ----------
@@ -75,6 +75,7 @@ Express Loader - the job runs in a worker process, in the same app as CKAN, so c
 Caveats
 -------
 
+* All columns are loaded as 'text' type. However an admin can use the resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric or datestamp and re-load the file. There is scope to do this automatically in future.
 * No support yet for private datasets
 
 
