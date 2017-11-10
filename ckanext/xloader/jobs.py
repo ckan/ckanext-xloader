@@ -1,6 +1,5 @@
 import logging
 import hashlib
-import cStringIO
 import time
 import tempfile
 import requests
@@ -61,8 +60,8 @@ def xloader_data_into_datastore(input):
     job_dict = dict(metadata=input['metadata'],
                     status='running')
     callback_xloader_hook(result_url=input['result_url'],
-                        api_key=input['api_key'],
-                        job_dict=job_dict)
+                          api_key=input['api_key'],
+                          job_dict=job_dict)
 
     job_id = get_current_job().id
     errored = False
@@ -88,8 +87,8 @@ def xloader_data_into_datastore(input):
     finally:
         # job_dict is defined in xloader_hook's docstring
         is_saved_ok = callback_xloader_hook(result_url=input['result_url'],
-                                          api_key=input['api_key'],
-                                          job_dict=job_dict)
+                                            api_key=input['api_key'],
+                                            job_dict=job_dict)
         errored = errored or not is_saved_ok
     return 'error' if errored else None
 
@@ -148,7 +147,7 @@ def xloader_data_into_datastore_(input):
     url = resource.get('url')
     scheme = urlparse.urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
-        raise util.JobError(
+        raise JobError(
             'Only http, https, and ftp resources may be fetched.'
         )
 
@@ -172,7 +171,8 @@ def xloader_data_into_datastore_(input):
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
-            error_msg = 'Resource too large to download: {cl} > max ({max_cl}).'\
+            error_msg = 'Resource too large to download: ' \
+                '{cl} > max ({max_cl}).' \
                 .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
             logger.error(error_msg)
             raise JobError(error_msg)
@@ -185,7 +185,7 @@ def xloader_data_into_datastore_(input):
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
             if length > MAX_CONTENT_LENGTH:
-                raise util.JobError(
+                raise JobError(
                     'Resource too large to process: {cl} > max ({max_cl}).'
                     .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
             tmp_file.write(chunk)
@@ -257,6 +257,7 @@ def xloader_data_into_datastore_(input):
 
     logger.info('Express Load completed')
 
+
 def set_datastore_active(data, resource, api_key, ckan_url, logger):
     # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
@@ -268,6 +269,7 @@ def set_datastore_active(data, resource, api_key, ckan_url, logger):
         from ckan import model
         logger.info('Setting resource.datastore_active = True')
         set_datastore_active_flag(model=model, data_dict=data, flag=True)
+
 
 def callback_xloader_hook(result_url, api_key, job_dict):
     '''Tells CKAN about the result of the xloader (i.e. calls the callback
@@ -295,14 +297,6 @@ def callback_xloader_hook(result_url, api_key, job_dict):
 
     return result.status_code == requests.codes.ok
 
-
-# def set_datastore_active_flag(resource_id):
-#     # equivalent to datapusher's set_datastore_active_flag, but it doesn't have
-#     # to work from outside ckan.
-#     resource = model.Resource.get(resource_id)
-#     resource.extras['datastore_active'] = True
-#     model.Session.commit()
-#     model.Session.remove()
 
 def set_datastore_active_flag(model, data_dict, flag):
     '''
@@ -368,6 +362,7 @@ def validate_input(input):
     if not input.get('api_key'):
         raise JobError('No CKAN API key provided')
 
+
 def update_resource(resource, api_key, ckan_url):
     """
     Update the given CKAN resource to say that it has been stored in datastore
@@ -387,6 +382,7 @@ def update_resource(resource, api_key, ckan_url):
 
     check_response(r, url, 'CKAN')
 
+
 def get_resource(resource_id, ckan_url, api_key):
     """
     Gets available information about the resource from CKAN
@@ -405,6 +401,7 @@ def get_resource(resource_id, ckan_url, api_key):
 
     return r.json()['result']
 
+
 def get_url(action, ckan_url):
     """
     Get url for ckan action
@@ -414,6 +411,7 @@ def get_url(action, ckan_url):
     ckan_url = ckan_url.rstrip('/')
     return '{ckan_url}/api/3/action/{action}'.format(
         ckan_url=ckan_url, action=action)
+
 
 def check_response(response, request_url, who, good_status=(201, 200),
                    ignore_no_success=False):
@@ -451,6 +449,7 @@ def check_response(response, request_url, who, good_status=(201, 200),
         raise HTTPError(
             message, status_code=response.status_code, request_url=request_url,
             response=response.text)
+
 
 class StoringHandler(logging.Handler):
     '''A handler that stores the logging records in a database.'''
