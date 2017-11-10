@@ -210,11 +210,16 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         os.remove(csv_filepath)  # i.e. the tempfile
 
     logger.info('...copying done')
+
+    logger.info('Creating search index...')
+    _populate_fulltext(connection, resource_id, fields=fields)
+    logger.info('...search index created')
+
     return fields
 
 
-def create_both_indexes(fields, resource_id, logger):
-    logger.info('Creating search index...')
+def create_column_indexes(fields, resource_id, logger):
+    logger.info('Creating column indexes (a speed optimization for queries)...')
     from ckan import model
     context = {'model': model, 'ignore_auth': True}
     data_dict = dict(
@@ -224,12 +229,10 @@ def create_both_indexes(fields, resource_id, logger):
     engine = get_write_engine()
     connection = context['connection'] = engine.connect()
 
-    _populate_fulltext(connection, resource_id, fields=fields)
-    logger.info('...search index created')
     create_indexes(context, data_dict)
     _enable_fulltext_trigger(connection, resource_id)
 
-    logger.info('...column indexes created. Search index complete.')
+    logger.info('...column indexes created.')
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):

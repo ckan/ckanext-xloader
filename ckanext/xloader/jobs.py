@@ -232,9 +232,10 @@ def xloader_data_into_datastore_(input):
             resource_id=resource['id'],
             mimetype=resource.get('format'),
             logger=logger)
-        logger.info('Loaded the CSV. Next to create the indexes.')
+        logger.info('Data now available to users.')
+        logger.info('Creating column indexes for optimization...')
         set_datastore_active(data, resource, api_key, ckan_url, logger)
-        loader.create_both_indexes(
+        loader.create_column_indexes(
             fields=fields,
             resource_id=resource['id'],
             logger=logger)

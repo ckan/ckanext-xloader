@@ -6,11 +6,6 @@ from nose.plugins.skip import SkipTest
 import datetime
 from decimal import Decimal
 
-try:
-    from ckan.common import config
-except ImportError:
-    # for older CKANs
-    from pylons import config
 from ckan.tests import helpers, factories
 from ckanext.xloader import loader
 from ckanext.xloader.loader import get_write_engine
@@ -18,6 +13,7 @@ from ckanext.xloader.job_exceptions import LoaderError
 
 import ckan.plugins as p
 import util
+
 
 def get_sample_filepath(filename):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), 'samples',
@@ -89,7 +85,7 @@ class TestLoadCsv(TestLoadBase):
 
         assert_equal(self._get_records(
             'test1', limit=1, exclude_full_text_column=False),
-                     [(1, None, u'2011-01-01', u'1', u'Galway')])
+                     [(1, "'-01':2,3 '1':4 '2011':1 'galway':5", u'2011-01-01', u'1', u'Galway')])
         assert_equal(self._get_records('test1'),
                      [(1, u'2011-01-01', u'1', u'Galway'),
                       (2, u'2011-01-02', u'-1', u'Galway'),
@@ -110,8 +106,8 @@ class TestLoadCsv(TestLoadBase):
         factories.Resource(id=resource_id)
         fields = loader.load_csv(csv_filepath, resource_id=resource_id,
                                  mimetype='text/csv', logger=PrintLogger())
-        loader.create_both_indexes(fields=fields, resource_id=resource_id,
-                                   logger=PrintLogger())
+        loader.create_column_indexes(fields=fields, resource_id=resource_id,
+                                     logger=PrintLogger())
 
         assert_equal(self._get_records(
             'test1', limit=1, exclude_full_text_column=False)[0][1],
@@ -240,8 +236,8 @@ class TestLoadCsv(TestLoadBase):
         # Load it again with new types
         fields = loader.load_csv(csv_filepath, resource_id=resource_id,
                                  mimetype='text/csv', logger=PrintLogger())
-        loader.create_both_indexes(fields=fields, resource_id=resource_id,
-                                   logger=PrintLogger())
+        loader.create_column_indexes(fields=fields, resource_id=resource_id,
+                                     logger=PrintLogger())
 
         assert_equal(len(self._get_records('test1')), 6)
         assert_equal(
