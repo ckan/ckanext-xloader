@@ -73,7 +73,7 @@ def get_job(job_id):
         job (unicode)
 
     "status": The current status of the job, e.g. "pending", "running",
-        "complete", or "error" (unicode)
+        "running_but_viewable", complete", or "error" (unicode)
 
     "data": Any output data returned by the job if it has completed
         successfully. This may be any JSON-serializable type, e.g. None, a

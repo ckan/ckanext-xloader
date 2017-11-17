@@ -66,7 +66,7 @@ def xloader_data_into_datastore(input):
     job_id = get_current_job().id
     errored = False
     try:
-        xloader_data_into_datastore_(input)
+        xloader_data_into_datastore_(input, job_dict)
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
     except JobError as e:
@@ -93,7 +93,7 @@ def xloader_data_into_datastore(input):
     return 'error' if errored else None
 
 
-def xloader_data_into_datastore_(input):
+def xloader_data_into_datastore_(input, job_dict):
     '''This function:
     * downloads the resource (metadata) from CKAN
     * downloads the data
@@ -232,14 +232,16 @@ def xloader_data_into_datastore_(input):
             resource_id=resource['id'],
             mimetype=resource.get('format'),
             logger=logger)
-        logger.info('Data now available to users.')
-        logger.info('Creating column indexes for optimization...')
         set_datastore_active(data, resource, api_key, ckan_url, logger)
+        job_dict['status'] = 'running_but_viewable'
+        callback_xloader_hook(result_url=input['result_url'],
+                              api_key=input['api_key'],
+                              job_dict=job_dict)
+        logger.info('Data now available to users.')
         loader.create_column_indexes(
             fields=fields,
             resource_id=resource['id'],
             logger=logger)
-        logger.info('Finished creating the indexes.')
     except JobError as e:
         logger.error('Error during load: {}'.format(e))
         logger.info('Trying again with messytables')
@@ -262,14 +264,13 @@ def xloader_data_into_datastore_(input):
 def set_datastore_active(data, resource, api_key, ckan_url, logger):
     # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
-        logger.info('Setting resource.url_type = \'datapusher\'')
+        logger.debug('Setting resource.url_type = \'datapusher\'')
         update_resource(resource, api_key, ckan_url)
 
     # Set resource.datastore_active = True
     if resource.get('datastore_active') is not True:
-        from ckan import model
         logger.info('Setting resource.datastore_active = True')
-        set_datastore_active_flag(model=model, data_dict=data, flag=True)
+        set_datastore_active_flag(data_dict=data, flag=True)
 
 
 def callback_xloader_hook(result_url, api_key, job_dict):
@@ -299,12 +300,13 @@ def callback_xloader_hook(result_url, api_key, job_dict):
     return result.status_code == requests.codes.ok
 
 
-def set_datastore_active_flag(model, data_dict, flag):
+def set_datastore_active_flag(data_dict, flag):
     '''
     Set appropriate datastore_active flag on CKAN resource.
 
     Called after creation or deletion of DataStore table.
     '''
+    from ckan import model
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix

@@ -157,6 +157,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             logger.info('Trigger created')
             _create_fulltext_trigger(connection, resource_id)
 
+        # datstore_active is switched on by datastore_create - TODO temporarily
+        # disable it until the load is complete
+
         # logger.info('Disabling row index trigger')
         _disable_fulltext_trigger(connection, resource_id)
         # logger.info('Dropping indexes')

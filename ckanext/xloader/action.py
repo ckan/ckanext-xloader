@@ -208,7 +208,7 @@ def xloader_hook(context, data_dict):
                      Must have resource_id property.
     :type metadata: dict
     :param status: status of the job from the xloader service. Allowed values:
-                   pending, running, complete, error
+                   pending, running, running_but_viewable, complete, error
                    (which must all be valid values for task_status too)
     :type status: string
     :param error: Error raised during job execution
@@ -251,7 +251,7 @@ def xloader_hook(context, data_dict):
 
     resubmit = False
 
-    if status == 'complete':
+    if status in ('complete', 'running_but_viewable'):
         # Create default views for resource if necessary (only the ones that
         # require data to be in the DataStore)
         resource_dict = p.toolkit.get_action('resource_show')(
