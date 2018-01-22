@@ -1,0 +1,25 @@
+v0.3.1 2018-01-22
+=================
+
+* Fix for exception about 'ckan.datapusher.url' not being set when you checking xload status #26
+
+
+v0.3.0 2017-11-17
+=================
+
+* Trigger any resource_views to be created straight after load, rather than wait for the index.
+
+
+v0.2.0 2017-11-10
+=================
+
+* Renamed ckanext-xloader
+* Added to PyPI
+* The user is given access to the data earlier in the job - the column indexing now occurs afterwards, since this is only an optimization for queries and takes much longer than the load itself
+* Fixed exception during error-handling for files too long and of non-accepted schemes
+
+
+v0.1 2017-11-03
+===============
+
+* Initial code, named ckanext-shift.
