@@ -258,15 +258,15 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         try:
             table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
         except messytables.ReadError as e:
-            ## try again with format
+            # try again with format
             tmp.seek(0)
             try:
-                ### Assume format is csv
-                ### format = resource.get('format')
                 table_set = messytables.any_tableset(tmp, mimetype=format, extension=format)
-            except:
+            except Exception as e:
                 raise LoaderError(e)
 
+        if not table_set.tables:
+            raise LoaderError('Could not parse file as tabular data')
         row_set = table_set.tables.pop()
         offset, headers = messytables.headers_guess(row_set.sample)
 
