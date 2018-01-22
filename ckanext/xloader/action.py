@@ -322,11 +322,6 @@ def xloader_status(context, data_dict):
         'key': 'xloader'
     })
 
-    datapusher_url = config.get('ckan.datapusher.url')
-    if not datapusher_url:
-        raise p.toolkit.ValidationError(
-            {'configuration': ['ckan.datapusher.url not in config file']})
-
     value = json.loads(task['value'])
     job_id = value.get('job_id')
     url = None
