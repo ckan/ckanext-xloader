@@ -1,7 +1,7 @@
 v0.3.1 2018-01-22
 =================
 
-* Fix for exception about 'ckan.datapusher.url' not being set when you checking xload status #26
+* Fix for exception about 'ckan.datapusher.url' not being set when you check xload status #26
 
 
 v0.3.0 2017-11-17
