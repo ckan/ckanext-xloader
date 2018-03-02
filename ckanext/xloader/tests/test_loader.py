@@ -36,6 +36,7 @@ class TestLoadBase(util.PluginsMixin):
         self.Session = orm.scoped_session(orm.sessionmaker(bind=engine))
         helpers.reset_db()
         util.reset_datastore_db()
+        util.add_full_text_trigger_function()
 
     def teardown(self):
         self.Session.close()
