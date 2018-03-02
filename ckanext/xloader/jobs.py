@@ -74,7 +74,7 @@ def xloader_data_into_datastore(input):
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
-        log.error('xloader error: {}'.format(e))
+        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
         db.mark_job_as_errored(
@@ -82,7 +82,7 @@ def xloader_data_into_datastore(input):
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
-        log.error('xloader error: {}'.format(e))
+        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     finally:
         # job_dict is defined in xloader_hook's docstring
