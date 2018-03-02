@@ -188,6 +188,28 @@ class TestLoadCsv(TestLoadBase):
                      [u'int4', u'tsvector'] +
                      [u'text'] * (len(records[0]) - 1))
 
+    def test_german(self):
+        csv_filepath = get_sample_filepath('german_sample.csv')
+        resource_id = 'test_german'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+
+        records = self._get_records('test_german')
+        print records
+        assert_equal(
+            records[0],
+            ())
+        print self._get_column_names('test_german')
+        assert_equal(
+            self._get_column_names('test_german'),
+            []
+        print self._get_column_types('test_german')
+        assert_equal(self._get_column_types('test_german'),
+                     [u'int4', u'tsvector'] +
+                     [u'text'] * (len(records[0]) - 1))
+
+
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
