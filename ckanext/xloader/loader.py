@@ -9,6 +9,7 @@ from sqlalchemy import Text, Integer, Table, Column
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
+from unidecode import unidecode
 
 try:
     import ckanext.datastore.backend.postgres as datastore_db
@@ -59,7 +60,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = [unicode(header) for header in headers]
+    headers = [unidecode(header) for header in headers]
 
     # Setup the converters that run when you iterate over the row_set.
     # With pgloader only the headers will be iterated over.
@@ -277,7 +278,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = [unicode(header) for header in headers]
+        headers = [unidecode(header) for header in headers]
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
