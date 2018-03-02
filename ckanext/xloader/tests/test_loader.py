@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 
 import sqlalchemy.orm as orm
@@ -200,16 +201,32 @@ class TestLoadCsv(TestLoadBase):
         print records
         assert_equal(
             records[0],
-            ())
+            (1, u'Zürich', u'68260', u'65444', u'62646', u'6503', u'28800', u'1173', u'6891', u'24221', u'672')
+        )
         print self._get_column_names('test_german')
         assert_equal(
             self._get_column_names('test_german'),
-            []
+            [
+                u'_id',
+                u'_full_text',
+                u'Stadtname',
+                u'Schuler_Total_2010/2011',
+                u'Schuler_Total_2000/2001',
+                u'Schuler_Total_1990/1991',
+                u'Schuler_Vorschule_2010/2011',
+                u'Schuler_Obligatorische Primar- und Sekundarstufe I_2010/2011',
+                u'Schuler_Sekundarstufe II, Ubergangsausbildung Sek I. - Sek. II_',
+                u'Schuler_Maturitatsschulen_2010/2011',
+                u'Schuler_Berufsausbildung_2010/2011',
+                u'Schuler_andere allgemeinbildende Schulen_2010/2011',
+            ]
+        )
         print self._get_column_types('test_german')
-        assert_equal(self._get_column_types('test_german'),
-                     [u'int4', u'tsvector'] +
-                     [u'text'] * (len(records[0]) - 1))
-
+        assert_equal(
+            self._get_column_types('test_german'),
+            [u'int4', u'tsvector'] +
+            [u'text'] * (len(records[0]) - 1)
+        )
 
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
