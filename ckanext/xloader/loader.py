@@ -34,6 +34,8 @@ except ImportError:
 import ckan.plugins as p
 from job_exceptions import LoaderError
 
+MAX_COLUMN_LENGTH = 63
+
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
@@ -69,7 +71,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         messytables.offset_processor(header_offset + 1))
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
-    headers = [header.strip() for header in headers if header.strip()]
+    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
     # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
     #                  for field in zip(headers, types)]
 
@@ -296,7 +298,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         row_set.register_processor(messytables.types_processor(types))
 
-        headers = [header.strip() for header in headers if header.strip()]
+        headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
         headers_set = set(headers)
 
         def row_iterator():
