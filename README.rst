@@ -2,29 +2,22 @@
    these badges work. The necessary Travis and Coverage config files have been
    generated for you.
 
-.. .. image:: https://travis-ci.org/davidread/ckanext-xloader.svg?branch=master
-..     :target: https://travis-ci.org/davidread/ckanext-xloader
+.. image:: https://travis-ci.org/davidread/ckanext-xloader.svg?branch=master
+    :target: https://travis-ci.org/davidread/ckanext-xloader
 
-.. .. image:: https://coveralls.io/repos/davidread/ckanext-xloader/badge.svg
-..   :target: https://coveralls.io/r/davidread/ckanext-xloader
-
-.. image:: https://pypip.in/download/ckanext-xloader/badge.svg
-    :target: https://pypi.python.org/pypi//ckanext-xloader/
-    :alt: Downloads
-
-.. image:: https://pypip.in/version/ckanext-xloader/badge.svg
+.. image:: https://img.shields.io/pypi/v/ckanext-xloader.svg
     :target: https://pypi.python.org/pypi/ckanext-xloader/
     :alt: Latest Version
 
-.. image:: https://pypip.in/py_versions/ckanext-xloader/badge.svg
+.. image:: https://img.shields.io/pypi/pyversions/ckanext-xloader.svg
     :target: https://pypi.python.org/pypi/ckanext-xloader/
     :alt: Supported Python versions
 
-.. image:: https://pypip.in/status/ckanext-xloader/badge.svg
+.. image:: https://img.shields.io/pypi/status/ckanext-xloader.svg
     :target: https://pypi.python.org/pypi/ckanext-xloader/
     :alt: Development Status
 
-.. image:: https://pypip.in/license/ckanext-xloader/badge.svg
+.. image:: https://img.shields.io/pypi/l/ckanext-xloader.svg
     :target: https://pypi.python.org/pypi/ckanext-xloader/
     :alt: License
 
