@@ -3,12 +3,14 @@ import os
 import os.path
 import tempfile
 import itertools
+import csv
 
 import psycopg2
 from sqlalchemy import Text, Integer, Table, Column
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
+from unidecode import unidecode
 
 try:
     import ckanext.datastore.backend.postgres as datastore_db
@@ -32,6 +34,8 @@ except ImportError:
 
 import ckan.plugins as p
 from job_exceptions import LoaderError
+
+MAX_COLUMN_LENGTH = 63
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -59,7 +63,17 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = [unicode(header) for header in headers]
+    headers = [unidecode(header) for header in headers]
+
+    # Guess the delimiter used in the file
+    with open(csv_filepath, 'r') as f:
+        header_line = f.readline()
+    try:
+        sniffer = csv.Sniffer()
+        delimiter = sniffer.sniff(header_line).delimiter
+    except csv.Error:
+        logger.error('Could not determine delimiter from file, use default ","')
+        delimiter = ','
 
     # Setup the converters that run when you iterate over the row_set.
     # With pgloader only the headers will be iterated over.
@@ -68,7 +82,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         messytables.offset_processor(header_offset + 1))
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
-    headers = [header.strip() for header in headers if header.strip()]
+    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
     # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
     #                  for field in zip(headers, types)]
 
@@ -191,12 +205,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                         cur.copy_expert(
                             "COPY \"{resource_id}\" ({column_names}) "
                             "FROM STDIN "
-                            "WITH (DELIMITER ',', FORMAT csv, HEADER 1, "
+                            "WITH (DELIMITER '{delimiter}', FORMAT csv, HEADER 1, "
                             "      ENCODING '{encoding}');"
                             .format(
                                 resource_id=resource_id,
                                 column_names=', '.join(['"{}"'.format(h)
                                                         for h in headers]),
+                                delimiter=delimiter,
                                 encoding='UTF8',
                                 ),
                             f)
@@ -277,7 +292,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = [unicode(header) for header in headers]
+        headers = [unidecode(header) for header in headers]
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
@@ -295,7 +310,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         row_set.register_processor(messytables.types_processor(types))
 
-        headers = [header.strip() for header in headers if header.strip()]
+        headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
         headers_set = set(headers)
 
         def row_iterator():
