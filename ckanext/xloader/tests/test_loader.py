@@ -346,13 +346,13 @@ class TestLoadMessytables(TestLoadBase):
         loader.load_table(csv_filepath, resource_id=resource_id,
                           mimetype='xls', logger=PrintLogger())
 
-        assert_equal(self._get_records(
-            'test1', limit=1, exclude_full_text_column=False),
-            [(1,
-              "'-01':4,5 '00':6,7,8 '1':1 '2011':3 'galway':2",
-              datetime.datetime(2011, 1, 1, 0, 0),
-              Decimal('1'),
-              u'Galway')])
+        assert_in(self._get_records(
+            'test1', limit=1, exclude_full_text_column=False)[0][1],
+             ["'-01':2,3 '00':4,5,6 '1':7 '2011':1 'galway':8",
+              "'-01':4,5 '00':6,7,8 '1':1 '2011':3 'galway':2"])
+        # these are slightly different between CKAN 2.7 and 2.8, due to changes
+        # in the indexing
+
         assert_equal(
             self._get_records('test1'),
             [(1, datetime.datetime(2011, 1, 1, 0, 0), Decimal('1'), u'Galway'),
