@@ -44,6 +44,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
         xloader_formats = config.get('ckanext.xloader.formats', '').lower()
         self.xloader_formats = xloader_formats.lower().split() or DEFAULT_FORMATS
 
+        if config.get('ckanext.xloader.ignore_hash') in ['True', 'TRUE', '1', True, 1]:
+            self.ignore_hash = True
+        else:
+            self.ignore_hash = False
+
         for config_option in ('ckan.site_url',):
             if not config.get(config_option):
                 raise Exception(
@@ -92,7 +97,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
                         log.debug('Submitting resource {0} to be xloadered'
                                   .format(entity.id))
                         p.toolkit.get_action('xloader_submit')(context, {
-                            'resource_id': entity.id
+                            'resource_id': entity.id,
+                            'ignore_hash': self.ignore_hash,
                         })
                     except p.toolkit.ValidationError, e:
                         # If xloader is offline, we want to catch error instead

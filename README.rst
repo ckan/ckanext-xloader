@@ -189,6 +189,11 @@ Configuration:
     # Give an amount in seconds. Default is 60 minutes
     ckanext.xloader.job_timeout = 3600
 
+    # Ignore the file hash when submitting to the DataStore, if set to True
+    # resources are always submitted (if their format matches), if set to
+    # False (default), resources are only submitted if their hash has changed.
+    ckanext.xloader.ignore_hash = False
+
 ------------------------
 Development Installation
 ------------------------
