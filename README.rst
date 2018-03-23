@@ -138,7 +138,7 @@ To install Express Loader:
 
    And add this list to the config::
 
-     ckanext.xloader.jobs_db.uri postgresql://ckan_default:pass@localhost/xloader_jobs
+     ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/xloader_jobs
 
    (This step can be skipped when just developing or testing.)
 

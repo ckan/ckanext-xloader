@@ -1,21 +1,23 @@
+import math
 import logging
 import hashlib
 import time
 import tempfile
-import requests
 import json
-import datetime
 import urlparse
-from rq import get_current_job
+import datetime
 import traceback
 import sys
+
+import requests
+from rq import get_current_job
+import sqlalchemy as sa
 
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
     from pylons import config
 import ckan.lib.search as search
-import sqlalchemy as sa
 
 import loader
 import db
@@ -212,7 +214,7 @@ def xloader_data_into_datastore_(input, job_dict):
             message=err_message, status_code=None,
             request_url=url, response=None)
 
-    logger.info('Downloaded ok')
+    logger.info('Downloaded ok - %s', printable_file_size(length))
     file_hash = m.hexdigest()
     tmp_file.seek(0)
 
@@ -490,3 +492,13 @@ class DatetimeJsonEncoder(json.JSONEncoder):
             return obj.isoformat()
 
         return json.JSONEncoder.default(self, obj)
+
+
+def printable_file_size(size_bytes):
+    if size_bytes == 0:
+        return '0 bytes'
+    size_name = ('bytes', 'KB', 'MB', 'GB', 'TB')
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 1)
+    return "%s %s" % (s, size_name[i])
