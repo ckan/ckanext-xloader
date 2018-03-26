@@ -13,6 +13,7 @@ import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
+from ckan.plugins.toolkit import get_action
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -133,11 +134,14 @@ def xloader_data_into_datastore_(input, job_dict):
     api_key = input.get('api_key')
 
     try:
-        resource = get_resource(resource_id, ckan_url, api_key)
+        resource, dataset = get_resource_and_dataset(resource_id)
     except JobError, e:
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
-        resource = get_resource(resource_id, ckan_url, api_key)
+        resource, dataset = get_resource_and_dataset(resource_id)
+    resource_ckan_url = '/dataset/{}/resource/{}' \
+        .format(dataset['name'], resource['id'])
+    logger.info('Express Load starting: {}'.format(resource_ckan_url))
 
     # check if the resource url_type is a datastore
     if resource.get('url_type') == 'datastore':
@@ -239,7 +243,7 @@ def xloader_data_into_datastore_(input, job_dict):
         callback_xloader_hook(result_url=input['result_url'],
                               api_key=input['api_key'],
                               job_dict=job_dict)
-        logger.info('Data now available to users.')
+        logger.info('Data now available to users: {}'.format(resource_ckan_url))
         loader.create_column_indexes(
             fields=fields,
             resource_id=resource['id'],
@@ -372,6 +376,9 @@ def update_resource(resource, api_key, ckan_url):
     """
     Update the given CKAN resource to say that it has been stored in datastore
     ok.
+
+    Could simply call the logic layer (the http request is a hangover from
+    datapusher).
     """
 
     resource['url_type'] = 'datapusher'
@@ -388,23 +395,13 @@ def update_resource(resource, api_key, ckan_url):
     check_response(r, url, 'CKAN')
 
 
-def get_resource(resource_id, ckan_url, api_key):
+def get_resource_and_dataset(resource_id):
     """
-    Gets available information about the resource from CKAN
-
-    Could simply use the ckan model (the http request is a hangover from
-    datapusher).
+    Gets available information about the resource and its dataset from CKAN
     """
-    url = get_url('resource_show', ckan_url)
-    r = requests.post(url,
-                      verify=SSL_VERIFY,
-                      data=json.dumps({'id': resource_id}),
-                      headers={'Content-Type': 'application/json',
-                               'Authorization': api_key}
-                      )
-    check_response(r, url, 'CKAN')
-
-    return r.json()['result']
+    res_dict = get_action('resource_show')(None, {'id': resource_id})
+    pkg_dict = get_action('package_show')(None, {'id': res_dict['package_id']})
+    return res_dict, pkg_dict
 
 
 def get_url(action, ckan_url):
