@@ -166,13 +166,26 @@ def xloader_data_into_datastore_(input, job_dict):
             # otherwise we won't get file from private resources
             headers['Authorization'] = api_key
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=DOWNLOAD_TIMEOUT,
-            verify=SSL_VERIFY,
-            stream=True,  # just gets the headers for now
-            )
+        def get_url():
+            return requests.get(
+                url,
+                headers=headers,
+                timeout=DOWNLOAD_TIMEOUT,
+                verify=SSL_VERIFY,
+                stream=True,  # just gets the headers for now
+                )
+        response = get_url()
+
+        if response.status_code == 202:
+            # Seen: https://data-cdfw.opendata.arcgis.com/datasets
+            # In this case it means it's still processing, so do retries.
+            # 202 can mean other things, but there's no harm in retries.
+            wait = 1
+            while wait < 120 and response.status_code == 202:
+                logger.info('Retrying after {}s'.format(wait))
+                time.sleep(wait)
+                response = get_url()
+                wait *= 3
         response.raise_for_status()
 
         cl = response.headers.get('content-length')
