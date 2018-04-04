@@ -19,6 +19,7 @@ from ckanext.xloader.loader import get_write_engine
 import util
 from ckan.tests import factories
 
+SOURCE_URL = 'http://www.example.com/static/file'
 
 def mock_actions(func):
     '''
@@ -27,8 +28,6 @@ def mock_actions(func):
     '''
     def wrapper(*args, **kwargs):
         # Mock CKAN's resource_show API
-        source_url = 'http://www.example.com/static/file'
-
         from ckan.logic import get_action as original_get_action
 
         def side_effect(called_action_name):
@@ -37,7 +36,7 @@ def mock_actions(func):
                     return {
                        'id': data_dict['id'],
                        'name': 'short name',
-                       'url': source_url,
+                       'url': SOURCE_URL,
                        'format': 'CSV',
                        'package_id': 'test-pkg',
                     }
@@ -101,9 +100,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         """
         responses.add_passthru(config['solr_url'])
 
-        # A URL that just returns a static file (simple.csv by default).
-        source_url = 'http://www.example.com/static/file'
-        responses.add(responses.GET, source_url,
+        # A URL that just returns a static file
+        responses.add(responses.GET, SOURCE_URL,
                       body=get_sample_file(filename),
                       content_type=content_type)
 
@@ -142,7 +140,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         table = Table(self.resource_id, meta,
                       autoload=True, autoload_with=engine)
         s = select([table])
-        result = conn.execute(s)
+        with conn.begin() as trans:
+            result = conn.execute(s)
         return dict(
             num_rows=result.rowcount,
             headers=result.keys(),
@@ -162,6 +161,67 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
     @responses.activate
     def test_simple_csv(self):
         # Test not only the load and xloader_hook is called at the end
+        self.register_urls()
+        data = {
+            'api_key': self.api_key,
+            'job_type': 'xloader_to_datastore',
+            'result_url': self.callback_url,
+            'metadata': {
+                'ckan_url': 'http://%s/' % self.host,
+                'resource_id': self.resource_id
+            }
+        }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
+
+        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
+                as mocked_set_datastore_active_flag:
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
+                            return_value=mock.Mock(id=job_id)):
+                result = jobs.xloader_data_into_datastore(data)
+        eq_(result, None)
+
+        # Check it said it was successful
+        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
+        assert job_dict['status'] == u'complete', job_dict
+        eq_(job_dict,
+            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
+        # Check the load
+        data = self.get_datastore_table()
+        eq_(data['headers'],
+            ['_id', '_full_text', 'date', 'temperature', 'place'])
+        eq_(data['header_dict']['date'], 'TEXT')
+        # 'TIMESTAMP WITHOUT TIME ZONE')
+        eq_(data['header_dict']['temperature'], 'TEXT')  # 'NUMERIC')
+        eq_(data['header_dict']['place'], 'TEXT')  # 'TEXT')
+        eq_(data['num_rows'], 6)
+        eq_(data['rows'][0][2:],
+            (u'2011-01-01', u'1', u'Galway'))
+        # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
+
+        # Check it wanted to set the datastore_active=True
+        mocked_set_datastore_active_flag.assert_called_once()
+        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
+            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+
+        logs = self.get_load_logs(job_id)
+        logs.assert_no_errors()
+
+    @mock_actions
+    @responses.activate
+    def test_first_request_is_202_pending_response(self):
+        # when you first get the CSV it returns this 202 response, which is
+        # what this server does: https://data-cdfw.opendata.arcgis.com/datasets
+        responses.add(responses.GET, SOURCE_URL,
+                      status=202,
+                      body='{"processingTime":"8.716 seconds","status":"Processing","generating":{}}',
+                      content_type='application/json')
+        # subsequent GETs of the CSV work fine
         self.register_urls()
         data = {
             'api_key': self.api_key,
