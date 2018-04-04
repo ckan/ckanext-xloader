@@ -362,8 +362,12 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 
-        logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
-            n=count, res_id=resource_id))
+        if count:
+            logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
+                        n=count, res_id=resource_id))
+        else:
+            # no datastore table is created
+            raise LoaderError('No entries found - nothing to load')
 
         ### Commented - this is done by the caller in jobs.py
         # if data.get('set_url_type', False):
