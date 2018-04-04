@@ -6,7 +6,7 @@ try:
 except ImportError:
     from sqlalchemy.util import OrderedDict
 
-from nose.tools import eq_
+from nose.tools import eq_, make_decorator
 import mock
 import responses
 from sqlalchemy import MetaData, Table
@@ -18,6 +18,51 @@ from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 import util
 from ckan.tests import factories
+
+
+def mock_actions(func):
+    '''
+    Decorator that mocks actions used by these tests
+    Based on ckan.test.helpers.mock_action
+    '''
+    def wrapper(*args, **kwargs):
+        # Mock CKAN's resource_show API
+        source_url = 'http://www.example.com/static/file'
+
+        from ckan.logic import get_action as original_get_action
+
+        def side_effect(called_action_name):
+            if called_action_name == 'resource_show':
+                def mock_resource_show(context, data_dict):
+                    return {
+                       'id': data_dict['id'],
+                       'name': 'short name',
+                       'url': source_url,
+                       'format': 'CSV',
+                       'package_id': 'test-pkg',
+                    }
+                return mock_resource_show
+            elif called_action_name == 'package_show':
+                def mock_package_show(context, data_dict):
+                    return {
+                       'id': data_dict['id'],
+                       'name': 'pkg-name',
+                    }
+                return mock_package_show
+            else:
+                return original_get_action(called_action_name)
+        try:
+            with mock.patch('ckanext.xloader.jobs.get_action') as mock_get_action:
+                mock_get_action.side_effect = side_effect
+
+                return_value = func(*args, **kwargs)
+        finally:
+            pass
+            # Make sure to stop the mock, even with an exception
+            # mock_action.stop()
+        return return_value
+
+    return make_decorator(func)(wrapper)
 
 
 class TestxloaderDataIntoDatastore(util.PluginsMixin):
@@ -42,7 +87,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             connection = cls._datastore[1]
             connection.close()
 
-    def register_urls(self, filename='simple.csv', format='CSV',
+    def register_urls(self, filename='simple.csv',
                       content_type='application/csv'):
         """Mock some test URLs with responses.
 
@@ -61,19 +106,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         responses.add(responses.GET, source_url,
                       body=get_sample_file(filename),
                       content_type=content_type)
-        # A URL that mocks CKAN's resource_show API.
-        res_url = 'http://www.ckan.org/api/3/action/resource_show'
-        responses.add(responses.POST, res_url,
-                      body=json.dumps({
-                           'success': True,
-                           'result': {
-                               'id': self.resource_id,
-                               'name': 'short name',
-                               'url': source_url,
-                               'format': format
-                           }
-                      }),
-                      content_type='application/json')
 
         # A URL that mocks the response that CKAN's resource_update API would
         # give after successfully updating a resource.
@@ -126,6 +158,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
                               .where(logs.c.job_id == task_id))
         return Logs(result.fetchall())
 
+    @mock_actions
     @responses.activate
     def test_simple_csv(self):
         # Test not only the load and xloader_hook is called at the end
