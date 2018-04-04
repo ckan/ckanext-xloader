@@ -421,3 +421,13 @@ class TestLoadMessytables(TestLoadBase):
         assert_equal(self._get_column_types('test1'),
                      [u'int4', u'tsvector',
                       u'numeric', u'timestamp', u'timestamp', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'numeric', u'numeric', u'numeric', u'text', u'text', u'numeric', u'text', u'numeric', u'text', u'numeric', u'numeric', u'numeric', u'text'])
+
+    def test_no_entries(self):
+        csv_filepath = get_sample_filepath('no_entries.csv')
+        # no datastore table is created - we need to except, or else
+        # datastore_active will be set on a non-existent datastore table
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        with assert_raises(LoaderError) as exception:
+            loader.load_table(csv_filepath, resource_id=resource_id,
+                              mimetype='csv', logger=PrintLogger())
