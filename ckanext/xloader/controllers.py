@@ -43,4 +43,7 @@ class ResourceDataController(p.toolkit.BaseController):
             p.toolkit.abort(403, _('Not authorized to see this page'))
 
         return p.toolkit.render('xloader/resource_data.html',
-                                extra_vars={'status': xloader_status})
+                                extra_vars={
+                                    'status': xloader_status,
+                                    'resource': p.toolkit.c.resource,
+                                })
