@@ -69,7 +69,6 @@ Caveats
 -------
 
 * All columns are loaded as 'text' type. However an admin can use the resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric or datestamp and re-load the file. There is scope to do this automatically in future.
-* No support yet for private datasets
 
 
 ------------
