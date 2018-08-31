@@ -46,4 +46,5 @@ class ResourceDataController(p.toolkit.BaseController):
                                 extra_vars={
                                     'status': xloader_status,
                                     'resource': p.toolkit.c.resource,
+                                    'pkg_dict': p.toolkit.c.pkg_dict,
                                 })
