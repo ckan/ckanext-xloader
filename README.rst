@@ -112,9 +112,9 @@ To install Express Loader:
      ALTER FUNCTION
 
    NB this assumes you used the defaults for the database name and username.
-   If in doubt, check your config's ckan.datastore.write_url. If you don't have
+   If in doubt, check your config's ``ckan.datastore.write_url``. If you don't have
    database name ``datastore_default`` and username ``ckan_default`` then adjust
-   the psql option and full_text_function.sql before running this.
+   the psql option and ``full_text_function.sql`` before running this.
 
 5. Add ``xloader`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
