@@ -1,4 +1,5 @@
 import sys
+import logging
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
@@ -7,7 +8,6 @@ try:
     import ckanext.datastore.db as datastore_backend
 except ImportError:
     import ckanext.datastore as datastore_backend
-from ckanext.xloader.plugin import XLoaderFormats
 
 
 class xloaderCommand(cli.CkanCommand):
@@ -81,20 +81,35 @@ class xloaderCommand(cli.CkanCommand):
                 self.parser.error('This command requires an argument')
             if self.args[1] == 'all':
                 self._load_config()
+                self._setup_xloader_logger()
                 self._submit_all()
             elif self.args[1] == 'all-existing':
                 self._confirm_or_abort()
                 self._load_config()
+                self._setup_xloader_logger()
                 self._submit_all_existing()
             else:
                 pkg_name_or_id = self.args[1]
                 self._load_config()
+                self._setup_xloader_logger()
                 self._submit_package(pkg_name_or_id)
         elif self.args[0] == 'status':
             self._load_config()
             self._print_status()
         else:
             self.parser.error('Unrecognized command')
+
+    def _setup_xloader_logger(self):
+        # whilst the deveopment.ini's loggers are setup now, because this is
+        # cli, let's ensure we xloader debug messages are printed for the user
+        logger = logging.getLogger('ckanext.xloader')
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            '      %(name)-12s %(levelname)-5s %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False  # in case the config
 
     def _confirm_or_abort(self):
         if self.options.yes or self.options.dry_run:
@@ -164,6 +179,9 @@ class xloaderCommand(cli.CkanCommand):
     def _submit_resource(self, resource, user, indent=0):
         '''resource: resource dictionary
         '''
+        # import here, so that that loggers are setup
+        from ckanext.xloader.plugin import XLoaderFormats
+
         if not XLoaderFormats.is_it_an_xloader_format(resource['format']):
             print(' ' * indent +
                   'Skipping resource {r[id]} because format "{r[format]}" is '
