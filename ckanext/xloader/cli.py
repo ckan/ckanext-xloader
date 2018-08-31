@@ -39,11 +39,6 @@ class xloaderCommand(cli.CkanCommand):
                 --ignore-format - submit resources even if they have a format
                 not in the configured ckanext.xloader.formats
 
-                --skip-if-hash-is-unchanged - don't reload data files that
-                are unchanged since the previous load. (It still submits them,
-                but once xloader has download the file, if the hash is the same
-                as resource.hash it will skip the reload into DataStore)
-
         xloader status
               Shows status of jobs
     '''
@@ -65,12 +60,6 @@ class xloaderCommand(cli.CkanCommand):
         self.parser.add_option('--dry-run',
                                action='store_true', default=False,
                                help='Don\'t actually submit anything')
-        self.parser.add_option('--skip-if-hash-is-unchanged',
-                               action='store_true', default=False,
-                               help='Don\'t reloading data files that are '
-                               'are unchanged since the previous load (it '
-                               'still submits it - xloader will download the '
-                               'file and compare the hash with resource.hash)')
 
     def command(self):
         if not self.args:
@@ -199,10 +188,9 @@ class xloaderCommand(cli.CkanCommand):
               '{indent}           url={r[url]}\n'
               '{indent}           format={r[format]}'
               .format(dataset=dataset_ref, r=resource, indent=' ' * indent))
-        ignore_hash = not self.options.skip_if_hash_is_unchanged
         data_dict = {
             'resource_id': resource['id'],
-            'ignore_hash': ignore_hash,
+            'ignore_hash': True,
         }
         if self.options.dry_run:
             print(' ' * indent + '(not submitted - dry-run)')

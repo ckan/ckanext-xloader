@@ -235,13 +235,14 @@ def xloader_data_into_datastore_(input, job_dict):
     file_hash = m.hexdigest()
     tmp_file.seek(0)
 
+    # hash isn't actually stored, so this is a bit worthless at the moment
     if (resource.get('hash') == file_hash
             and not data.get('ignore_hash')):
         logger.info('Ignoring resource - the file hash hasn\'t changed: '
                     '{hash}.'.format(hash=file_hash))
         return
     logger.info('File hash: {}'.format(file_hash))
-    resource['hash'] = file_hash
+    resource['hash'] = file_hash  # TODO write this back to the actual resource
 
     # Load it
     logger.info('Loading CSV')
