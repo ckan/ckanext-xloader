@@ -15,40 +15,37 @@ class xloaderCommand(cli.CkanCommand):
 
     Usage:
 
-        xloader submit <pkg-name-or-id>
-              Submit the given dataset's resources to the DataStore.
+        xloader submit [options] <dataset-spec>
+            Submit the given datasets' resources to be xloaded into the
+            DataStore. (They are added to the queue for CKAN's background task
+            worker.)
 
-              Resources with a format not in the configured
-              ckanext.xloader.formats are skipped, unless you set:
-              --ignore-format
+            where <dataset-spec> is one of:
 
-        xloader submit all
-              Submit all datasets' resources to the DataStore.
+                <dataset-name> - Submit a particular dataset's resources
 
-              Resources that are already in the DataStore are skipped (even if
-              the resource URL has changed, or the content at the URL has
-              changed). To not skip these, set: --force
+                <dataset-id> - Submit a particular dataset's resources
 
-              Resources with a format not in the configured
-              ckanext.xloader.formats are skipped, unless you set:
-              --ignore-format
+                all - Submit all datasets' resources to the DataStore
 
-              Override the confirmation prompt using `-y` or `--yes`.
+                all-existing - Re-submits all the resources already in the
+                    DataStore. (Ignores any resources that have not been stored
+                    in DataStore, for any reason.)
 
-        xloader submit all-existing
-              Submit all datasets' resources that are already in the DataStore
-              to the DataStore again.
+            options:
 
-              Resources with a format not in the configured
-              ckanext.xloader.formats are skipped, unless you set:
-              --ignore-format
+                --dry-run - doesn't actually submit any resources
+
+                --ignore-format - submit resources even if they have a format
+                not in the configured ckanext.xloader.formats
+
+                --skip-if-hash-is-unchanged - don't reload data files that
+                are unchanged since the previous load. (It still submits them,
+                but once xloader has download the file, if the hash is the same
+                as resource.hash it will skip the reload into DataStore)
 
         xloader status
               Shows status of jobs
-
-    Options:
-
-        --dry-run - doesn't actually submit any resources
     '''
 
     summary = __doc__.split('\n')[0]
@@ -61,9 +58,6 @@ class xloaderCommand(cli.CkanCommand):
         self.parser.add_option('-y', dest='yes',
                                action='store_true', default=False,
                                help='Always answer yes to questions')
-        self.parser.add_option('--force',
-                               action='store_true', default=False,
-                               help='Submit even if the resource is unchanged')
         self.parser.add_option('--ignore-format',
                                action='store_true', default=False,
                                help='Submit even if the resource.format is not'
@@ -71,6 +65,12 @@ class xloaderCommand(cli.CkanCommand):
         self.parser.add_option('--dry-run',
                                action='store_true', default=False,
                                help='Don\'t actually submit anything')
+        self.parser.add_option('--skip-if-hash-is-unchanged',
+                               action='store_true', default=False,
+                               help='Don\'t reloading data files that are '
+                               'are unchanged since the previous load (it '
+                               'still submits it - xloader will download the '
+                               'file and compare the hash with resource.hash)')
 
     def command(self):
         if not self.args:
@@ -80,8 +80,6 @@ class xloaderCommand(cli.CkanCommand):
             if len(self.args) < 2:
                 self.parser.error('This command requires an argument')
             if self.args[1] == 'all':
-                if self.options.force:
-                    self._confirm_or_abort()
                 self._load_config()
                 self._submit_all()
             elif self.args[1] == 'all-existing':
@@ -183,18 +181,19 @@ class xloaderCommand(cli.CkanCommand):
               '{indent}           url={r[url]}\n'
               '{indent}           format={r[format]}'
               .format(dataset=dataset_ref, r=resource, indent=' ' * indent))
+        ignore_hash = not self.options.skip_if_hash_is_unchanged
         data_dict = {
             'resource_id': resource['id'],
-            'ignore_hash': True,
+            'ignore_hash': ignore_hash,
         }
         if self.options.dry_run:
             print(' ' * indent + '(not submitted - dry-run)')
             return
         success = p.toolkit.get_action('xloader_submit')({'user': user['name']}, data_dict)
         if success:
-            print(' ' * indent + 'OK')
+            print(' ' * indent + '...ok')
         else:
-            print(' ' * indent + 'Fail')
+            print(' ' * indent + 'ERROR submitting resource')
 
     def _print_status(self):
         try:
