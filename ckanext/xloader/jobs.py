@@ -103,7 +103,7 @@ def xloader_data_into_datastore_(input, job_dict):
     * calls the loader to load the data into DataStore
     * calls back to CKAN with the new status
 
-    (ckanext-xloader called this function 'xloader_to_datastore')
+    (datapusher called this function 'push_to_datastore')
     '''
     job_id = get_current_job().id
     db.init(config)
