@@ -1,5 +1,6 @@
 from ckan import model
 import ckan.plugins as plugins
+from ckan.common import config
 
 from ckanext.xloader import action, auth
 import ckanext.xloader.helpers as xloader_helpers
@@ -17,6 +18,20 @@ DEFAULT_FORMATS = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'ods', 'application/vnd.oasis.opendocument.spreadsheet',
 ]
+
+class XLoaderFormats(object):
+    formats = None
+    @classmethod
+    def is_it_an_xloader_format(cls, format_):
+        if cls.formats is None:
+            cls._formats = config.get('ckanext.xloader.formats')
+            if cls._formats is not None:
+                cls._formats = cls._formats.lower().split()
+            else:
+                cls._formats = DEFAULT_FORMATS
+        if not format_:
+            return False
+        return format_.lower() in cls._formats
 
 
 class xloaderPlugin(plugins.SingletonPlugin):
@@ -38,19 +53,14 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     # IConfigurable
 
-    def configure(self, config):
-        self.config = config
-
-        xloader_formats = config.get('ckanext.xloader.formats', '').lower()
-        self.xloader_formats = xloader_formats.lower().split() or DEFAULT_FORMATS
-
-        if config.get('ckanext.xloader.ignore_hash') in ['True', 'TRUE', '1', True, 1]:
+    def configure(self, config_):
+        if config_.get('ckanext.xloader.ignore_hash') in ['True', 'TRUE', '1', True, 1]:
             self.ignore_hash = True
         else:
             self.ignore_hash = False
 
         for config_option in ('ckan.site_url',):
-            if not config.get(config_option):
+            if not config_.get(config_option):
                 raise Exception(
                     'Config option `{0}` must be set to use ckanext-xloader.'
                     .format(config_option))
@@ -72,39 +82,48 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 # 1 parameter
                 context = {'model': model, 'ignore_auth': True,
                            'defer_commit': True}
-                if (entity.format and
-                        entity.format.lower() in self.xloader_formats and
-                        entity.url_type not in ('datapusher', 'xloader')):
+                if not XLoaderFormats.is_it_an_xloader_format(entity.format):
+                    log.debug('Skipping xloading resource {r.id} because '
+                              'format "{r.format}" is not configured to be '
+                              'xloadered'
+                              .format(r=entity))
+                    return
+                if entity.url_type in ('datapusher', 'xloader'):
+                    log.debug('Skipping xloading resource {r.id} because '
+                              'url_type "{r.url_type}" means resource.url '
+                              'points to the datastore already, so loading '
+                              'would be circular.'.format(r=entity))
+                    return
 
-                    # try:
-                    #     task = p.toolkit.get_action('task_status_show')(
-                    #         context, {
-                    #             'entity_id': entity.id,
-                    #             'task_type': 'datapusher',
-                    #             'key': 'datapusher'}
-                    #     )
-                    #     if task.get('state') == 'pending':
-                    #         # There already is a pending DataPusher submission,
-                    #         # skip this one ...
-                    #         log.debug(
-                    #             'Skipping DataPusher submission for '
-                    #             'resource {0}'.format(entity.id))
-                    #         return
-                    # except p.toolkit.ObjectNotFound:
-                    #     pass
+                # try:
+                #     task = p.toolkit.get_action('task_status_show')(
+                #         context, {
+                #             'entity_id': entity.id,
+                #             'task_type': 'datapusher',
+                #             'key': 'datapusher'}
+                #     )
+                #     if task.get('state') == 'pending':
+                #         # There already is a pending DataPusher submission,
+                #         # skip this one ...
+                #         log.debug(
+                #             'Skipping DataPusher submission for '
+                #             'resource {0}'.format(entity.id))
+                #         return
+                # except p.toolkit.ObjectNotFound:
+                #     pass
 
-                    try:
-                        log.debug('Submitting resource {0} to be xloadered'
-                                  .format(entity.id))
-                        p.toolkit.get_action('xloader_submit')(context, {
-                            'resource_id': entity.id,
-                            'ignore_hash': self.ignore_hash,
-                        })
-                    except p.toolkit.ValidationError, e:
-                        # If xloader is offline, we want to catch error instead
-                        # of raising otherwise resource save will fail with 500
-                        log.critical(e)
-                        pass
+                try:
+                    log.debug('Submitting resource {0} to be xloadered'
+                                .format(entity.id))
+                    p.toolkit.get_action('xloader_submit')(context, {
+                        'resource_id': entity.id,
+                        'ignore_hash': self.ignore_hash,
+                    })
+                except p.toolkit.ValidationError, e:
+                    # If xloader is offline, we want to catch error instead
+                    # of raising otherwise resource save will fail with 500
+                    log.critical(e)
+                    pass
 
     # IActions
 
