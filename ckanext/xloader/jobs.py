@@ -176,13 +176,16 @@ def xloader_data_into_datastore_(input, job_dict):
                 )
         response = get_url()
 
-        if response.status_code == 202:
+        if response.status_code in [202, 404]:
             # Seen: https://data-cdfw.opendata.arcgis.com/datasets
             # In this case it means it's still processing, so do retries.
             # 202 can mean other things, but there's no harm in retries.
+            # Retry for 404 in case file isn't ready in cloud storage.
             wait = 1
-            while wait < 120 and response.status_code == 202:
-                logger.info('Retrying after {}s'.format(wait))
+            while wait < 120 and response.status_code in [202, 404]:
+                retry_msg = 'HTTP status: {}, Retrying after {}s' \
+                    .format(response.status_code, wait)
+                logger.info(retry_msg)
                 time.sleep(wait)
                 response = get_url()
                 wait *= 3
