@@ -10,6 +10,19 @@ class IXloader(Interface):
     The before_submit function, when implemented
     """
 
+    def modify_download_request(self, url, resource, api_key, headers):
+        """ Can be used to modify the http download request.
+        The headers parameter is a dict which should be modified directly.
+
+        Return value should be the modified (or unmodified) url.
+
+        :param url: The download url
+        :param resource: The dict representation of the resource to be downloaded
+        :param api_key: The CKAN api key, in case authorization header needs to be modified
+        :param headers: The http request headers dict, to be modified directly
+        """
+        return url
+
     def can_upload(self, resource_id):
         """ This call when implemented can be used to stop the processing of
         the xloader submit function. This method will not be called if
