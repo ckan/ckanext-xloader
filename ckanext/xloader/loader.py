@@ -510,6 +510,14 @@ def _populate_fulltext(connection, resource_id, fields):
     connection.execute(sql)
 
 
+def run_analyze(resource_id, logger):
+    logger.info('Running ANALYZE on the table')
+    engine = get_write_engine()
+    conn = engine.connect()
+    conn.execute("ANALYZE \"{resource_id}\";"
+                 .format(resource_id=resource_id))
+
+
 ################################
 #    datastore copied code     #
 # (for use with older ckans that lack this)

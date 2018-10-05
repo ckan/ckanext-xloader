@@ -251,6 +251,7 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'],
             mimetype=resource.get('format'),
             logger=logger)
+        loader.run_analyze(resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         job_dict['status'] = 'running_but_viewable'
         callback_xloader_hook(result_url=input['result_url'],
@@ -272,6 +273,7 @@ def xloader_data_into_datastore_(input, job_dict):
         except JobError as e:
             logger.error('Error during messytables load: {}'.format(e))
             raise
+        loader.run_analyze(resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
 

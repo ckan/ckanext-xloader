@@ -157,6 +157,17 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
                               .where(logs.c.job_id == task_id))
         return Logs(result.fetchall())
 
+    def get_time_of_last_analyze(self):
+        engine, conn = self.get_datastore_engine_and_connection()
+        result = conn.execute(
+            '''
+            SELECT last_analyze, last_autoanalyze
+            FROM pg_stat_user_tables
+            WHERE relname='{}';
+            '''.format(self.resource_id))
+        last_analyze_datetimes = result.fetchall()[0]
+        return max([x for x in last_analyze_datetimes if x] or [None])
+
     @mock_actions
     @responses.activate
     def test_simple_csv(self):
@@ -211,6 +222,10 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
+
+        # Check ANALYZE was run
+        last_analyze = self.get_time_of_last_analyze()
+        assert(last_analyze)
 
     @mock_actions
     @responses.activate
