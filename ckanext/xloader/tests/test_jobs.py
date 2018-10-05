@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import datetime
 try:
     from collections import OrderedDict  # from python 2.7
 except ImportError:
@@ -37,7 +38,7 @@ def mock_actions(func):
                        'id': data_dict['id'],
                        'name': 'short name',
                        'url': SOURCE_URL,
-                       'format': 'CSV',
+                       'format': '',
                        'package_id': 'test-pkg',
                     }
                 return mock_resource_show
@@ -221,6 +222,75 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
 
         logs = self.get_load_logs(job_id)
+        logs.assert_no_errors()
+
+        # Check ANALYZE was run
+        last_analyze = self.get_time_of_last_analyze()
+        assert(last_analyze)
+
+    @mock_actions
+    @responses.activate
+    def test_messytables(self):
+        # xloader's COPY can't handle xls, so it will be dealt with by
+        # messytables
+        self.register_urls(filename='simple.xls',
+                           content_type='application/vnd.ms-excel')
+        data = {
+            'api_key': self.api_key,
+            'job_type': 'xloader_to_datastore',
+            'result_url': self.callback_url,
+            'metadata': {
+                'ckan_url': 'http://%s/' % self.host,
+                'resource_id': self.resource_id
+            }
+        }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
+
+        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
+                as mocked_set_datastore_active_flag:
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
+                            return_value=mock.Mock(id=job_id)):
+                result = jobs.xloader_data_into_datastore(data)
+        eq_(result, None)
+
+        # Check it said it was successful
+        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
+        assert job_dict['status'] == u'complete', job_dict
+        eq_(job_dict,
+            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
+        # Check the load
+        data = self.get_datastore_table()
+        eq_(data['headers'],
+            ['_id', '_full_text', 'date', 'temperature', 'place'])
+        eq_(data['header_dict']['date'], 'TIMESTAMP WITHOUT TIME ZONE')
+        eq_(data['header_dict']['temperature'], 'NUMERIC')
+        eq_(data['header_dict']['place'], 'TEXT')
+        eq_(data['num_rows'], 6)
+        eq_(data['rows'][0][2:],
+            (datetime.datetime(2011, 1, 1), 1, u'Galway'))
+
+        # Check it wanted to set the datastore_active=True
+        mocked_set_datastore_active_flag.assert_called_once()
+        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
+            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+
+        # check logs have the error doing the COPY
+        logs = self.get_load_logs(job_id)
+        copy_error_index = None
+        for i, log in enumerate(logs):
+            if log[0] == 'ERROR' and log[1].startswith('Error during load: Error during the load into PostgreSQL'):
+                copy_error_index = i
+                break
+        assert copy_error_index, 'Missing COPY error'
+        # check messytable portion of the logs
+        logs = Logs(logs[copy_error_index + 1:])
+        eq_(logs[0], (u'INFO', u'Trying again with messytables'))
         logs.assert_no_errors()
 
         # Check ANALYZE was run
