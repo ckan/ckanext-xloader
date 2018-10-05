@@ -43,7 +43,7 @@ data to a JSON string, calls datastore_create for each batch of rows, which
 reformats the data into an INSERT statement string, which is passed to
 PostgreSQL.
 
-Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
+XLoader - pipes the CSV file directly into PostgreSQL using COPY.
 
 In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader
 is over ten times faster than DataPusher.
