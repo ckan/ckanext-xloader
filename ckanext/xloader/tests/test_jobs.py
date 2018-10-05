@@ -360,6 +360,10 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         eq_(job['status'], u'complete')
         eq_(job['error'], None)
 
+        # Check ANALYZE was run
+        last_analyze = self.get_time_of_last_analyze()
+        assert(last_analyze)
+
     @mock_actions
     @responses.activate
     def test_first_request_is_202_pending_response(self):
