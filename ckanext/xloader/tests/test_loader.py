@@ -299,6 +299,24 @@ class TestLoadCsv(TestLoadBase):
             "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
             )
 
+    def test_encode_headers(self):
+        test_string_headers = [u'id', u'namé']
+        test_float_headers = [u'id', u'näme', 2.0]
+        test_int_headers = [u'id', u'nóm', 3]
+        test_result_string_headers = loader.encode_headers(test_string_headers)
+        test_result_float_headers = loader.encode_headers(test_float_headers)
+        test_result_int_headers = loader.encode_headers(test_int_headers)
+
+        assert_in('id', test_result_string_headers)
+        assert_in('name', test_result_string_headers)
+        assert_in('id', test_result_float_headers)
+        assert_in('name', test_result_float_headers)
+        assert_in('2.0', test_result_float_headers)
+        assert_in('id', test_result_int_headers)
+        assert_in('nom', test_result_int_headers)
+        assert_in('3', test_result_int_headers)
+
+
 class TestLoadUnhandledTypes(TestLoadBase):
 
     def test_kml(self):
