@@ -63,7 +63,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = [unidecode(header) for header in headers]
+    headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
     with open(csv_filepath, 'r') as f:
@@ -292,7 +292,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = [unidecode(header) for header in headers]
+        headers = encode_headers(headers)
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
@@ -391,6 +391,17 @@ def get_types():
     #TYPES = web.app.config.get('TYPES', _TYPES)
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
+
+
+def encode_headers(headers):
+    encoded_headers = []
+    for header in headers:
+        try:
+            encoded_headers.append(unidecode(header))
+        except AttributeError:
+            encoded_headers.append(unidecode(str(header)))
+
+    return encoded_headers
 
 
 def chunky(iterable, n):

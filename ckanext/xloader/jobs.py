@@ -479,11 +479,11 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = unicode(record.getMessage())
-            level = unicode(record.levelname)
-            module = unicode(record.module)
-            funcName = unicode(record.funcName)
-
+            message = self._safe_encode(record.getMessage())
+            level = self._safe_encode(record.levelname)
+            module = self._safe_encode(record.module)
+            funcName = self._safe_encode(record.funcName)
+            
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
                 timestamp=datetime.datetime.now(),
@@ -494,6 +494,12 @@ class StoringHandler(logging.Handler):
                 lineno=record.lineno))
         finally:
             conn.close()
+
+    def _safe_encode(self, obj):
+        try:
+            return unicode(obj)
+        except UnicodeDecodeError:
+            return obj
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):
