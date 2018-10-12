@@ -228,6 +228,24 @@ class TestLoadCsv(TestLoadBase):
             [u'text'] * (len(records[0]) - 1)
         )
 
+    def test_header_numbers(self):
+        csv_filepath = get_sample_filepath('header_numbers.csv')
+        resource_id = 'test_header_numbers'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+        print self._get_column_names(resource_id)
+        assert_equal(
+            self._get_column_names(resource_id)[2:],
+            [u'id', u'1st-name', u'123', u'3.14', u'01234']
+        )
+        records = self._get_records(resource_id)
+        print records
+        assert_equal(
+            records[0],
+            (1, u'1', u'Bob', u'123', u'3.14', u'01234'),
+        )
+
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
