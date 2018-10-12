@@ -72,7 +72,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(header_line).delimiter
     except csv.Error:
-        logger.error('Could not determine delimiter from file, use default ","')
+        logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
 
     # Setup the converters that run when you iterate over the row_set.
@@ -216,9 +216,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                 ),
                             f)
                     except psycopg2.DataError as e:
-                        logger.error(e)
+                        # e is a str but with foreign chars e.g.
+                        # 'extra data: "paul,pa\xc3\xbcl"\n'
+                        # but logging and exceptions need a normal (7 bit) str
+                        error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
-                                          ' {}'.format(e))
+                                          ' {}'.format(error_str))
 
             finally:
                 cur.close()
