@@ -59,7 +59,6 @@ class TestLoadBase(util.PluginsMixin):
         return results.fetchall()
 
     def _get_column_names(self, table_name):
-        # SELECT column_name FROM information_schema.columns WHERE table_name='test1';
         c = self.Session.connection()
         sql = "SELECT column_name FROM information_schema.columns " \
               "WHERE table_name='{}';".format(table_name)
@@ -228,6 +227,26 @@ class TestLoadCsv(TestLoadBase):
             [u'text'] * (len(records[0]) - 1)
         )
 
+    def test_header_numbers(self):
+        csv_filepath = get_sample_filepath('header_numbers.csv')
+        resource_id = 'test_header_numbers'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+
+        print self._get_column_names(resource_id)
+        assert_equal(
+            self._get_column_names(resource_id)[2:],
+            [u'id', u'1st-name', u'123', u'3.14', u'01234']
+        )
+        records = self._get_records(resource_id)
+        print records
+        assert_equal(
+            records[0],
+            (1, u'1', u'Bob', u'123', u'3.14', u'01234'),
+        )
+
+
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
@@ -299,22 +318,20 @@ class TestLoadCsv(TestLoadBase):
             "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
             )
 
-    def test_encode_headers(self):
-        test_string_headers = [u'id', u'namé']
-        test_float_headers = [u'id', u'näme', 2.0]
-        test_int_headers = [u'id', u'nóm', 3]
-        test_result_string_headers = loader.encode_headers(test_string_headers)
-        test_result_float_headers = loader.encode_headers(test_float_headers)
-        test_result_int_headers = loader.encode_headers(test_int_headers)
+    def test_encode_headers_string(self):
+        headers = [u'id', u'namé']
+        assert_equal(loader.encode_headers(headers),
+                     ['id', 'name'])
 
-        assert_in('id', test_result_string_headers)
-        assert_in('name', test_result_string_headers)
-        assert_in('id', test_result_float_headers)
-        assert_in('name', test_result_float_headers)
-        assert_in('2.0', test_result_float_headers)
-        assert_in('id', test_result_int_headers)
-        assert_in('nom', test_result_int_headers)
-        assert_in('3', test_result_int_headers)
+    def test_encode_headers_float(self):
+        headers = [u'id', u'näme', 2.0]
+        assert_equal(loader.encode_headers(headers),
+                     ['id', 'name', 2.0])
+
+    def test_encode_headers_int(self):
+        headers = [u'id', u'nóm', 3]
+        assert_equal(loader.encode_headers(headers),
+                     ['id', 'nom', '3'])
 
 
 class TestLoadUnhandledTypes(TestLoadBase):

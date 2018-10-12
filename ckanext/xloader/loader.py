@@ -396,10 +396,7 @@ def get_types():
 def encode_headers(headers):
     encoded_headers = []
     for header in headers:
-        try:
-            encoded_headers.append(unidecode(header))
-        except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+        encoded_headers.append(unidecode(header))
 
     return encoded_headers
 
