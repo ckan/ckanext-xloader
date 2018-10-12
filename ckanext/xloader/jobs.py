@@ -193,7 +193,7 @@ def xloader_data_into_datastore_(input, job_dict):
             error_msg = 'Resource too large to download: ' \
                 '{cl} > max ({max_cl}).' \
                 .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-            logger.error(error_msg)
+            logger.warning(error_msg)
             raise JobError(error_msg)
 
         # download the file to a tempfile on disk
@@ -212,13 +212,13 @@ def xloader_data_into_datastore_(input, job_dict):
 
     except requests.exceptions.HTTPError as error:
         # status code error
-        logger.error('HTTP error: {}'.format(error))
+        logger.debug('HTTP error: {}'.format(error))
         raise HTTPError(
             "DataPusher received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
-        logger.error('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        logger.warning('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
@@ -226,7 +226,7 @@ def xloader_data_into_datastore_(input, job_dict):
             err_message = str(e.reason)
         except AttributeError:
             err_message = str(e)
-        logger.error('URL error: {}'.format(err_message))
+        logger.warning('URL error: {}'.format(err_message))
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
@@ -263,7 +263,7 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'],
             logger=logger)
     except JobError as e:
-        logger.error('Error during load: {}'.format(e))
+        logger.warning('Load using COPY failed: {}'.format(e))
         logger.info('Trying again with messytables')
         try:
             loader.load_table(tmp_file.name,
