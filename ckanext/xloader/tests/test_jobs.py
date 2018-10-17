@@ -260,6 +260,52 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         eq_(job['status'], u'complete')
         eq_(job['error'], None)
 
+    @mock_actions
+    @responses.activate
+    def test_invalid_byte_sequence(self):
+        self.register_urls(filename='go-realtime.xlsx')
+        # This xlsx throws an Postgres error on INSERT because of
+        # 'invalid byte sequence for encoding "UTF8": 0x00' which causes
+        # the COPY to throw a psycopg2.DataError and umlauts in the file can
+        # cause problems for logging the error. We need to check that
+        # it correctly reverts to using messytables to load it
+        data = {
+            'api_key': self.api_key,
+            'job_type': 'xloader_to_datastore',
+            'result_url': self.callback_url,
+            'metadata': {
+                'ckan_url': 'http://%s/' % self.host,
+                'resource_id': self.resource_id
+            }
+        }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
+
+        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
+                as mocked_set_datastore_active_flag:
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
+                            return_value=mock.Mock(id=job_id)):
+                result = jobs.xloader_data_into_datastore(data)
+        assert result is None, jobs_db.get_job(job_id)['error']['message']
+
+        # Check it said it was successful
+        eq_(responses.calls[-1].request.url,
+            'http://www.ckan.org/api/3/action/xloader_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
+        assert job_dict['status'] == u'complete', job_dict
+        eq_(job_dict,
+            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
+        logs = self.get_load_logs(job_id)
+        logs.assert_no_errors()
+
+        job = jobs_db.get_job(job_id)
+        eq_(job['status'], u'complete')
+        eq_(job['error'], None)
+
 
     @mock_actions
     @responses.activate
