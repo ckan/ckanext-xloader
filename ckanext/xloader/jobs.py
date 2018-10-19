@@ -247,6 +247,7 @@ def xloader_data_into_datastore_(input, job_dict):
     # Load it
     logger.info('Loading CSV')
     try:
+        import pdb; pdb.set_trace()
         fields = loader.load_csv(
             tmp_file.name,
             resource_id=resource['id'],
