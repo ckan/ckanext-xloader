@@ -2,8 +2,8 @@
    these badges work. The necessary Travis and Coverage config files have been
    generated for you.
 
-.. image:: https://travis-ci.org/davidread/ckanext-xloader.svg?branch=master
-    :target: https://travis-ci.org/davidread/ckanext-xloader
+.. image:: https://travis-ci.org/ckan/ckanext-xloader.svg?branch=master
+    :target: https://travis-ci.org/ckan/ckanext-xloader
 
 .. image:: https://img.shields.io/pypi/v/ckanext-xloader.svg
     :target: https://pypi.python.org/pypi/ckanext-xloader/
@@ -40,7 +40,7 @@ DataPusher - parses CSV rows, converts to detected column types, converts the da
 
 Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests <https://github.com/davidread/ckanext-xloader/issues/25>`_, Express Loader is over ten times faster than DataPusher.
+In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader is over ten times faster than DataPusher.
 
 Robustness
 ----------
@@ -200,7 +200,7 @@ Development Installation
 To install Express Loader for development, activate your CKAN virtualenv and
 in the directory up from your local ckan repo::
 
-    git clone https://github.com/davidread/ckanext-xloader.git
+    git clone https://github.com/ckan/ckanext-xloader.git
     cd ckanext-xloader
     python setup.py develop
     pip install -r requirements.txt
