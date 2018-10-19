@@ -260,7 +260,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         eq_(job['status'], u'complete')
         eq_(job['error'], None)
 
-
     @mock_actions
     @responses.activate
     def test_first_request_is_202_pending_response(self):
