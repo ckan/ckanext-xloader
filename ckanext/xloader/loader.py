@@ -360,10 +360,13 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Copying to database...')
         count = 0
-        for i, records in enumerate(chunky(result, 250)):
+        for i, chunk in enumerate(chunky(result, 250)):
+            records, is_it_the_last_chunk = chunk
             count += len(records)
-            logger.info('Saving chunk {number}'.format(number=i))
-            send_resource_to_datastore(resource_id, headers_dicts, records)
+            logger.info('Copying chunk {number} {is_last}'.format(
+            number=i, is_last='(last)' if is_it_the_last_chunk else ''))
+            send_resource_to_datastore(resource_id, headers_dicts, records,
+                                    is_it_the_last_chunk)
         logger.info('...copying done')
 
         if count:
@@ -408,28 +411,38 @@ def encode_headers(headers):
     return encoded_headers
 
 
-def chunky(iterable, n):
+def chunky(items, num_items_per_chunk):
     """
-    Generates chunks of data that can be loaded into ckan
+    Breaks up a list of items into chunks - multiple smaller lists of items.
+    The last chunk is flagged up.
 
-    :param n: Size of each chunks
-    :type n: int
+    :param items: Size of each chunks
+    :type items: iterable
+    :param num_items_per_chunk: Size of each chunks
+    :type num_items_per_chunk: int
+
+    :returns: multiple tuples: (chunk, is_it_the_last_chunk)
+    :rtype: generator of (list, bool)
     """
-    it = iter(iterable)
-    item = list(itertools.islice(it, n))
-    while item:
-        yield item
-        item = list(itertools.islice(it, n))
+    items_ = iter(items)
+    chunk = list(itertools.islice(items_, num_items_per_chunk))
+    while chunk:
+        next_chunk = list(itertools.islice(items_, num_items_per_chunk))
+        chunk_is_the_last_one = not next_chunk
+        yield chunk, chunk_is_the_last_one
+        chunk = next_chunk
 
 
-def send_resource_to_datastore(resource_id, headers, records):
+def send_resource_to_datastore(resource_id, headers, records,
+                               is_it_the_last_chunk):
     """
     Stores records in CKAN datastore
     """
     request = {'resource_id': resource_id,
                'fields': headers,
                'force': True,
-               'records': records}
+               'records': records,
+               'calculate_record_count': is_it_the_last_chunk}
 
     from ckan import model
     context = {'model': model, 'ignore_auth': True}

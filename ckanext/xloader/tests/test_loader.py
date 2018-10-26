@@ -464,3 +464,29 @@ class TestLoadMessytables(TestLoadBase):
         with assert_raises(LoaderError) as exception:
             loader.load_table(csv_filepath, resource_id=resource_id,
                               mimetype='csv', logger=PrintLogger())
+
+
+class TestChunky():
+    def test_simple(self):
+        chunks = loader.chunky('abcdefg', 3)
+        assert_equal(
+            list(chunks),
+            [
+                (['a', 'b', 'c'], False),
+                (['d', 'e', 'f'], False),
+                (['g'], True)
+             ])
+
+    def test_length_is_the_exact_multiple(self):
+        chunks = loader.chunky('abcdef', 3)
+        assert_equal(
+            list(chunks),
+            [
+                (['a', 'b', 'c'], False),
+                (['d', 'e', 'f'], True),
+             ])
+
+    def test_empty(self):
+        chunks = loader.chunky('', 3)
+        assert_equal(
+            list(chunks), [])
