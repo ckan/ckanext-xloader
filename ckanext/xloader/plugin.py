@@ -34,7 +34,7 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
-class xloaderPlugin(plugins.SingletonPlugin):
+class xloaderPlugin(plugins.SingletonPlugin, plugins.toolkit.DefaultDatasetForm):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
     plugins.implements(plugins.IDomainObjectModification)
@@ -43,6 +43,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
+    plugins.implements(plugins.IDatasetForm)
 
     # IConfigurer
 
@@ -159,3 +160,41 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_status_description':
             xloader_helpers.xloader_status_description,
         }
+
+    # IDatasetForm
+    def create_package_schema(self):
+        # let's grab the default schema in our plugin
+        schema = super(xloaderPlugin, self).create_package_schema()
+        # our custom field
+        schema['resources'].update({
+            'amount_column' : [ plugins.toolkit.get_validator('ignore_missing') ],
+            'date_column' : [ plugins.toolkit.get_validator('ignore_missing') ]
+        })
+        return schema
+
+    def update_package_schema(self):
+        schema = super(xloaderPlugin, self).update_package_schema()
+        # our custom field
+        schema['resources'].update({
+            'amount_column' : [ plugins.toolkit.get_validator('ignore_missing') ],
+            'date_column' : [ plugins.toolkit.get_validator('ignore_missing') ]
+        })
+        return schema
+
+    def show_package_schema(self):
+        schema = super(xloaderPlugin, self).show_package_schema()
+        schema['resources'].update({
+            'amount_column' : [ plugins.toolkit.get_validator('ignore_missing') ],
+            'date_column' : [ plugins.toolkit.get_validator('ignore_missing') ]
+        })
+        return schema
+
+    def is_fallback(self):
+        # Return True to register this plugin as the default handler for
+        # package types not handled by any other IDatasetForm plugin.
+        return True
+
+    def package_types(self):
+        # This plugin doesn't handle any special package types, it just
+        # registers itself as the default (above).
+        return []

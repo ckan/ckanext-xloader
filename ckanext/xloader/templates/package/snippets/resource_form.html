@@ -1,0 +1,20 @@
+{% ckan_extends %}
+
+{% block metadata_fields %}
+  {% if include_metadata %}
+    {# TODO: Where do these come from, they don't exist in /package/new_package_form.html #}
+    {# {{ form.select('resource_type', id='field-type', label=_('Resource Type'), options=[{'value': 'empty', 'text': _('Select a type…')}], selected="empty", error=errors.type) }} #}
+
+    {{ form.input('last_modified', id='field-last-modified', label=_('Last Modified'), placeholder=_('eg. 2012-06-05'), value=data.last_modified, error=errors.last_modified, classes=[]) }}
+
+    {{ form.input('size', id='field-size', label=_('File Size'), placeholder=_('eg. 1024'), value=data.size, error=errors.size, classes=[]) }}
+
+    {{ form.input('mimetype', id='field-mimetype', label=_('MIME Type'), placeholder=_('eg. application/json'), value=data.mimetype, error=errors.mimetype, classes=[]) }}
+
+    {{ form.input('mimetype_inner', id='field-mimetype-inner', label=_('MIME Type'), placeholder=_('eg. application/json'), value=data.mimetype_inner, error=errors.mimetype_inner, classes=[]) }}
+  {% endif %}
+
+  {{ form.input('amount_column', id='field-amount-column', label=_('Amount Column'), placeholder=_('Amount'), value=data.amount_column, error=errors.amount_column, classes=['control-full']) }}
+
+  {{ form.input('date_column', id='field-date-column', label=_('Date Column'), placeholder=_('Date'), value=data.date_column, error=errors.date_column, classes=['control-full']) }}
+{% endblock %}

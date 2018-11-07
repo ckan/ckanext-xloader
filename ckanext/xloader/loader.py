@@ -11,6 +11,8 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import create_engine, MetaData
 import messytables
 from unidecode import unidecode
+from opengov import import_resource_to_opengov
+
 
 try:
     import ckanext.datastore.backend.postgres as datastore_db
@@ -64,6 +66,21 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # Some headers might have been converted from strings to floats and such.
     headers = [unidecode(header) for header in headers]
+
+    logger.info("Importing to OpenGov")
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    resource_dict = p.toolkit.get_action('resource_show')(context, { u'id': resource_id })
+    # logger.info(resource_dict)
+    import_resource_to_opengov({
+        'backend': config.get('ckanext.xloader.opengov.backend'),
+        'entity_id': config.get('ckanext.xloader.opengov.entity_id'),
+        'api_key': config.get('ckanext.xloader.opengov.api_key')
+        },
+        csv_filepath, resource_dict, logger
+    )
+    logger.info("Done importing to OpenGov")
+
 
     # Guess the delimiter used in the file
     with open(csv_filepath, 'r') as f:
