@@ -268,7 +268,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         eq_(job['status'], u'complete')
         eq_(job['error'], None)
 
-    @mock_actions(resource_url=u'http://example.com/umlaut_name_%C3%A4%C3%B6%C3%BC.csv')
+    @mock_actions(resource_url=u'http://example.com/umlaut_name_äöü.csv')
     @responses.activate
     def test_resource_url_with_umlaut(self):
         # test that xloader can handle URLs with umlauts
