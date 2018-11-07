@@ -49,6 +49,7 @@ class xloaderCommand(cli.CkanCommand):
 
     def __init__(self, name):
         super(xloaderCommand, self).__init__(name)
+        self.error_occured = False
 
         self.parser.add_option('-y', dest='yes',
                                action='store_true', default=False,
@@ -82,11 +83,17 @@ class xloaderCommand(cli.CkanCommand):
                 self._load_config()
                 self._setup_xloader_logger()
                 self._submit_package(pkg_name_or_id)
+            self._handle_command_status()
         elif self.args[0] == 'status':
             self._load_config()
             self._print_status()
         else:
             self.parser.error('Unrecognized command')
+
+    def _handle_command_status(self):
+        if self.error_occured:
+            print('Finished but saw errors - see above for details')
+            sys.exit(1)
 
     def _setup_xloader_logger(self):
         # whilst the deveopment.ini's loggers are setup now, because this is
@@ -166,6 +173,7 @@ class xloaderCommand(cli.CkanCommand):
                 resource['package_name'] = pkg['name']  # for debug output
                 self._submit_resource(resource, user, indent=indent + 2)
             except Exception as e:
+                self.error_occured = True
                 print(e)
                 print(' ' * indent + 'ERROR submitting resource "{}" '.format(
                     resource['id']))
@@ -206,6 +214,7 @@ class xloaderCommand(cli.CkanCommand):
             print(' ' * indent + '...ok')
         else:
             print(' ' * indent + 'ERROR submitting resource')
+            self.error_occured = True
 
     def _print_status(self):
         try:
