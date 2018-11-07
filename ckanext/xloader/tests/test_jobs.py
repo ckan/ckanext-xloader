@@ -295,7 +295,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             with mock.patch('ckanext.xloader.jobs.get_current_job',
                             return_value=mock.Mock(id=job_id)):
                 result = jobs.xloader_data_into_datastore(data)
-        assert result is None, jobs_db.get_job(job_id)['error']['message']
+        assert result is None, jobs_db.get_job(job_id)['error']['message'].decode('utf-8')
 
         # Check it said it was successful
         eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
