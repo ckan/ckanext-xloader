@@ -214,7 +214,7 @@ def xloader_data_into_datastore_(input, job_dict):
         # status code error
         logger.debug('HTTP error: {}'.format(error))
         raise HTTPError(
-            "DataPusher received a bad HTTP response when trying to download "
+            "Xloader received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
@@ -441,7 +441,7 @@ def check_response(response, request_url, who, good_status=(201, 200),
     """
     if not response.status_code:
         raise HTTPError(
-            'DataPusher received an HTTP response with no status code',
+            'Xloader received an HTTP response with no status code',
             status_code=None, request_url=request_url, response=response.text)
 
     message = '{who} bad response. Status code: {code} {reason}. At: {url}.'
