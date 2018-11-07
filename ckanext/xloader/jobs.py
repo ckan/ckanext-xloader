@@ -158,7 +158,7 @@ def xloader_data_into_datastore_(input, job_dict):
         )
 
     # fetch the resource data
-    logger.info(u'Fetching from: {0}'.format(url.decode('utf-8')))
+    logger.info(u'Fetching from: {0}'.format(url))
     try:
         headers = {}
         if resource.get('url_type') == 'upload':
