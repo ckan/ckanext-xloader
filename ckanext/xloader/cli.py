@@ -162,8 +162,14 @@ class xloaderCommand(cli.CkanCommand):
         print(' ' * indent + 'Processing dataset {} with {} resources'.format(
               pkg['name'], len(pkg['resources'])))
         for resource in pkg['resources']:
-            resource['package_name'] = pkg['name']  # for debug output
-            self._submit_resource(resource, user, indent=indent + 2)
+            try:
+                resource['package_name'] = pkg['name']  # for debug output
+                self._submit_resource(resource, user, indent=indent + 2)
+            except Exception as e:
+                print(e)
+                print(' ' * indent + 'ERROR submitting resource "{}" '.format(
+                    resource['id']))
+                continue
 
     def _submit_resource(self, resource, user, indent=0):
         '''resource: resource dictionary
