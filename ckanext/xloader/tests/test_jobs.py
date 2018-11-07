@@ -23,7 +23,7 @@ from ckan.tests import factories
 
 SOURCE_URL = 'http://www.example.com/static/file'
 
-def mock_actions(resource_url=SOURCE_URL):
+def mock_actions(resource_url=None):
     def decorator(func):
         '''
         Decorator that mocks actions used by these tests
@@ -273,7 +273,10 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
     def test_resource_url_with_umlaut(self):
         # test that xloader can handle URLs with umlauts
         # e.g. http://www.web.statistik.zh.ch/ogd/data/KANTON_ZUERICH_gpfi_Jahresrechung_Zweckverbände.csv
-        self.register_urls(filename='umlaut_name_äöü.csv')
+        self.register_urls(
+            filename='umlaut_name_äöü.csv',
+            resource_url='http://example.com/umlaut_name_äöü.csv'
+        )
         data = {
             'api_key': self.api_key,
             'job_type': 'xloader_to_datastore',
