@@ -31,7 +31,7 @@ class HTTPError(JobError):
 
     def __str__(self):
         return u'{} status={} url={} response={}'.format(
-            self.message.decode('utf-8'), self.status_code, self.request_url.decode('utf-8'), self.response) \
+            self.message, self.status_code, self.request_url, self.response) \
             .encode('ascii', 'replace')
 
 class LoaderError(JobError):
