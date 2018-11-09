@@ -31,7 +31,7 @@ else:
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
-MAX_CONTENT_LENGTH = config.get('ckanext.xloader.max_content_length') or 1e9
+MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
