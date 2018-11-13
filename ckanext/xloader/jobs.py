@@ -8,6 +8,8 @@ import urlparse
 import datetime
 import traceback
 import sys
+import pandas as pd
+import io
 
 import requests
 from rq import get_current_job
@@ -32,6 +34,8 @@ if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+UPLOAD_EXCERPT = bool(config.get('ckanext.xloader.upload_excerpt')) or False
+MIN_ROW_NUMBER = int(config.get('ckanext.xloader.min_row_number') or 1e2)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
@@ -189,26 +193,37 @@ def xloader_data_into_datastore_(input, job_dict):
         response.raise_for_status()
 
         cl = response.headers.get('content-length')
-        if cl and int(cl) > MAX_CONTENT_LENGTH:
+        if cl and int(cl) > MAX_CONTENT_LENGTH and not UPLOAD_EXCERPT:
             error_msg = 'Resource too large to download: ' \
                 '{cl} > max ({max_cl}).' \
                 .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
+            # TODO let user know about MIN_ROW_NUMBER
             logger.warning(error_msg)
             raise JobError(error_msg)
 
         # download the file to a tempfile on disk
         filename = url.split('/')[-1].split('#')[0].split('?')[0]
         tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
-        length = 0
-        m = hashlib.md5()
-        for chunk in response.iter_content(CHUNK_SIZE):
-            length += len(chunk)
-            if length > MAX_CONTENT_LENGTH:
-                raise JobError(
-                    'Resource too large to process: {cl} > max ({max_cl}).'
-                    .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
-            tmp_file.write(chunk)
-            m.update(chunk)
+
+        if UPLOAD_EXCERPT:
+            url_data = requests.get(url).content
+            raw_data = pd.read_csv(io.StringIO(url_data.decode('utf-8')), nrows=MIN_ROW_NUMBER)
+
+            tmp_file.write(raw_data.to_csv(index=False))
+            length = tmp_file.tell()
+            m = hashlib.md5()
+            m.update(tmp_file.read())
+        else:
+            length = 0
+            m = hashlib.md5()
+            for chunk in response.iter_content(CHUNK_SIZE):
+                length += len(chunk)
+                if length > MAX_CONTENT_LENGTH:
+                    raise JobError(
+                        'Resource too large to process: {cl} > max ({max_cl}).'
+                        .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
+                tmp_file.write(chunk)
+                m.update(chunk)
 
     except requests.exceptions.HTTPError as error:
         # status code error

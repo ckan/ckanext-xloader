@@ -193,6 +193,15 @@ Configuration:
     # False (default), resources are only submitted if their hash has changed.
     ckanext.xloader.ignore_hash = False
 
+    # Set this option to True to only load an excerpt of all files submitted to Xloader.
+    # If set to False (default) the whole file will be uploaded.
+    # An excerpt of files that are bigger than the configured max_content_length
+    # will also be uploaded.
+    ckanext.xloader.upload_excerpt = true
+
+    # The number of rows that shall always be uploaded. Default is 100 rows.
+    ckanext.xloader.min_row_number = 100
+
 ------------------------
 Development Installation
 ------------------------
