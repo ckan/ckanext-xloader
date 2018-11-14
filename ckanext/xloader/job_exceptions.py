@@ -1,3 +1,7 @@
+class DataTooBigError(Exception):
+    pass
+
+
 class JobError(Exception):
     pass
 

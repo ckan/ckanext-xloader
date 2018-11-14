@@ -22,7 +22,7 @@ import ckan.lib.search as search
 
 import loader
 import db
-from job_exceptions import JobError, HTTPError
+from job_exceptions import JobError, HTTPError, DataTooBigError
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -192,41 +192,42 @@ def xloader_data_into_datastore_(input, job_dict):
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
-            if not UPLOAD_EXCERPT:
-                error_msg = 'Resource too large to download: ' \
+            raise DataTooBigError()
+
+        # download the file to a tempfile on disk
+        tmp_file = get_tmp_file(url)
+        length = 0
+        m = hashlib.md5()
+        for chunk in response.iter_content(CHUNK_SIZE):
+            length += len(chunk)
+            if length > MAX_CONTENT_LENGTH:
+                raise DataTooBigError
+            tmp_file.write(chunk)
+            m.update(chunk)
+
+    except DataTooBigError:
+        message = 'Data too large to load into Datastore: ' \
                     '{cl} > max ({max_cl}).' \
                     .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-                logger.warning(error_msg)
-                logger.warning('Consider setting option xloader-option '
-                               'ckanext.xloader.upload_excerpt to True to try '
-                               'loading bigger files partially to DataStore.')
-                raise JobError(error_msg)
-            else:
-                tmp_file = get_tmp_file(url)
-
-                if UPLOAD_EXCERPT:
-                    r = requests.get(url, stream=True)
-                    if r.encoding is None:
-                        r.encoding = 'utf-8'
-                    for i, line in enumerate(r.iter_lines()):
-                        if i < MIN_ROW_NUMBER + 1 and line:
-                            tmp_file.write(line + '\n')
-                    length = tmp_file.tell()
-                    m = hashlib.md5()
-                    m.update(tmp_file.read())
-        else:
+        if UPLOAD_EXCERPT:
+            logger.info(message)
+            logger.info('Loading header and first {lines} lines to '
+                        'DataStore.'
+                        .format(lines=MIN_ROW_NUMBER))
+            # download the file to a tempfile on disk
             tmp_file = get_tmp_file(url)
-            length = 0
+            r = requests.get(url, stream=True)
+            if r.encoding is None:
+                r.encoding = 'utf-8'
+            for i, line in enumerate(r.iter_lines()):
+                if i < MIN_ROW_NUMBER + 1 and line:
+                    tmp_file.write(line + '\n')
+            length = tmp_file.tell()
             m = hashlib.md5()
-            for chunk in response.iter_content(CHUNK_SIZE):
-                length += len(chunk)
-                if length > MAX_CONTENT_LENGTH:
-                    raise JobError(
-                        'Resource too large to process: {cl} > max ({max_cl}).'
-                        .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
-                tmp_file.write(chunk)
-                m.update(chunk)
-
+            m.update(tmp_file.read())
+        else:
+            logger.warning(message)
+            raise JobError(message)
     except requests.exceptions.HTTPError as error:
         # status code error
         logger.debug('HTTP error: {}'.format(error))
@@ -303,7 +304,6 @@ def xloader_data_into_datastore_(input, job_dict):
 
 
 def get_tmp_file(url):
-    # download the file to a tempfile on disk
     filename = url.split('/')[-1].split('#')[0].split('?')[0]
     tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
     return tmp_file
