@@ -8,8 +8,6 @@ import urlparse
 import datetime
 import traceback
 import sys
-import pandas as pd
-import io
 
 import requests
 from rq import get_current_job
@@ -193,27 +191,31 @@ def xloader_data_into_datastore_(input, job_dict):
         response.raise_for_status()
 
         cl = response.headers.get('content-length')
-        if cl and int(cl) > MAX_CONTENT_LENGTH and not UPLOAD_EXCERPT:
-            error_msg = 'Resource too large to download: ' \
-                '{cl} > max ({max_cl}).' \
-                .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-            # TODO let user know about MIN_ROW_NUMBER
-            logger.warning(error_msg)
-            raise JobError(error_msg)
+        if cl and int(cl) > MAX_CONTENT_LENGTH:
+            if not UPLOAD_EXCERPT:
+                error_msg = 'Resource too large to download: ' \
+                    '{cl} > max ({max_cl}).' \
+                    .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
+                logger.warning(error_msg)
+                logger.warning('Consider setting option xloader-option '
+                               'ckanext.xloader.upload_excerpt to True to try '
+                               'loading bigger files partially to DataStore.')
+                raise JobError(error_msg)
+            else:
+                tmp_file = get_tmp_file(url)
 
-        # download the file to a tempfile on disk
-        filename = url.split('/')[-1].split('#')[0].split('?')[0]
-        tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
-
-        if UPLOAD_EXCERPT:
-            url_data = requests.get(url).content
-            raw_data = pd.read_csv(io.StringIO(url_data.decode('utf-8')), nrows=MIN_ROW_NUMBER)
-
-            tmp_file.write(raw_data.to_csv(index=False))
-            length = tmp_file.tell()
-            m = hashlib.md5()
-            m.update(tmp_file.read())
+                if UPLOAD_EXCERPT:
+                    r = requests.get(url, stream=True)
+                    if r.encoding is None:
+                        r.encoding = 'utf-8'
+                    for i, line in enumerate(r.iter_lines()):
+                        if i < MIN_ROW_NUMBER + 1 and line:
+                            tmp_file.write(line + '\n')
+                    length = tmp_file.tell()
+                    m = hashlib.md5()
+                    m.update(tmp_file.read())
         else:
+            tmp_file = get_tmp_file(url)
             length = 0
             m = hashlib.md5()
             for chunk in response.iter_content(CHUNK_SIZE):
@@ -298,6 +300,13 @@ def xloader_data_into_datastore_(input, job_dict):
     tmp_file.close()
 
     logger.info('Express Load completed')
+
+
+def get_tmp_file(url):
+    # download the file to a tempfile on disk
+    filename = url.split('/')[-1].split('#')[0].split('?')[0]
+    tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
+    return tmp_file
 
 
 def set_datastore_active(data, resource, api_key, ckan_url, logger):
