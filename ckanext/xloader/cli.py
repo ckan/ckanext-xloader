@@ -198,10 +198,13 @@ class xloaderCommand(cli.CkanCommand):
                     r=resource))
             return
         dataset_ref = resource.get('package_name', resource['package_id'])
-        print('{indent}Submitting /dataset/{dataset}/resource/{r[id]}\n'
-              '{indent}           url={r[url]}\n'
-              '{indent}           format={r[format]}'
-              .format(dataset=dataset_ref, r=resource, indent=' ' * indent))
+        print(u'{indent}Submitting /dataset/{dataset}/resource/{r[id]}\n'
+              u'{indent}           url={url}\n'
+              u'{indent}           format={format}'
+              .format(dataset=dataset_ref,
+                      format=r['format'].decode('utf-8'),
+                      url=r['url'].decode('utf-8'),
+                      indent=' ' * indent))
         data_dict = {
             'resource_id': resource['id'],
             'ignore_hash': True,

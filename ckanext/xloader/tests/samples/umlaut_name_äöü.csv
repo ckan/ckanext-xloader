@@ -1,0 +1,11 @@
+SET_ID,SET_NAME,INDIKATOR_ID,INDIKATOR_NAME,INDIKATOR_BESCHREIB,KOERPERSCHAFT_ID,KOERPERSCHAFT_NAME,JAHR,VALUE
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",433,"Berufswahlschule Bezirk Horgen",1995,192230
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",440,"Schulpsychologischer Dienst des Bezirks Horgen",1995,97576
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",456,"Gemeindezentrum Brüelmatt",1995,128003
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",474,"Schulzweckverband Bezirk Affoltern",1995,1074294
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",510,"Berufswahlschule Limmattal (BWL)",1995,338128
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",841,"Fürsorgeverband Weiningen",1996,335003
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",6,"Friedhofverband Weiningen",1996,287025
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",7,"Seniorenzentrum Im Morgen Weiningen",1996,899498
+6,"Erfolgsrechnung",101,"31 Sachaufwand [Fr.]","Sachaufwand",10,"Regionale Tierkörpersammelstelle Regensdorf",1996,32213
+
