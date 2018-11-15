@@ -204,6 +204,7 @@ def xloader_data_into_datastore_(input, job_dict):
                 raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
+        data['datastore_type'] = 'full'
 
     except DataTooBigError:
         message = 'Data too large to load into Datastore: ' \
@@ -225,6 +226,7 @@ def xloader_data_into_datastore_(input, job_dict):
             length = tmp_file.tell()
             m = hashlib.md5()
             m.update(tmp_file.read())
+            data['datastore_type'] = 'excerpt'
         else:
             logger.warning(message)
             raise JobError(message)
@@ -316,9 +318,9 @@ def set_datastore_active(data, resource, api_key, ckan_url, logger):
         update_resource(resource, api_key, ckan_url)
 
     # Set resource.datastore_active = True
-    if resource.get('datastore_active') is not True:
-        logger.info('Setting resource.datastore_active = True')
-        set_datastore_active_flag(data_dict=data, flag=True)
+    logger.info('Setting resource.datastore_active = True')
+    logger.info('Setting resource.datastore_type = {}'.format(data.get('datastore_type')))
+    set_resource_metadata(data_dict=data, flag=True)
 
 
 def callback_xloader_hook(result_url, api_key, job_dict):
@@ -348,7 +350,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
     return result.status_code == requests.codes.ok
 
 
-def set_datastore_active_flag(data_dict, flag):
+def set_resource_metadata(data_dict, flag):
     '''
     Set appropriate datastore_active flag on CKAN resource.
 
@@ -358,7 +360,8 @@ def set_datastore_active_flag(data_dict, flag):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {'datastore_active': flag}
+    update_dict = {'datastore_active': flag,
+                   'datastore_type': data_dict.get('datastore_type', 'full')}
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(
