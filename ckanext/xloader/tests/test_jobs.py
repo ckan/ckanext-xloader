@@ -185,14 +185,15 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
+                'datastore_type': 'full',
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -205,7 +206,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_type': u'full',
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -223,9 +225,11 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
-        mocked_set_datastore_active_flag.assert_called_once()
-        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
+            {'datastore_type': 'full',
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': 'foo-bar-42'})
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
@@ -250,14 +254,15 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
+                'datastore_type': 'full',
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -270,7 +275,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_type': u'full',
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -321,14 +327,15 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
+                'datastore_type': 'full',
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -341,7 +348,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_type': u'full',
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -406,9 +414,11 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
-        mocked_set_datastore_active_flag.assert_called_once()
-        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
+            {'datastore_type': 'full',
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': 'foo-bar-42'})
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()

@@ -32,8 +32,7 @@ if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
-UPLOAD_EXCERPT = bool(config.get('ckanext.xloader.upload_excerpt')) or False
-MIN_ROW_NUMBER = int(config.get('ckanext.xloader.min_row_number') or 1e2)
+LOAD_EXCERPT = bool(config.get('ckanext.xloader.load_excerpt')) or False
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
@@ -161,6 +160,9 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
+    tmp_file = get_tmp_file(url)
+    length = 0
+    m = hashlib.md5()
     try:
         headers = {}
         if resource.get('url_type') == 'upload':
@@ -191,41 +193,28 @@ def xloader_data_into_datastore_(input, job_dict):
         response.raise_for_status()
 
         cl = response.headers.get('content-length')
-        if cl and int(cl) > MAX_CONTENT_LENGTH:
-            raise DataTooBigError()
+        if cl and int(cl) > MAX_CONTENT_LENGTH and not LOAD_EXCERPT:
+            raise JobError()
 
         # download the file to a tempfile on disk
-        tmp_file = get_tmp_file(url)
-        length = 0
-        m = hashlib.md5()
-        for chunk in response.iter_content(CHUNK_SIZE):
-            length += len(chunk)
-            if length > MAX_CONTENT_LENGTH:
+        for line in response.iter_lines(CHUNK_SIZE):
+            if (length + len(line)) > MAX_CONTENT_LENGTH:
                 raise DataTooBigError
-            tmp_file.write(chunk)
-            m.update(chunk)
+            tmp_file.write(line + '\n')
+            length += len(line)
+            m.update(line)
         data['datastore_type'] = 'full'
 
     except DataTooBigError:
+        cl = response.headers.get('content-length')
         message = 'Data too large to load into Datastore: ' \
                     '{cl} > max ({max_cl}).' \
-                    .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-        if UPLOAD_EXCERPT:
+                    .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
+        if LOAD_EXCERPT and length > 0:
             logger.info(message)
-            logger.info('Loading header and first {lines} lines to '
+            logger.info('Loading excerpt of ~{max_cl} bytes to '
                         'DataStore.'
-                        .format(lines=MIN_ROW_NUMBER))
-            # download the file to a tempfile on disk
-            tmp_file = get_tmp_file(url)
-            r = requests.get(url, stream=True)
-            if r.encoding is None:
-                r.encoding = 'utf-8'
-            for i, line in enumerate(r.iter_lines()):
-                if i < MIN_ROW_NUMBER + 1 and line:
-                    tmp_file.write(line + '\n')
-            length = tmp_file.tell()
-            m = hashlib.md5()
-            m.update(tmp_file.read())
+                        .format(max_cl=MAX_CONTENT_LENGTH))
             data['datastore_type'] = 'excerpt'
         else:
             logger.warning(message)
