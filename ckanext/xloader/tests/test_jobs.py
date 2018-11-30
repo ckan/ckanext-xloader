@@ -2,6 +2,7 @@ import os
 import json
 import random
 import datetime
+import time
 try:
     from collections import OrderedDict  # from python 2.7
 except ImportError:
@@ -159,6 +160,11 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         return Logs(result.fetchall())
 
     def get_time_of_last_analyze(self):
+        # When ANALYZE runs it appears to take a moment for the
+        # pg_stat_user_tables to update, which we use to check analyze runs,
+        # so sadly we need a sleep :(
+        # DR: 0.25 is pretty reliable on my machine, but give a wide margin
+        time.sleep(1)
         engine, conn = self.get_datastore_engine_and_connection()
         result = conn.execute(
             '''

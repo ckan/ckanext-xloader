@@ -525,8 +525,13 @@ def _populate_fulltext(connection, resource_id, fields):
     connection.execute(sql)
 
 
-def run_analyze(resource_id, logger):
-    logger.info('Running ANALYZE on the table')
+def calculate_record_count(resource_id, logger):
+    '''
+    Calculate an estimate of the record/row count and store it in
+    Postgresql's pg_stat_user_tables. This number will be used when
+    specifying `total_estimation_threshold`
+    '''
+    logger.info('Calculating record count (running ANALYZE on the table)')
     engine = get_write_engine()
     conn = engine.connect()
     conn.execute("ANALYZE \"{resource_id}\";"
