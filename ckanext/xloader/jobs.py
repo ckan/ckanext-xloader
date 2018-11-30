@@ -31,7 +31,7 @@ else:
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
-MAX_CONTENT_LENGTH = config.get('ckanext.xloader.max_content_length') or 1e9
+MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
@@ -193,7 +193,7 @@ def xloader_data_into_datastore_(input, job_dict):
             error_msg = 'Resource too large to download: ' \
                 '{cl} > max ({max_cl}).' \
                 .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-            logger.error(error_msg)
+            logger.warning(error_msg)
             raise JobError(error_msg)
 
         # download the file to a tempfile on disk
@@ -212,13 +212,13 @@ def xloader_data_into_datastore_(input, job_dict):
 
     except requests.exceptions.HTTPError as error:
         # status code error
-        logger.error('HTTP error: {}'.format(error))
+        logger.debug('HTTP error: {}'.format(error))
         raise HTTPError(
-            "DataPusher received a bad HTTP response when trying to download "
+            "Xloader received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
-        logger.error('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        logger.warning('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
@@ -226,7 +226,7 @@ def xloader_data_into_datastore_(input, job_dict):
             err_message = str(e.reason)
         except AttributeError:
             err_message = str(e)
-        logger.error('URL error: {}'.format(err_message))
+        logger.warning('URL error: {}'.format(err_message))
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
@@ -235,13 +235,14 @@ def xloader_data_into_datastore_(input, job_dict):
     file_hash = m.hexdigest()
     tmp_file.seek(0)
 
+    # hash isn't actually stored, so this is a bit worthless at the moment
     if (resource.get('hash') == file_hash
             and not data.get('ignore_hash')):
         logger.info('Ignoring resource - the file hash hasn\'t changed: '
                     '{hash}.'.format(hash=file_hash))
         return
     logger.info('File hash: {}'.format(file_hash))
-    resource['hash'] = file_hash
+    resource['hash'] = file_hash  # TODO write this back to the actual resource
 
     # Load it
     logger.info('Loading CSV')
@@ -263,7 +264,7 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'],
             logger=logger)
     except JobError as e:
-        logger.error('Error during load: {}'.format(e))
+        logger.warning('Load using COPY failed: {}'.format(e))
         logger.info('Trying again with messytables')
         try:
             loader.load_table(tmp_file.name,
@@ -442,7 +443,7 @@ def check_response(response, request_url, who, good_status=(201, 200),
     """
     if not response.status_code:
         raise HTTPError(
-            'DataPusher received an HTTP response with no status code',
+            'Xloader received an HTTP response with no status code',
             status_code=None, request_url=request_url, response=response.text)
 
     message = '{who} bad response. Status code: {code} {reason}. At: {url}.'

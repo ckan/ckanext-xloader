@@ -63,7 +63,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = [unidecode(header) for header in headers]
+    headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
     with open(csv_filepath, 'r') as f:
@@ -72,7 +72,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(header_line).delimiter
     except csv.Error:
-        logger.error('Could not determine delimiter from file, use default ","')
+        logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
 
     # Setup the converters that run when you iterate over the row_set.
@@ -216,9 +216,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                 ),
                             f)
                     except psycopg2.DataError as e:
-                        logger.error(e)
+                        # e is a str but with foreign chars e.g.
+                        # 'extra data: "paul,pa\xc3\xbcl"\n'
+                        # but logging and exceptions need a normal (7 bit) str
+                        error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
-                                          ' {}'.format(e))
+                                          ' {}'.format(error_str))
 
             finally:
                 cur.close()
@@ -292,7 +296,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = [unidecode(header) for header in headers]
+        headers = encode_headers(headers)
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
@@ -391,6 +395,17 @@ def get_types():
     #TYPES = web.app.config.get('TYPES', _TYPES)
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
+
+
+def encode_headers(headers):
+    encoded_headers = []
+    for header in headers:
+        try:
+            encoded_headers.append(unidecode(header))
+        except AttributeError:
+            encoded_headers.append(unidecode(str(header)))
+
+    return encoded_headers
 
 
 def chunky(iterable, n):

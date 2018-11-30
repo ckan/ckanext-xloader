@@ -228,6 +228,21 @@ class TestLoadCsv(TestLoadBase):
             [u'text'] * (len(records[0]) - 1)
         )
 
+    def test_integer_header_xlsx(self):
+        # this xlsx file's header is detected by messytables.headers_guess as
+        # integers and we should cope with that
+        csv_filepath = get_sample_filepath('go-realtime.xlsx')
+        resource_id = factories.Resource()['id']
+        try:
+            loader.load_csv(csv_filepath, resource_id=resource_id,
+                            mimetype='CSV', logger=PrintLogger())
+        except LoaderError as e:
+            # it should fail at the COPY stage
+            assert 'Error during the load into PostgreSQL: invalid byte ' \
+                'sequence for encoding' in str(e)
+        else:
+            assert 0, 'There should have been an exception'
+
     def test_reload(self):
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
@@ -298,6 +313,24 @@ class TestLoadCsv(TestLoadBase):
             records[5][1],
             "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
             )
+
+    def test_encode_headers(self):
+        test_string_headers = [u'id', u'namé']
+        test_float_headers = [u'id', u'näme', 2.0]
+        test_int_headers = [u'id', u'nóm', 3]
+        test_result_string_headers = loader.encode_headers(test_string_headers)
+        test_result_float_headers = loader.encode_headers(test_float_headers)
+        test_result_int_headers = loader.encode_headers(test_int_headers)
+
+        assert_in('id', test_result_string_headers)
+        assert_in('name', test_result_string_headers)
+        assert_in('id', test_result_float_headers)
+        assert_in('name', test_result_float_headers)
+        assert_in('2.0', test_result_float_headers)
+        assert_in('id', test_result_int_headers)
+        assert_in('nom', test_result_int_headers)
+        assert_in('3', test_result_int_headers)
+
 
 class TestLoadUnhandledTypes(TestLoadBase):
 

@@ -9,6 +9,7 @@ from dateutil.parser import parse as parse_date
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
+from ckan.logic import side_effect_free
 
 import ckanext.xloader.schema
 import interfaces as xloader_interfaces
@@ -302,6 +303,7 @@ def xloader_hook(context, data_dict):
             context, {'resource_id': res_id})
 
 
+@side_effect_free
 def xloader_status(context, data_dict):
     ''' Get the status of a ckanext-xloader job for a certain resource.
 
