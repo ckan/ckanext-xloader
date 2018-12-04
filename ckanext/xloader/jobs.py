@@ -14,6 +14,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan.plugins.toolkit import get_action
+import ckan.plugins as p
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -22,6 +23,7 @@ import ckan.lib.search as search
 
 import loader
 import db
+import interfaces as xloader_interfaces
 from job_exceptions import JobError, HTTPError
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
@@ -34,7 +36,6 @@ if not SSL_VERIFY:
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
-
 
 # 'api_key': user['apikey'],
 # 'job_type': 'push_to_datastore',
@@ -167,8 +168,12 @@ def xloader_data_into_datastore_(input, job_dict):
             headers['Authorization'] = api_key
 
         def get_url():
+            _url = url
+            for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
+                if hasattr(plugin, 'modify_download_request'):
+                    _url = plugin.modify_download_request(_url, resource, api_key, headers)
             return requests.get(
-                url,
+                _url,
                 headers=headers,
                 timeout=DOWNLOAD_TIMEOUT,
                 verify=SSL_VERIFY,
