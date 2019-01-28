@@ -194,7 +194,7 @@ def xloader_data_into_datastore_(input, job_dict):
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH and not LOAD_EXCERPT:
-            raise JobError()
+            raise DataTooBigError()
 
         # download the file to a tempfile on disk
         for line in response.iter_lines(CHUNK_SIZE):
@@ -203,19 +203,19 @@ def xloader_data_into_datastore_(input, job_dict):
             tmp_file.write(line + '\n')
             length += len(line)
             m.update(line)
-        data['datastore_type'] = 'full'
+        data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
         cl = response.headers.get('content-length')
         message = 'Data too large to load into Datastore: ' \
-                    '{cl} > max ({max_cl}).' \
+                    '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         if LOAD_EXCERPT and length > 0:
             logger.info(message)
             logger.info('Loading excerpt of ~{max_cl} bytes to '
                         'DataStore.'
                         .format(max_cl=MAX_CONTENT_LENGTH))
-            data['datastore_type'] = 'excerpt'
+            data['datastore_contains_all_records_of_source_file'] = False
         else:
             logger.warning(message)
             raise JobError(message)
@@ -308,7 +308,7 @@ def set_datastore_active(data, resource, api_key, ckan_url, logger):
 
     # Set resource.datastore_active = True
     logger.info('Setting resource.datastore_active = True')
-    logger.info('Setting resource.datastore_type = {}'.format(data.get('datastore_type')))
+    logger.info('Setting resource.datastore_contains_all_records_of_source_file = {}'.format(data.get('datastore_contains_all_records_of_source_file')))
     set_resource_metadata(data_dict=data, flag=True)
 
 
@@ -350,7 +350,7 @@ def set_resource_metadata(data_dict, flag):
     # race condition, see issue #3245 for details and plan for a
     # better fix
     update_dict = {'datastore_active': flag,
-                   'datastore_type': data_dict.get('datastore_type', 'full')}
+                   'datastore_contains_all_records_of_source_file': data_dict.get('datastore_contains_all_records_of_source_file', True)}
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(

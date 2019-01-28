@@ -193,10 +193,11 @@ Configuration:
     # False (default), resources are only submitted if their hash has changed.
     ckanext.xloader.ignore_hash = False
 
-    # Set this option to True to only load an excerpt of all files submitted to Xloader.
-    # If set to False (default) the whole file will be loaded.
-    # An excerpt of files that are bigger than the configured max_content_length
-    # will also be loaded.
+    # Set this option to True to load an excerpt of files that exceed the
+    # `max_content_length`. An excerpt of the size of the `max_content_length`
+    # will be submitted.
+    # If set to False (default) files that exceed the max_content_length will
+    # not be loaded into the datastore.
     ckanext.xloader.load_excerpt = true
 
 ------------------------
