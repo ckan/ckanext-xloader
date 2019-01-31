@@ -294,7 +294,9 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
         eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+            {'ckan_url': 'http://www.ckan.org/',
+             'datastore_contains_all_records_of_source_file': True,
+             'resource_id': 'foo-bar-42'})
 
         # check logs have the error doing the COPY
         logs = self.get_load_logs(job_id)

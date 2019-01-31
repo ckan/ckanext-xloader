@@ -8,6 +8,7 @@ import urlparse
 import datetime
 import traceback
 import sys
+import os
 
 import requests
 from rq import get_current_job
@@ -35,6 +36,7 @@ MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9
 LOAD_EXCERPT = bool(config.get('ckanext.xloader.load_excerpt')) or False
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
+EXCERPT_FORMATS = ['.csv', '.tsv', '.ods']
 
 
 # 'api_key': user['apikey'],
@@ -161,6 +163,7 @@ def xloader_data_into_datastore_(input, job_dict):
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
     tmp_file = get_tmp_file(url)
+    file_name, file_format = os.path.splitext(tmp_file.name)
     length = 0
     m = hashlib.md5()
     try:
@@ -197,20 +200,29 @@ def xloader_data_into_datastore_(input, job_dict):
             raise DataTooBigError()
 
         # download the file to a tempfile on disk
-        for line in response.iter_lines(CHUNK_SIZE):
-            if (length + len(line)) > MAX_CONTENT_LENGTH:
-                raise DataTooBigError
-            tmp_file.write(line + '\n')
-            length += len(line)
-            m.update(line)
-        data['datastore_contains_all_records_of_source_file'] = True
+        if file_format not in EXCERPT_FORMATS:
+            for chunk in response.iter_content(CHUNK_SIZE):
+                length += len(chunk)
+                if length > MAX_CONTENT_LENGTH:
+                    raise DataTooBigError
+                tmp_file.write(chunk)
+                m.update(chunk)
+            data['datastore_contains_all_records_of_source_file'] = True
+        else:
+            for line in response.iter_lines(CHUNK_SIZE):
+                if (length + len(line)) > MAX_CONTENT_LENGTH:
+                    raise DataTooBigError
+                tmp_file.write(line + '\n')
+                length += len(line)
+                m.update(line)
+            data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
         cl = response.headers.get('content-length')
         message = 'Data too large to load into Datastore: ' \
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
-        if LOAD_EXCERPT and length > 0:
+        if LOAD_EXCERPT and length > 0 and file_format in EXCERPT_FORMATS:
             logger.info(message)
             logger.info('Loading excerpt of ~{max_cl} bytes to '
                         'DataStore.'
@@ -218,6 +230,9 @@ def xloader_data_into_datastore_(input, job_dict):
             data['datastore_contains_all_records_of_source_file'] = False
         else:
             logger.warning(message)
+            logger.info(
+                'Loading excerpt for {format} not supported.'.format(
+                    format=file_format))
             raise JobError(message)
     except requests.exceptions.HTTPError as error:
         # status code error
