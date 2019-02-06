@@ -193,12 +193,13 @@ Configuration:
     # False (default), resources are only submitted if their hash has changed.
     ckanext.xloader.ignore_hash = False
 
-    # Set this option to True to load an excerpt of files that exceed the
-    # `max_content_length`. An excerpt of the size of the `max_content_length`
-    # will be submitted.
-    # If set to False (default) files that exceed the max_content_length will
+    # Set this option to the desired number of lines/rows to load an excerpt of
+    # a file that exceeds the `max_content_length`. If the file-type is
+    # supported (CSV, TSV) an excerpt with the number of `max_excerpt_lines`
+    # lines will be submitted while the `max_content_length` is not exceeded.
+    # If set to 0 (default) files that exceed the `max_content_length` will
     # not be loaded into the datastore.
-    ckanext.xloader.load_excerpt = true
+    ckanext.xloader.max_excerpt_lines = 100
 
 ------------------------
 Development Installation
