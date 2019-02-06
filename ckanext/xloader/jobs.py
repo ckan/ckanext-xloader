@@ -193,30 +193,28 @@ def xloader_data_into_datastore_(input, job_dict):
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         logger.warning(message)
-        file_format = resource.get('format')
-        if MAX_EXCERPT_LINES > 0:
-            if file_format not in EXCERPT_FORMATS:
-                logger.info('Loading excerpt for {format} not supported.'.format(format=file_format))
-                raise JobError(message)
-            logger.info('Loading excerpt of ~{max_lines} lines to '
-                        'DataStore.'
-                        .format(max_lines=MAX_EXCERPT_LINES))
-            tmp_file = get_tmp_file(url)
-            response = get_response(url, headers)
-            length = 0
-            line_count = 0
-            m = hashlib.md5()
-            for line in response.iter_lines(CHUNK_SIZE):
-                tmp_file.write(line + '\n')
-                m.update(line)
-                length += len(line)
-                line_count += 1
-                if length > MAX_CONTENT_LENGTH or line_count == MAX_EXCERPT_LINES:
-                    break
-            data['datastore_contains_all_records_of_source_file'] = False
-        else:
         file_format = str.lower(resource.get('format'))
+        if MAX_EXCERPT_LINES <= 0:
             raise JobError(message)
+        if file_format not in EXCERPT_FORMATS:
+            logger.info('Loading excerpt for {format} not supported.'.format(format=file_format))
+            raise JobError(message)
+        logger.info('Loading excerpt of ~{max_lines} lines to '
+                    'DataStore.'
+                    .format(max_lines=MAX_EXCERPT_LINES))
+        tmp_file = get_tmp_file(url)
+        response = get_response(url, headers)
+        length = 0
+        line_count = 0
+        m = hashlib.md5()
+        for line in response.iter_lines(CHUNK_SIZE):
+            tmp_file.write(line + '\n')
+            m.update(line)
+            length += len(line)
+            line_count += 1
+            if length > MAX_CONTENT_LENGTH or line_count >= MAX_EXCERPT_LINES:
+                break
+        data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
         # status code error
         logger.debug('HTTP error: {}'.format(error))
