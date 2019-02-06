@@ -293,13 +293,15 @@ def xloader_data_into_datastore_(input, job_dict):
 
 
 def get_response(url, headers):
-    response = requests.get(
-        url,
-        headers=headers,
-        timeout=DOWNLOAD_TIMEOUT,
-        verify=SSL_VERIFY,
-        stream=True,  # just gets the headers for now
-    )
+    def get_url():
+        return requests.get(
+            url,
+            headers=headers,
+            timeout=DOWNLOAD_TIMEOUT,
+            verify=SSL_VERIFY,
+            stream=True,  # just gets the headers for now
+        )
+    response = get_url()
     if response.status_code == 202:
         # Seen: https://data-cdfw.opendata.arcgis.com/datasets
         # In this case it means it's still processing, so do retries.
@@ -537,7 +539,7 @@ class StoringHandler(logging.Handler):
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):
-    # Custon JSON encoder
+    # Custom JSON encoder
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()
