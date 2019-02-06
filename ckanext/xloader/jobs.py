@@ -36,7 +36,7 @@ MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
-EXCERPT_FORMATS = ['CSV', 'TSV']
+EXCERPT_FORMATS = ['csv', 'tsv']
 
 
 # 'api_key': user['apikey'],
@@ -216,6 +216,7 @@ def xloader_data_into_datastore_(input, job_dict):
                     break
             data['datastore_contains_all_records_of_source_file'] = False
         else:
+        file_format = str.lower(resource.get('format'))
             raise JobError(message)
     except requests.exceptions.HTTPError as error:
         # status code error
