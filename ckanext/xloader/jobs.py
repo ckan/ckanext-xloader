@@ -189,7 +189,6 @@ def xloader_data_into_datastore_(input, job_dict):
 
     except DataTooBigError:
         tmp_file.close()
-        cl = response.headers.get('content-length')
         message = 'Data too large to load into Datastore: ' \
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
