@@ -33,10 +33,10 @@ if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
-LOAD_EXCERPT = bool(config.get('ckanext.xloader.load_excerpt')) or False
+MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
-EXCERPT_FORMATS = ['.csv', '.tsv', '.ods']
+EXCERPT_FORMATS = ['CSV', 'TSV']
 
 
 # 'api_key': user['apikey'],
@@ -163,7 +163,6 @@ def xloader_data_into_datastore_(input, job_dict):
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
     tmp_file = get_tmp_file(url)
-    file_name, file_format = os.path.splitext(tmp_file.name)
     length = 0
     m = hashlib.md5()
     try:
@@ -173,66 +172,50 @@ def xloader_data_into_datastore_(input, job_dict):
             # otherwise we won't get file from private resources
             headers['Authorization'] = api_key
 
-        def get_url():
-            return requests.get(
-                url,
-                headers=headers,
-                timeout=DOWNLOAD_TIMEOUT,
-                verify=SSL_VERIFY,
-                stream=True,  # just gets the headers for now
-                )
-        response = get_url()
-
-        if response.status_code == 202:
-            # Seen: https://data-cdfw.opendata.arcgis.com/datasets
-            # In this case it means it's still processing, so do retries.
-            # 202 can mean other things, but there's no harm in retries.
-            wait = 1
-            while wait < 120 and response.status_code == 202:
-                logger.info('Retrying after {}s'.format(wait))
-                time.sleep(wait)
-                response = get_url()
-                wait *= 3
-        response.raise_for_status()
+        response = get_response(url, headers)
 
         cl = response.headers.get('content-length')
-        if cl and int(cl) > MAX_CONTENT_LENGTH and not LOAD_EXCERPT:
+        if cl and int(cl) > MAX_CONTENT_LENGTH:
             raise DataTooBigError()
 
         # download the file to a tempfile on disk
-        if file_format not in EXCERPT_FORMATS:
-            for chunk in response.iter_content(CHUNK_SIZE):
-                length += len(chunk)
-                if length > MAX_CONTENT_LENGTH:
-                    raise DataTooBigError
-                tmp_file.write(chunk)
-                m.update(chunk)
-            data['datastore_contains_all_records_of_source_file'] = True
-        else:
-            for line in response.iter_lines(CHUNK_SIZE):
-                if (length + len(line)) > MAX_CONTENT_LENGTH:
-                    raise DataTooBigError
-                tmp_file.write(line + '\n')
-                length += len(line)
-                m.update(line)
-            data['datastore_contains_all_records_of_source_file'] = True
+        for chunk in response.iter_content(CHUNK_SIZE):
+            length += len(chunk)
+            if length > MAX_CONTENT_LENGTH:
+                raise DataTooBigError
+            tmp_file.write(chunk)
+            m.update(chunk)
+        data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
+        tmp_file.close()
         cl = response.headers.get('content-length')
         message = 'Data too large to load into Datastore: ' \
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
-        if LOAD_EXCERPT and length > 0 and file_format in EXCERPT_FORMATS:
-            logger.info(message)
-            logger.info('Loading excerpt of ~{max_cl} bytes to '
+        logger.warning(message)
+        file_format = resource.get('format')
+        if MAX_EXCERPT_LINES > 0:
+            if file_format not in EXCERPT_FORMATS:
+                logger.info('Loading excerpt for {format} not supported.'.format(format=file_format))
+                raise JobError(message)
+            logger.info('Loading excerpt of ~{max_lines} lines to '
                         'DataStore.'
-                        .format(max_cl=MAX_CONTENT_LENGTH))
+                        .format(max_lines=MAX_EXCERPT_LINES))
+            tmp_file = get_tmp_file(url)
+            response = get_response(url, headers)
+            length = 0
+            line_count = 0
+            m = hashlib.md5()
+            for line in response.iter_lines(CHUNK_SIZE):
+                tmp_file.write(line + '\n')
+                m.update(line)
+                length += len(line)
+                line_count += 1
+                if length > MAX_CONTENT_LENGTH or line_count == MAX_EXCERPT_LINES:
+                    break
             data['datastore_contains_all_records_of_source_file'] = False
         else:
-            logger.warning(message)
-            logger.info(
-                'Loading excerpt for {format} not supported.'.format(
-                    format=file_format))
             raise JobError(message)
     except requests.exceptions.HTTPError as error:
         # status code error
@@ -307,6 +290,28 @@ def xloader_data_into_datastore_(input, job_dict):
     tmp_file.close()
 
     logger.info('Express Load completed')
+
+
+def get_response(url, headers):
+    response = requests.get(
+        url,
+        headers=headers,
+        timeout=DOWNLOAD_TIMEOUT,
+        verify=SSL_VERIFY,
+        stream=True,  # just gets the headers for now
+    )
+    if response.status_code == 202:
+        # Seen: https://data-cdfw.opendata.arcgis.com/datasets
+        # In this case it means it's still processing, so do retries.
+        # 202 can mean other things, but there's no harm in retries.
+        wait = 1
+        while wait < 120 and response.status_code == 202:
+            # logger.info('Retrying after {}s'.format(wait))
+            time.sleep(wait)
+            response = get_url()
+            wait *= 3
+    response.raise_for_status()
+    return response
 
 
 def get_tmp_file(url):
