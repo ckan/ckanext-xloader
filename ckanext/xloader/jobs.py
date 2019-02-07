@@ -165,6 +165,7 @@ def xloader_data_into_datastore_(input, job_dict):
     tmp_file = get_tmp_file(url)
     length = 0
     m = hashlib.md5()
+    cl = None
     try:
         headers = {}
         if resource.get('url_type') == 'upload':
@@ -193,7 +194,7 @@ def xloader_data_into_datastore_(input, job_dict):
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         logger.warning(message)
-        file_format = str.lower(resource.get('format'))
+        file_format = resource.get('format', '').lower()
         if MAX_EXCERPT_LINES <= 0:
             raise JobError(message)
         if file_format not in EXCERPT_FORMATS:
