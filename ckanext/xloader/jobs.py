@@ -23,7 +23,7 @@ import ckan.lib.search as search
 
 import loader
 import db
-from job_exceptions import JobError, HTTPError, DataTooBigError
+from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -285,6 +285,9 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
+    except FileCouldNotBeLoadedError as e:
+        logger.error('Loading file raised an error: {}'.format(e))
+        raise
 
     tmp_file.close()
 

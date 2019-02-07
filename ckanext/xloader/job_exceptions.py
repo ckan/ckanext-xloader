@@ -6,6 +6,10 @@ class JobError(Exception):
     pass
 
 
+class FileCouldNotBeLoadedError(Exception):
+    pass
+
+
 class HTTPError(JobError):
     """Exception that's raised if a job fails due to an HTTP problem."""
 
