@@ -56,8 +56,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             #                                          extension=format)
             # except Exception:
                 raise LoaderError('Messytables error: {}'.format(e))
-        except Exception:
-            raise FileCouldNotBeLoadedError()
+        except Exception as e:
+            raise FileCouldNotBeLoadedError(e)
 
         if not table_set.tables:
             raise LoaderError('Could not detect tabular data in this file')

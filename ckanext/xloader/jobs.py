@@ -280,8 +280,9 @@ def xloader_data_into_datastore_(input, job_dict):
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
     except FileCouldNotBeLoadedError as e:
+        logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: {}'.format(e))
-        raise
+        raise JobError('Loading file raised an error: {}'.format(e))
 
     tmp_file.close()
 
