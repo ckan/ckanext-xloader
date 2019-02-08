@@ -193,7 +193,10 @@ Configuration:
     # False (default), resources are only submitted if their hash has changed.
     ckanext.xloader.ignore_hash = False
 
-    # Set this option to the desired number of lines/rows to load an excerpt of
+    # When loading a file that is bigger than `max_content_length`, xloader can
+    # still try and load some of the file, which is useful to display a
+    # preview. Set this option to the desired number of lines/rows that it
+    # loads in this case.
     # a file that exceeds the `max_content_length`. If the file-type is
     # supported (CSV, TSV) an excerpt with the number of `max_excerpt_lines`
     # lines will be submitted while the `max_content_length` is not exceeded.
