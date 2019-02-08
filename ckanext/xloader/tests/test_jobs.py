@@ -185,7 +185,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
-                'datastore_contains_all_records_of_source_file': True,
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
@@ -207,6 +206,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
@@ -226,7 +226,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
             {'datastore_contains_all_records_of_source_file': True,
              'ckan_url': 'http://www.ckan.org/',
              'resource_id': 'foo-bar-42'})
@@ -254,7 +254,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
-                'datastore_contains_all_records_of_source_file': True,
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
@@ -276,6 +275,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
@@ -293,9 +293,10 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
             {'ckan_url': 'http://www.ckan.org/',
              'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
              'resource_id': 'foo-bar-42'})
 
         # check logs have the error doing the COPY
@@ -329,7 +330,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'job_type': 'xloader_to_datastore',
             'result_url': self.callback_url,
             'metadata': {
-                'datastore_contains_all_records_of_source_file': True,
                 'ckan_url': 'http://%s/' % self.host,
                 'resource_id': self.resource_id
             }
@@ -351,6 +351,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
@@ -379,7 +380,6 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             'result_url': self.callback_url,
             'metadata': {
                 'ckan_url': 'http://%s/' % self.host,
-                'datastore_contains_all_records_of_source_file': True,
                 'resource_id': self.resource_id
             }
         }
@@ -401,6 +401,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         eq_(job_dict,
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
                            u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -419,8 +420,9 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['data_dict'],
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
             {'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
              'ckan_url': 'http://www.ckan.org/',
              'resource_id': 'foo-bar-42'})
 

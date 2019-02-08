@@ -325,15 +325,14 @@ def get_tmp_file(url):
 
 
 def set_datastore_active(data, resource, api_key, ckan_url, logger):
-    # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
         logger.debug('Setting resource.url_type = \'datapusher\'')
         update_resource(resource, api_key, ckan_url)
 
-    # Set resource.datastore_active = True
+    data['datastore_active'] = True
     logger.info('Setting resource.datastore_active = True')
     logger.info('Setting resource.datastore_contains_all_records_of_source_file = {}'.format(data.get('datastore_contains_all_records_of_source_file')))
-    set_resource_metadata(data_dict=data, flag=True)
+    set_resource_metadata(update_dict=data)
 
 
 def callback_xloader_hook(result_url, api_key, job_dict):
@@ -363,7 +362,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
     return result.status_code == requests.codes.ok
 
 
-def set_resource_metadata(data_dict, flag):
+def set_resource_metadata(update_dict):
     '''
     Set appropriate datastore_active flag on CKAN resource.
 
@@ -373,15 +372,15 @@ def set_resource_metadata(data_dict, flag):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {'datastore_active': flag,
-                   'datastore_contains_all_records_of_source_file': data_dict.get('datastore_contains_all_records_of_source_file', True)}
+    update_dict = {'datastore_active': update_dict.get('datastore_active', True),
+                   'datastore_contains_all_records_of_source_file': update_dict.get('datastore_contains_all_records_of_source_file', True)}
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(
         model.resource_table.c.extras,
         model.resource_table.c.package_id
     ).filter(
-        model.Resource.id == data_dict['resource_id']
+        model.Resource.id == update_dict['resource_id']
     )
     extras, package_id = res_query.one()
 
@@ -389,7 +388,7 @@ def set_resource_metadata(data_dict, flag):
     extras.update(update_dict)
     res_query.update({'extras': extras}, synchronize_session=False)
     model.Session.query(model.resource_revision_table).filter(
-        model.ResourceRevision.id == data_dict['resource_id'],
+        model.ResourceRevision.id == update_dict['resource_id'],
         model.ResourceRevision.current is True
     ).update({'extras': extras}, synchronize_session=False)
 
@@ -409,7 +408,7 @@ def set_resource_metadata(data_dict, flag):
     for record in solr_query.run(q)['results']:
         solr_data_dict = json.loads(record['data_dict'])
         for resource in solr_data_dict['resources']:
-            if resource['id'] == data_dict['resource_id']:
+            if resource['id'] == update_dict['resource_id']:
                 resource.update(update_dict)
                 psi.index_package(solr_data_dict)
                 break
