@@ -8,7 +8,6 @@ import urlparse
 import datetime
 import traceback
 import sys
-import os
 
 import requests
 from rq import get_current_job
@@ -36,7 +35,6 @@ MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
-EXCERPT_FORMATS = ['csv', 'tsv']
 
 
 # 'api_key': user['apikey'],
@@ -194,11 +192,7 @@ def xloader_data_into_datastore_(input, job_dict):
                     '{cl} bytes > max {max_cl} bytes.' \
                     .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         logger.warning(message)
-        file_format = resource.get('format', '').lower()
         if MAX_EXCERPT_LINES <= 0:
-            raise JobError(message)
-        if file_format not in EXCERPT_FORMATS:
-            logger.info('Loading excerpt for {format} not supported.'.format(format=file_format))
             raise JobError(message)
         logger.info('Loading excerpt of ~{max_lines} lines to '
                     'DataStore.'
