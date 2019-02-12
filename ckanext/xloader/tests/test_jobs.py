@@ -19,7 +19,7 @@ from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 import util
-from ckan.tests import factories
+from ckan.tests import factories, helpers
 
 SOURCE_URL = 'http://www.example.com/static/file'
 
@@ -245,6 +245,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
     @mock_actions
     @responses.activate
+    @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
+    @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
     def test_too_large_csv(self):
 
         # Test not only the load and xloader_hook is called at the end
@@ -313,6 +315,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
     @mock_actions
     @responses.activate
+    @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
+    @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
     def test_too_large_xls(self):
 
         # Test not only the load and xloader_hook is called at the end
