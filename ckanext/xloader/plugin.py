@@ -1,5 +1,6 @@
 from ckan import model
 import ckan.plugins as plugins
+import ckan.plugins.toolkit as toolkit
 from ckan.common import config
 
 from ckanext.xloader import action, auth
@@ -43,6 +44,14 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
+    plugins.implements(plugins.IResourceController, inherit=True)
+
+    # IResourceController
+
+    def before_show(self, resource_dict):
+        resource_dict[
+            'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
+            resource_dict.get('datastore_contains_all_records_of_source_file'))
 
     # IConfigurer
 

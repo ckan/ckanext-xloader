@@ -22,7 +22,7 @@ import ckan.lib.search as search
 
 import loader
 import db
-from job_exceptions import JobError, HTTPError
+from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -32,6 +32,7 @@ if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
@@ -159,6 +160,10 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
+    tmp_file = get_tmp_file(url)
+    length = 0
+    m = hashlib.md5()
+    cl = None
     try:
         headers = {}
         if resource.get('url_type') == 'upload':
@@ -166,50 +171,45 @@ def xloader_data_into_datastore_(input, job_dict):
             # otherwise we won't get file from private resources
             headers['Authorization'] = api_key
 
-        def get_url():
-            return requests.get(
-                url,
-                headers=headers,
-                timeout=DOWNLOAD_TIMEOUT,
-                verify=SSL_VERIFY,
-                stream=True,  # just gets the headers for now
-                )
-        response = get_url()
-
-        if response.status_code == 202:
-            # Seen: https://data-cdfw.opendata.arcgis.com/datasets
-            # In this case it means it's still processing, so do retries.
-            # 202 can mean other things, but there's no harm in retries.
-            wait = 1
-            while wait < 120 and response.status_code == 202:
-                logger.info('Retrying after {}s'.format(wait))
-                time.sleep(wait)
-                response = get_url()
-                wait *= 3
-        response.raise_for_status()
+        response = get_response(url, headers)
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
-            error_msg = 'Resource too large to download: ' \
-                '{cl} > max ({max_cl}).' \
-                .format(cl=cl, max_cl=MAX_CONTENT_LENGTH)
-            logger.warning(error_msg)
-            raise JobError(error_msg)
+            raise DataTooBigError()
 
         # download the file to a tempfile on disk
-        filename = url.split('/')[-1].split('#')[0].split('?')[0]
-        tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
-        length = 0
-        m = hashlib.md5()
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
             if length > MAX_CONTENT_LENGTH:
-                raise JobError(
-                    'Resource too large to process: {cl} > max ({max_cl}).'
-                    .format(cl=length, max_cl=MAX_CONTENT_LENGTH))
+                raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
+        data['datastore_contains_all_records_of_source_file'] = True
 
+    except DataTooBigError:
+        tmp_file.close()
+        message = 'Data too large to load into Datastore: ' \
+                    '{cl} bytes > max {max_cl} bytes.' \
+                    .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
+        logger.warning(message)
+        if MAX_EXCERPT_LINES <= 0:
+            raise JobError(message)
+        logger.info('Loading excerpt of ~{max_lines} lines to '
+                    'DataStore.'
+                    .format(max_lines=MAX_EXCERPT_LINES))
+        tmp_file = get_tmp_file(url)
+        response = get_response(url, headers)
+        length = 0
+        line_count = 0
+        m = hashlib.md5()
+        for line in response.iter_lines(CHUNK_SIZE):
+            tmp_file.write(line + '\n')
+            m.update(line)
+            length += len(line)
+            line_count += 1
+            if length > MAX_CONTENT_LENGTH or line_count >= MAX_EXCERPT_LINES:
+                break
+        data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
         # status code error
         logger.debug('HTTP error: {}'.format(error))
@@ -279,22 +279,55 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
+    except FileCouldNotBeLoadedError as e:
+        logger.warning('Loading excerpt for this format not supported.')
+        logger.error('Loading file raised an error: {}'.format(e))
+        raise JobError('Loading file raised an error: {}'.format(e))
 
     tmp_file.close()
 
     logger.info('Express Load completed')
 
 
+def get_response(url, headers):
+    def get_url():
+        return requests.get(
+            url,
+            headers=headers,
+            timeout=DOWNLOAD_TIMEOUT,
+            verify=SSL_VERIFY,
+            stream=True,  # just gets the headers for now
+        )
+    response = get_url()
+    if response.status_code == 202:
+        # Seen: https://data-cdfw.opendata.arcgis.com/datasets
+        # In this case it means it's still processing, so do retries.
+        # 202 can mean other things, but there's no harm in retries.
+        wait = 1
+        while wait < 120 and response.status_code == 202:
+            # logger.info('Retrying after {}s'.format(wait))
+            time.sleep(wait)
+            response = get_url()
+            wait *= 3
+    response.raise_for_status()
+    return response
+
+
+def get_tmp_file(url):
+    filename = url.split('/')[-1].split('#')[0].split('?')[0]
+    tmp_file = tempfile.NamedTemporaryFile(suffix=filename)
+    return tmp_file
+
+
 def set_datastore_active(data, resource, api_key, ckan_url, logger):
-    # Set resource.url_type = 'datapusher'
     if data.get('set_url_type', False):
         logger.debug('Setting resource.url_type = \'datapusher\'')
         update_resource(resource, api_key, ckan_url)
 
-    # Set resource.datastore_active = True
-    if resource.get('datastore_active') is not True:
-        logger.info('Setting resource.datastore_active = True')
-        set_datastore_active_flag(data_dict=data, flag=True)
+    data['datastore_active'] = True
+    logger.info('Setting resource.datastore_active = True')
+    logger.info('Setting resource.datastore_contains_all_records_of_source_file = {}'.format(data.get('datastore_contains_all_records_of_source_file')))
+    set_resource_metadata(update_dict=data)
 
 
 def callback_xloader_hook(result_url, api_key, job_dict):
@@ -324,7 +357,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
     return result.status_code == requests.codes.ok
 
 
-def set_datastore_active_flag(data_dict, flag):
+def set_resource_metadata(update_dict):
     '''
     Set appropriate datastore_active flag on CKAN resource.
 
@@ -334,14 +367,15 @@ def set_datastore_active_flag(data_dict, flag):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {'datastore_active': flag}
+    update_dict = {'datastore_active': update_dict.get('datastore_active', True),
+                   'datastore_contains_all_records_of_source_file': update_dict.get('datastore_contains_all_records_of_source_file', True)}
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(
         model.resource_table.c.extras,
         model.resource_table.c.package_id
     ).filter(
-        model.Resource.id == data_dict['resource_id']
+        model.Resource.id == update_dict['resource_id']
     )
     extras, package_id = res_query.one()
 
@@ -349,7 +383,7 @@ def set_datastore_active_flag(data_dict, flag):
     extras.update(update_dict)
     res_query.update({'extras': extras}, synchronize_session=False)
     model.Session.query(model.resource_revision_table).filter(
-        model.ResourceRevision.id == data_dict['resource_id'],
+        model.ResourceRevision.id == update_dict['resource_id'],
         model.ResourceRevision.current is True
     ).update({'extras': extras}, synchronize_session=False)
 
@@ -369,7 +403,7 @@ def set_datastore_active_flag(data_dict, flag):
     for record in solr_query.run(q)['results']:
         solr_data_dict = json.loads(record['data_dict'])
         for resource in solr_data_dict['resources']:
-            if resource['id'] == data_dict['resource_id']:
+            if resource['id'] == update_dict['resource_id']:
                 resource.update(update_dict)
                 psi.index_package(solr_data_dict)
                 break
@@ -501,7 +535,7 @@ class StoringHandler(logging.Handler):
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):
-    # Custon JSON encoder
+    # Custom JSON encoder
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()

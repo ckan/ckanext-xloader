@@ -33,7 +33,7 @@ except ImportError:
     from pylons import config
 
 import ckan.plugins as p
-from job_exceptions import LoaderError
+from job_exceptions import LoaderError, FileCouldNotBeLoadedError
 
 MAX_COLUMN_LENGTH = 63
 
@@ -56,6 +56,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             #                                          extension=format)
             # except Exception:
                 raise LoaderError('Messytables error: {}'.format(e))
+        except Exception as e:
+            raise FileCouldNotBeLoadedError(e)
 
         if not table_set.tables:
             raise LoaderError('Could not detect tabular data in this file')

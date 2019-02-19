@@ -19,7 +19,7 @@ from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 import util
-from ckan.tests import factories
+from ckan.tests import factories, helpers
 
 SOURCE_URL = 'http://www.example.com/static/file'
 
@@ -191,8 +191,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -205,7 +205,9 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -223,9 +225,12 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
-        mocked_set_datastore_active_flag.assert_called_once()
-        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+            {'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': 'foo-bar-42'})
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
@@ -237,6 +242,120 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
         assert(last_analyze)
+
+    @mock_actions
+    @responses.activate
+    @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
+    @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
+    def test_too_large_csv(self):
+
+        # Test not only the load and xloader_hook is called at the end
+        self.register_urls(filename='simple-large.csv')
+        data = {
+            'api_key': self.api_key,
+            'job_type': 'xloader_to_datastore',
+            'result_url': self.callback_url,
+            'metadata': {
+                'ckan_url': 'http://%s/' % self.host,
+                'resource_id': self.resource_id
+            }
+        }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
+
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
+                            return_value=mock.Mock(id=job_id)):
+                result = jobs.xloader_data_into_datastore(data)
+        assert result is None, jobs_db.get_job(job_id)['error']['message']
+
+        # Check it said it was successful
+        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
+        assert job_dict['status'] == u'complete', job_dict
+        eq_(job_dict,
+            {u'metadata': {u'datastore_contains_all_records_of_source_file': False,
+                           u'datastore_active': True,
+                           u'ckan_url': u'http://www.ckan.org/',
+                           u'resource_id': u'foo-bar-42'},
+             u'status': u'complete'})
+
+        # Check the load
+        data = self.get_datastore_table()
+        eq_(data['headers'],
+            ['_id', '_full_text', 'id', 'text'])
+        eq_(data['header_dict']['id'], 'TEXT')
+        # 'TIMESTAMP WITHOUT TIME ZONE')
+        eq_(data['header_dict']['text'], 'TEXT')
+        assert data['num_rows'] <= 100
+        assert data['num_rows'] > 0
+        eq_(data['rows'][0][2:],
+            (u'1', u'a'))
+
+        # Check it wanted to set the datastore_active=True
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+            {'datastore_contains_all_records_of_source_file': False,
+             'datastore_active': True,
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': 'foo-bar-42'})
+
+        logs = self.get_load_logs(job_id)
+        logs.assert_no_errors()
+
+        job = jobs_db.get_job(job_id)
+        eq_(job['status'], u'complete')
+        eq_(job['error'], None)
+
+        # Check ANALYZE was run
+        last_analyze = self.get_time_of_last_analyze()
+        assert(last_analyze)
+
+    @mock_actions
+    @responses.activate
+    @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
+    @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
+    def test_too_large_xls(self):
+
+        # Test not only the load and xloader_hook is called at the end
+        self.register_urls(filename='simple-large.xls')
+        data = {
+            'api_key': self.api_key,
+            'job_type': 'xloader_to_datastore',
+            'result_url': self.callback_url,
+            'metadata': {
+                'ckan_url': 'http://%s/' % self.host,
+                'resource_id': self.resource_id
+            }
+        }
+        job_id = 'test{}'.format(random.randint(0, 1e5))
+
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
+            # in tests we call jobs directly, rather than use rq, so mock
+            # get_current_job()
+            with mock.patch('ckanext.xloader.jobs.get_current_job',
+                            return_value=mock.Mock(id=job_id)):
+                result = jobs.xloader_data_into_datastore(data)
+        assert result is not None, jobs_db.get_job(job_id)['error']['message']
+
+        # Check it said it was successful
+        eq_(responses.calls[-1].request.url,
+            'http://www.ckan.org/api/3/action/xloader_hook')
+        job_dict = json.loads(responses.calls[-1].request.body)
+        assert job_dict['status'] == u'error', job_dict
+        eq_(job_dict,
+            {u'status': u'error',
+             u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'datastore_contains_all_records_of_source_file': False,
+                           u'resource_id': u'foo-bar-42'},
+             u'error': u'Loading file raised an error: array index out of range'})
+
+        job = jobs_db.get_job(job_id)
+        eq_(job['status'], u'error')
+        eq_(job['error'], {u'message': u'Loading file raised an error: array index out of range'})
 
     @mock_actions
     @responses.activate
@@ -256,8 +375,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -270,7 +389,9 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -286,9 +407,12 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             (datetime.datetime(2011, 1, 1), 1, u'Galway'))
 
         # Check it wanted to set the datastore_active=True
-        mocked_set_datastore_active_flag.assert_called_once()
-        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+            {'ckan_url': 'http://www.ckan.org/',
+             'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
+             'resource_id': 'foo-bar-42'})
 
         # check logs have the error doing the COPY
         logs = self.get_load_logs(job_id)
@@ -327,8 +451,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -341,7 +465,9 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
-            {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+            {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
+                           u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -374,8 +500,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
+                as mocked_set_resource_metadata:
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -389,6 +515,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert job_dict['status'] == u'complete', job_dict
         eq_(job_dict,
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
+                           u'datastore_contains_all_records_of_source_file': True,
+                           u'datastore_active': True,
                            u'resource_id': u'foo-bar-42'},
              u'status': u'complete'})
 
@@ -406,9 +534,12 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
-        mocked_set_datastore_active_flag.assert_called_once()
-        eq_(mocked_set_datastore_active_flag.call_args[1]['data_dict'],
-            {'ckan_url': 'http://www.ckan.org/', 'resource_id': 'foo-bar-42'})
+        mocked_set_resource_metadata.assert_called_once()
+        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+            {'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': 'foo-bar-42'})
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
