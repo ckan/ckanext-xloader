@@ -19,7 +19,11 @@ from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 import util
-from ckan.tests import factories
+try:
+    from ckan.tests import helpers, factories
+except ImportError:
+    # older ckans
+    from ckan.new_tests import helpers, factories
 
 SOURCE_URL = 'http://www.example.com/static/file'
 
@@ -565,3 +569,26 @@ class Logs(list):
 def get_sample_file(filename):
     filepath = os.path.join(os.path.dirname(__file__), 'samples', filename)
     return open(filepath).read()
+
+
+class TestSetResourceMetadata(object):
+    @classmethod
+    def setup_class(cls):
+        helpers.reset_db()
+
+    def test_simple(self):
+        resource = factories.Resource()
+
+        jobs.set_resource_metadata(
+            {'datastore_contains_all_records_of_source_file': True,
+             'datastore_active': True,
+             'ckan_url': 'http://www.ckan.org/',
+             'resource_id': resource['id']})
+
+        resource = helpers.call_action('resource_show', id=resource['id'])
+        from pprint import pprint
+        pprint(resource)
+        eq_(resource['datastore_contains_all_records_of_source_file'],
+                     True)
+        eq_(resource['datastore_active'], True)
+        eq_(resource['ckan_url'], 'http://www.ckan.org/')

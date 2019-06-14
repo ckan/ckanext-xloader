@@ -369,10 +369,11 @@ def set_resource_metadata(update_dict):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {
+    update_dict.update({
         'datastore_active': update_dict.get('datastore_active', True),
         'datastore_contains_all_records_of_source_file':
-        update_dict.get('datastore_contains_all_records_of_source_file', True)}
+        update_dict.get('datastore_contains_all_records_of_source_file', True)
+    })
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(
