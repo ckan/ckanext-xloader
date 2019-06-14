@@ -123,8 +123,10 @@ To install Express Loader:
    You should also remove ``datapusher`` if it is in the list, to avoid them
    both trying to load resources into the DataStore.
 
-6. If it is a production server, you'll want to store jobs info in a more robust
-   database than the default sqlite file::
+   Ensure ``datastore`` is also listed, to enable CKAN DataStore.
+
+6. If it is a production server, you'll want to store jobs info in a more
+   robust database than the default sqlite file::
 
      sudo -u postgres createdb -O ckan_default xloader_jobs -E utf-8
 
@@ -198,7 +200,7 @@ Configuration:
     # preview. Set this option to the desired number of lines/rows that it
     # loads in this case.
     # If the file-type is supported (CSV, TSV) an excerpt with the number of
-    # `max_excerpt_lines` lines will be submitted while the `max_content_length` 
+    # `max_excerpt_lines` lines will be submitted while the `max_content_length`
     # is not exceeded.
     # If set to 0 (default) files that exceed the `max_content_length` will
     # not be loaded into the datastore.
@@ -238,9 +240,27 @@ To upgrade from DataPusher to Express Loader:
        sudo service apache2 reload
        sudo service nginx reload
 
+---------------
+Troubleshooting
+---------------
+
+**KeyError: "Action 'datastore_search' not found"**
+
+You need to enable the `datastore` plugin in your CKAN config. See
+'Installation' section above to do this and restart the worker.
+
+**ProgrammingError: (ProgrammingError) relation "_table_metadata" does not exist**
+
+Your DataStore permissions have not been set-up - see:
+<https://docs.ckan.org/en/latest/maintaining/datastore.html#set-permissions>
+
 -----------------
 Running the Tests
 -----------------
+
+The first time, your test datastore database needs the trigger applied::
+
+    sudo -u postgres psql datastore_test -f full_text_function.sql
 
 To run the tests, do::
 
