@@ -21,7 +21,7 @@ setup(
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/davidread/ckanext-xloader',
+    url='https://github.com/ckan/ckanext-xloader',
 
     # Author details
     author='''David Read''',
