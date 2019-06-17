@@ -6,19 +6,19 @@
     :target: https://travis-ci.org/ckan/ckanext-xloader
 
 .. image:: https://img.shields.io/pypi/v/ckanext-xloader.svg
-    :target: https://pypi.python.org/pypi/ckanext-xloader/
+    :target: https://pypi.org/project/ckanext-xloader/
     :alt: Latest Version
 
 .. image:: https://img.shields.io/pypi/pyversions/ckanext-xloader.svg
-    :target: https://pypi.python.org/pypi/ckanext-xloader/
+    :target: https://pypi.org/project/ckanext-xloader/
     :alt: Supported Python versions
 
 .. image:: https://img.shields.io/pypi/status/ckanext-xloader.svg
-    :target: https://pypi.python.org/pypi/ckanext-xloader/
+    :target: https://pypi.org/project/ckanext-xloader/
     :alt: Development Status
 
 .. image:: https://img.shields.io/pypi/l/ckanext-xloader.svg
-    :target: https://pypi.python.org/pypi/ckanext-xloader/
+    :target: https://pypi.org/project/ckanext-xloader/
     :alt: License
 
 ================================
@@ -164,7 +164,7 @@ To install Express Loader:
 
 
 ---------------
-Config Settings
+Config settings
 ---------------
 
 Configuration:
@@ -207,7 +207,7 @@ Configuration:
     ckanext.xloader.max_excerpt_lines = 100
 
 ------------------------
-Development Installation
+Developer installation
 ------------------------
 
 To install Express Loader for development, activate your CKAN virtualenv and
@@ -275,24 +275,35 @@ coverage installed in your virtualenv (``pip install coverage``) then run::
 Releasing a New Version of Express Loader
 -----------------------------------------
 
-Express Loader is availabe on PyPI as https://pypi.python.org/pypi/ckanext-xloader.
+Express Loader is available on PyPI as https://pypi.org/project/ckanext-xloader.
+
 To publish a new version to PyPI follow these steps:
 
 1. Update the version number in the ``setup.py`` file.
    See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
    for how to choose version numbers.
 
-2. Create a source distribution of the new version::
+2. Make sure you have the latest version of necessary packages::
 
-     python setup.py sdist
+    pip install --upgrade setuptools wheel twine
 
-3. Upload the source distribution to PyPI::
+3. Create a source and binary distributions of the new version::
 
-     python setup.py sdist upload
+       python setup.py sdist bdist_wheel && twine check dist/*
 
-4. Tag the new release of the project on GitHub with the version number from
+   Fix any errors you get.
+
+4. Upload the source distribution to PyPI::
+
+       twine upload dist/*
+
+5. Commit any outstanding changes::
+
+       git commit -a
+
+6. Tag the new release of the project on GitHub with the version number from
    the ``setup.py`` file. For example if the version number in ``setup.py`` is
-   0.0.2 then do::
+   0.0.1 then do::
 
-       git tag 0.0.2
+       git tag 0.0.1
        git push --tags

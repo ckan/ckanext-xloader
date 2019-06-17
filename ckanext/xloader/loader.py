@@ -6,9 +6,6 @@ import itertools
 import csv
 
 import psycopg2
-from sqlalchemy import Text, Integer, Table, Column
-from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlalchemy import create_engine, MetaData
 import messytables
 from unidecode import unidecode
 
@@ -23,8 +20,9 @@ except ImportError:
         data_dict = {'connection_url': config['ckan.datastore.write_url']}
         return _get_engine(data_dict)
     import ckanext.datastore.db as datastore_db
-create_indexes = datastore_db.create_indexes
-_drop_indexes = datastore_db._drop_indexes
+
+import ckan.plugins as p
+from job_exceptions import LoaderError, FileCouldNotBeLoadedError
 
 try:
     from ckan.plugins.toolkit import config
@@ -32,8 +30,8 @@ except ImportError:
     # older versions of ckan
     from pylons import config
 
-import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+create_indexes = datastore_db.create_indexes
+_drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
 
@@ -55,7 +53,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             #     table_set = messytables.any_tableset(f, mimetype=format,
             #                                          extension=format)
             # except Exception:
-                raise LoaderError('Messytables error: {}'.format(e))
+            raise LoaderError('Messytables error: {}'.format(e))
         except Exception as e:
             raise FileCouldNotBeLoadedError(e)
 
@@ -130,7 +128,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # or default to text type (which is robust)
         fields = [
             {'id': header_name,
-             'type': existing_info.get(header_name, {})\
+             'type': existing_info.get(header_name, {})
              .get('type_override') or 'text',
              }
             for header_name in headers]
@@ -152,12 +150,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             )
         data_dict['records'] = None  # just create an empty table
         data_dict['force'] = True  # TODO check this - I don't fully
-            # understand read-only/datastore resources
+        # understand read-only/datastore resources
         try:
             p.toolkit.get_action('datastore_create')(context, data_dict)
         except p.toolkit.ValidationError as e:
             if 'fields' in e.error_dict:
-                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}
+                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}  # noqa
                 error_message = e.error_dict['fields'][0]
                 raise LoaderError('Error with field definition: {}'
                                   .format(error_message))
@@ -189,13 +187,14 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # 2. COPY - requires the db user to have superuser privileges. This is
         #    dangerous. It is also not available on AWS, for example.
         # 3. pgloader method? - as described in its docs:
-        #    Note that while the COPY command is restricted to read either from its standard input or from a local file on the server's file system, the command line tool psql implements a \copy command that knows how to stream a file local to the client over the network and into the PostgreSQL server, using the same protocol as pgloader uses.
+        #    Note that while the COPY command is restricted to read either from
+        #    its standard input or from a local file on the server's file system,
+        #    the command line tool psql implements a \copy command that knows
+        #    how to stream a file local to the client over the network and into
+        #    the PostgreSQL server, using the same protocol as pgloader uses.
         # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
         #    the superuser issue. <-- picked
 
-        # with psycopg2.connect(DSN) as conn:
-        #     with conn.cursor() as curs:
-        #         curs.execute(SQL)
         raw_connection = engine.raw_connection()
         try:
             cur = raw_connection.cursor()
@@ -294,7 +293,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         existing = datastore_resource_exists(resource_id)
         existing_info = None
         if existing:
-            existing_info = dict((f['id'], f['info'])
+            existing_info = dict(
+                (f['id'], f['info'])
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
@@ -356,7 +356,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.info('Determined headers and types: {headers}'.format(
             headers=headers_dicts))
 
-        ### Commented - this is only for tests
+        # Commented - this is only for tests
         # if dry_run:
         #     return headers_dicts, result
 
@@ -375,7 +375,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             # no datastore table is created
             raise LoaderError('No entries found - nothing to load')
 
-        ### Commented - this is done by the caller in jobs.py
+        # Commented - this is done by the caller in jobs.py
         # if data.get('set_url_type', False):
         #     update_resource(resource, api_key, ckan_url)
 
@@ -394,7 +394,7 @@ def get_types():
     _TYPES = [messytables.StringType, messytables.DecimalType,
               messytables.IntegerType, messytables.DateUtilType]
     # TODO make this configurable
-    #TYPES = web.app.config.get('TYPES', _TYPES)
+    # TYPES = web.app.config.get('TYPES', _TYPES)
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
@@ -457,7 +457,7 @@ def delete_datastore_resource(resource_id):
     from ckan import model
     context = {'model': model, 'user': '', 'ignore_auth': True}
     try:
-        response = p.toolkit.get_action('datastore_delete')(context, dict(
+        p.toolkit.get_action('datastore_delete')(context, dict(
             id=resource_id, force=True))
     except p.toolkit.ObjectNotFound:
         # this is ok
@@ -476,6 +476,7 @@ def fulltext_function_exists(connection):
         ''')
     return bool(res.rowcount)
 
+
 def fulltext_trigger_exists(connection, resource_id):
     '''Check to see if the fulltext trigger is set-up on this resource's table.
     This will only be the case if your CKAN is new enough to have:
@@ -490,13 +491,16 @@ def fulltext_trigger_exists(connection, resource_id):
         table=literal_string(resource_id)))
     return bool(res.rowcount)
 
+
 def _disable_fulltext_trigger(connection, resource_id):
     connection.execute('ALTER TABLE {table} DISABLE TRIGGER zfulltext;'
                        .format(table=identifier(resource_id)))
 
+
 def _enable_fulltext_trigger(connection, resource_id):
     connection.execute('ALTER TABLE {table} ENABLE TRIGGER zfulltext;'
                        .format(table=identifier(resource_id)))
+
 
 def _populate_fulltext(connection, resource_id, fields):
     '''Populates the _full_text column. i.e. the same as datastore_run_triggers
@@ -551,8 +555,10 @@ def _create_fulltext_trigger(connection, resource_id):
         FOR EACH ROW EXECUTE PROCEDURE populate_full_text_trigger()'''.format(
             table=identifier(resource_id)))
 
+
 def identifier(s):
     return u'"' + s.replace(u'"', u'""').replace(u'\0', '') + u'"'
+
 
 def literal_string(s):
     return u"'" + s.replace(u"'", u"''").replace(u'\0', '') + u"'"

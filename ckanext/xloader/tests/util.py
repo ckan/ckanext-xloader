@@ -44,4 +44,3 @@ def add_full_text_trigger_function():
         c.execute(sqlalchemy.text(full_text_sql.read()))
     Session.commit()
     Session.remove()
-

@@ -3,11 +3,6 @@ import logging
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
-try:
-    # as it was called up to ckan 2.7
-    import ckanext.datastore.db as datastore_backend
-except ImportError:
-    import ckanext.datastore as datastore_backend
 
 
 class xloaderCommand(cli.CkanCommand):
@@ -228,7 +223,7 @@ class xloaderCommand(cli.CkanCommand):
             job_params = eval(job.description.replace(
                 'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
             job_metadata = job_params['metadata']
-            print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} ' \
+            print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
                   'url={url}'.format(
                       id=job._id,
                       enqueued=job.enqueued_at,

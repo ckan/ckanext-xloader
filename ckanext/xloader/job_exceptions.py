@@ -42,6 +42,7 @@ class HTTPError(JobError):
             self.message, self.status_code, self.request_url, self.response) \
             .encode('ascii', 'replace')
 
+
 class LoaderError(JobError):
     '''Exception that's raised if a load fails'''
     pass
