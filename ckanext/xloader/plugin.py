@@ -20,6 +20,7 @@ DEFAULT_FORMATS = [
     'ods', 'application/vnd.oasis.opendocument.spreadsheet',
 ]
 
+
 class XLoaderFormats(object):
     formats = None
     @classmethod
@@ -123,12 +124,12 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
                 try:
                     log.debug('Submitting resource {0} to be xloadered'
-                                .format(entity.id))
+                              .format(entity.id))
                     p.toolkit.get_action('xloader_submit')(context, {
                         'resource_id': entity.id,
                         'ignore_hash': self.ignore_hash,
                     })
-                except p.toolkit.ValidationError, e:
+                except p.toolkit.ValidationError as e:
                     # If xloader is offline, we want to catch error instead
                     # of raising otherwise resource save will fail with 500
                     log.critical(e)

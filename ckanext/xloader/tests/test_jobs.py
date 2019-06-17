@@ -19,9 +19,10 @@ from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 import util
-from ckan.tests import factories, helpers
+from ckan.tests import factories
 
 SOURCE_URL = 'http://www.example.com/static/file'
+
 
 def mock_actions(func):
     '''
@@ -142,7 +143,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         table = Table(self.resource_id, meta,
                       autoload=True, autoload_with=engine)
         s = select([table])
-        with conn.begin() as trans:
+        with conn.begin():
             result = conn.execute(s)
         return dict(
             num_rows=result.rowcount,
@@ -332,8 +333,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
-                as mocked_set_resource_metadata:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata'):
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -451,8 +451,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_resource_metadata') \
-                as mocked_set_resource_metadata:
+        with mock.patch('ckanext.xloader.jobs.set_resource_metadata'):
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',

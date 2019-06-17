@@ -189,8 +189,8 @@ def xloader_data_into_datastore_(input, job_dict):
     except DataTooBigError:
         tmp_file.close()
         message = 'Data too large to load into Datastore: ' \
-                    '{cl} bytes > max {max_cl} bytes.' \
-                    .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
+            '{cl} bytes > max {max_cl} bytes.' \
+            .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         logger.warning(message)
         if MAX_EXCERPT_LINES <= 0:
             raise JobError(message)
@@ -326,7 +326,9 @@ def set_datastore_active(data, resource, api_key, ckan_url, logger):
 
     data['datastore_active'] = True
     logger.info('Setting resource.datastore_active = True')
-    logger.info('Setting resource.datastore_contains_all_records_of_source_file = {}'.format(data.get('datastore_contains_all_records_of_source_file')))
+    logger.info(
+        'Setting resource.datastore_contains_all_records_of_source_file = {}'
+        .format(data.get('datastore_contains_all_records_of_source_file')))
     set_resource_metadata(update_dict=data)
 
 
@@ -367,8 +369,10 @@ def set_resource_metadata(update_dict):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {'datastore_active': update_dict.get('datastore_active', True),
-                   'datastore_contains_all_records_of_source_file': update_dict.get('datastore_contains_all_records_of_source_file', True)}
+    update_dict = {
+        'datastore_active': update_dict.get('datastore_active', True),
+        'datastore_contains_all_records_of_source_file':
+        update_dict.get('datastore_contains_all_records_of_source_file', True)}
 
     # get extras(for entity update) and package_id(for search index update)
     res_query = model.Session.query(
