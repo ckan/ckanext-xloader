@@ -25,9 +25,11 @@
 Express Loader - ckanext-xloader
 ================================
 
-Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement for DataPusher because it offers ten times the speed and more robustness.
+Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement
+for DataPusher because it offers ten times the speed and more robustness.
 
-**OpenGov Inc.** has sponsored this development, with the aim of benefiting open data infrastructure worldwide.
+**OpenGov Inc.** has sponsored this development, with the aim of benefitting
+open data infrastructure worldwide.
 
 -------------------------------
 Key differences from DataPusher
@@ -36,39 +38,66 @@ Key differences from DataPusher
 Speed of loading
 ----------------
 
-DataPusher - parses CSV rows, converts to detected column types, converts the data to a JSON string, calls datastore_create for each batch of rows, which reformats the data into an INSERT statement string, which is passed to PostgreSQL.
+DataPusher - parses CSV rows, converts to detected column types, converts the
+data to a JSON string, calls datastore_create for each batch of rows, which
+reformats the data into an INSERT statement string, which is passed to
+PostgreSQL.
 
 Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader is over ten times faster than DataPusher.
+In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader
+is over ten times faster than DataPusher.
 
 Robustness
 ----------
 
-DataPusher - one cause of failure was when casting cells to a guessed type. The type of a column was decided by looking at the values of only the first few rows. So if a column is mainly numeric or dates, but a string (like "N/A") comes later on, then this will cause the load to error at that point, leaving it half-loaded into DataStore.
+DataPusher - one cause of failure was when casting cells to a guessed type. The
+type of a column was decided by looking at the values of only the first few
+rows. So if a column is mainly numeric or dates, but a string (like "N/A")
+comes later on, then this will cause the load to error at that point, leaving
+it half-loaded into DataStore.
 
-Express Loader - loads all the cells as text, before allowing the admin to convert columns to the types they want (using the Data Dictionary feature). In future it could do automatic detection and conversion.
+Express Loader - loads all the cells as text, before allowing the admin to
+convert columns to the types they want (using the Data Dictionary feature). In
+future it could do automatic detection and conversion.
 
 Simpler queueing tech
 ----------------------
 
-DataPusher - job queue is done by ckan-service-provider which is bespoke, complicated and stores jobs in its own database (sqlite by default).
+DataPusher - job queue is done by ckan-service-provider which is bespoke,
+complicated and stores jobs in its own database (sqlite by default).
 
-Express Loader - job queue is done by RQ, which is simpler and is backed by Redis and allows access to the CKAN model. You can also debug jobs easily using pdb. Job results are currently still stored in its own database, but the intention is to move this relatively small amount of data into CKAN's database, to reduce the complication of install.
+Express Loader - job queue is done by RQ, which is simpler and is backed by
+Redis and allows access to the CKAN model. You can also debug jobs easily using
+pdb. Job results are currently still stored in its own database, but the
+intention is to move this relatively small amount of data into CKAN's database,
+to reduce the complication of install.
 
-(The other obvious candidate is Celery, but we don't need its heavyweight architecture and its jobs are not debuggable with pdb.)
+(The other obvious candidate is Celery, but we don't need its heavyweight
+architecture and its jobs are not debuggable with pdb.)
 
 Separate web server
 -------------------
 
-DataPusher - has the complication that the queue jobs are done by a separate (Flask) web app, apart from CKAN. This was the design because the job requires intensive processing to convert every line of the data into JSON. However it means more complicated code as info needs to be passed between the services in http requests, more for the user to set-up and manage - another app config, another apache config, separate log files.
+DataPusher - has the complication that the queue jobs are done by a separate
+(Flask) web app, apart from CKAN. This was the design because the job requires
+intensive processing to convert every line of the data into JSON. However it
+means more complicated code as info needs to be passed between the services in
+http requests, more for the user to set-up and manage - another app config,
+another apache config, separate log files.
 
-Express Loader - the job runs in a worker process, in the same app as CKAN, so can access the CKAN config, db and logging directly and avoids many HTTP calls. This simplification makes sense because the xloader job doesn't need to do much processing - mainly it is streaming the CSV file from disk into PostgreSQL.
+Express Loader - the job runs in a worker process, in the same app as CKAN, so
+can access the CKAN config, db and logging directly and avoids many HTTP calls.
+This simplification makes sense because the xloader job doesn't need to do much
+processing - mainly it is streaming the CSV file from disk into PostgreSQL.
 
 Caveats
 -------
 
-* All columns are loaded as 'text' type. However an admin can use the resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric or datestamp and re-load the file. There is scope to do this automatically in future.
+* All columns are loaded as 'text' type. However an admin can use the
+  resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric
+  or datestamp and re-load the file. There is scope to do this automatically in
+  future.
 
 
 ------------
@@ -249,7 +278,8 @@ Troubleshooting
 You need to enable the `datastore` plugin in your CKAN config. See
 'Installation' section above to do this and restart the worker.
 
-**ProgrammingError: (ProgrammingError) relation "_table_metadata" does not exist**
+**ProgrammingError: (ProgrammingError) relation "_table_metadata" does not
+exist**
 
 Your DataStore permissions have not been set-up - see:
 <https://docs.ckan.org/en/latest/maintaining/datastore.html#set-permissions>
