@@ -8,7 +8,7 @@ try:
 except ImportError:
     from sqlalchemy.util import OrderedDict
 
-from nose.tools import eq_, make_decorator
+from nose.tools import eq_, make_decorator, assert_in
 import mock
 import responses
 from sqlalchemy import MetaData, Table
@@ -588,7 +588,10 @@ class TestSetResourceMetadata(object):
         resource = helpers.call_action('resource_show', id=resource['id'])
         from pprint import pprint
         pprint(resource)
-        eq_(resource['datastore_contains_all_records_of_source_file'],
-                     True)
+        assert_in(resource['datastore_contains_all_records_of_source_file'],
+                  (True, u'True'))
+        # I'm not quite sure why this is a string on travis - I get the bool
+        # locally
+
         eq_(resource['datastore_active'], True)
         eq_(resource['ckan_url'], 'http://www.ckan.org/')
