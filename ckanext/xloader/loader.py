@@ -9,10 +9,19 @@ import psycopg2
 import messytables
 from unidecode import unidecode
 
+import ckan.plugins as p
+from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+import ckan.plugins.toolkit as tk
 try:
+    from ckan.plugins.toolkit import config
+except ImportError:
+    # older versions of ckan
+    from pylons import config
+
+if tk.check_ckan_version(min_version='2.7'):
     import ckanext.datastore.backend.postgres as datastore_db
     get_write_engine = datastore_db.get_write_engine
-except ImportError:
+else:
     # older versions of ckan
     def get_write_engine():
         from ckanext.datastore.db import _get_engine
@@ -21,14 +30,6 @@ except ImportError:
         return _get_engine(data_dict)
     import ckanext.datastore.db as datastore_db
 
-import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
-
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    # older versions of ckan
-    from pylons import config
 
 create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
