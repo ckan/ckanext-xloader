@@ -313,25 +313,27 @@ To publish a new version to PyPI follow these steps:
    See `PEP 440 <http://legacy.python.org/dev/peps/pep-0440/#public-version-identifiers>`_
    for how to choose version numbers.
 
-2. Make sure you have the latest version of necessary packages::
+2. Update the CHANGELOG.
+
+3. Make sure you have the latest version of necessary packages::
 
     pip install --upgrade setuptools wheel twine
 
-3. Create a source and binary distributions of the new version::
+4. Create a source and binary distributions of the new version::
 
        python setup.py sdist bdist_wheel && twine check dist/*
 
    Fix any errors you get.
 
-4. Upload the source distribution to PyPI::
+5. Upload the source distribution to PyPI::
 
        twine upload dist/*
 
-5. Commit any outstanding changes::
+6. Commit any outstanding changes::
 
        git commit -a
 
-6. Tag the new release of the project on GitHub with the version number from
+7. Tag the new release of the project on GitHub with the version number from
    the ``setup.py`` file. For example if the version number in ``setup.py`` is
    0.0.1 then do::
 

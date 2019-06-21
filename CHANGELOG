@@ -1,3 +1,27 @@
+v0.4.0 2019-06-21
+=================
+
+Features:
+* 'ignore_hash' config option added to bypass the hash check which can skip loads #34
+* File size is logged #35
+* Retries are no done when downloading CSV #39
+* xloader_status action now available to GET (not just POST) #46
+* ANALYZE run after load, needed for CKAN 2.9 resource preview speed-up #47
+* CLI load of multiple datasets now resumes following an error with a resource #57
+* Added 'max_excerpt_lines' config to load an excerpt of files larger than max_content_length #63
+
+Fixes:
+* Unicode characters in CSV headers caused error #28
+* Column headers longer than 63 characters caused error #14
+* Floats in CSV headers caused error #49
+* Integers in xlsx header caused error #53
+* Extraneous commas in combination with non-ascii chars caused error #51
+* CSV with no rows caused error #38
+* Template compatibility with CKAN 2.9 #40
+* CLI submitted resources with non-xloader formats #43
+* ckanext.xloader.max_content_length wasn't working #62
+
+
 v0.3.1 2018-01-22
 =================
 
