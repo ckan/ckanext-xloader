@@ -19,6 +19,7 @@ setup(
 
     description='Express Loader - quickly load data into CKAN DataStore''',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
 
     # The project's main homepage.
     url='https://github.com/ckan/ckanext-xloader',
