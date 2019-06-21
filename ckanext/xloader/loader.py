@@ -9,10 +9,11 @@ import psycopg2
 import messytables
 from unidecode import unidecode
 
-try:
+import ckan.plugins.toolkit as tk
+if tk.check_ckan_version(min_version='2.7'):
     import ckanext.datastore.backend.postgres as datastore_db
     get_write_engine = datastore_db.get_write_engine
-except ImportError:
+else:
     # older versions of ckan
     def get_write_engine():
         from ckanext.datastore.db import _get_engine
