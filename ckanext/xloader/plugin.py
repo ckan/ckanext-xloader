@@ -75,10 +75,17 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     'Config option `{0}` must be set to use ckanext-xloader.'
                     .format(config_option))
 
-        connection = get_write_engine().connect()
-        if not fulltext_function_exists(connection):
-            raise Exception('populate_full_text_trigger is not defined. See '
-                            'ckanext-xloader\'s README.rst for more details.')
+        if p.toolkit.check_ckan_version(max_version='2.7.99'):
+            # populate_full_text_trigger() needs to be defined, and this was
+            # introduced in CKAN 2.8 when you installed datastore e.g.:
+            #     paster datastore set-permissions
+            # However before CKAN 2.8 we need to check the user has defined
+            # this function manually.
+            connection = get_write_engine().connect()
+            if not fulltext_function_exists(connection):
+                raise Exception('populate_full_text_trigger is not defined. '
+                                'See ckanext-xloader\'s README.rst for more '
+                                'details.')
 
     # IDomainObjectModification
     # IResourceUrlChange
