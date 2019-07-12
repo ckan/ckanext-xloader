@@ -125,7 +125,7 @@ To install Express Loader:
 
 3. Install dependencies::
 
-     pip install -r requirements.txt
+     pip install -r https://raw.githubusercontent.com/ckan/ckanext-xloader/master/requirements.txt
      pip install -U requests[security]
 
 4. If you are using CKAN version before 2.8.x you need to define the
