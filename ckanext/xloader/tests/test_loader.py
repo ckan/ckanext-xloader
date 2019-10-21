@@ -340,7 +340,7 @@ class TestLoadCsv(TestLoadBase):
 
         assert_equal(
             self._get_column_names('test1')[2:],
-            [u'd@t$e', u't^e&m*pe!r(a)ture', u'place%'])
+            [u'd@t$e', u't^e&m*pe!r(a)t?u:r%%e', ur'p\l/a[c{e%'])
         assert_equal(self._get_records('test1')[0],
                      (1, u'2011-01-01', u'1', u'Galway'))
 
