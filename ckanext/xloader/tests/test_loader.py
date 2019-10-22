@@ -47,7 +47,7 @@ class TestLoadBase(util.PluginsMixin):
         c = self.Session.connection()
         if exclude_full_text_column:
             cols = self._get_column_names(table_name)
-            cols = ', '.join('"{}"'.format(col) for col in cols
+            cols = ', '.join(loader.identifier(col) for col in cols
                              if col != '_full_text')
         else:
             cols = '*'
@@ -330,6 +330,19 @@ class TestLoadCsv(TestLoadBase):
         assert_in('id', test_result_int_headers)
         assert_in('nom', test_result_int_headers)
         assert_in('3', test_result_int_headers)
+
+    def test_column_names(self):
+        csv_filepath = get_sample_filepath('column_names.csv')
+        resource_id = 'test1'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+
+        assert_equal(
+            self._get_column_names('test1')[2:],
+            [u'd@t$e', u't^e&m*pe!r(a)t?u:r%%e', ur'p\l/a[c{e%'])
+        assert_equal(self._get_records('test1')[0],
+                     (1, u'2011-01-01', u'1', u'Galway'))
 
 
 class TestLoadUnhandledTypes(TestLoadBase):
