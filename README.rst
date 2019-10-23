@@ -284,6 +284,13 @@ exist**
 Your DataStore permissions have not been set-up - see:
 <https://docs.ckan.org/en/latest/maintaining/datastore.html#set-permissions>
 
+**xLoader Resubmits resources when editing/adding new resources to a package**
+
+This behaviour was documented in
+`Issue 75 <https://github.com/ckan/ckanext-xloader/issues/75>` and is related
+to a bug in CKAN that is fixed in versions **2.6.9**, **2.7.7**, **2.8.4**
+and **2.9.0+**.
+
 -----------------
 Running the Tests
 -----------------
