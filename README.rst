@@ -284,6 +284,13 @@ exist**
 Your DataStore permissions have not been set-up - see:
 <https://docs.ckan.org/en/latest/maintaining/datastore.html#set-permissions>
 
+**When editing a package, all its existing resources get re-loaded by xloader**
+
+This behavior was documented in
+`Issue 75 <https://github.com/ckan/ckanext-xloader/issues/75>`_ and is related
+to a bug in CKAN that is fixed in versions 2.6.9, 2.7.7, 2.8.4
+and 2.9.0+.
+
 -----------------
 Running the Tests
 -----------------
