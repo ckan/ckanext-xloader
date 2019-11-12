@@ -387,11 +387,11 @@ def set_resource_metadata(update_dict):
     # update extras in database for record and its revision
     extras.update(update_dict)
     res_query.update({'extras': extras}, synchronize_session=False)
-    model.Session.query(model.resource_revision_table).filter(
-        model.ResourceRevision.id == update_dict['resource_id'],
-        model.ResourceRevision.current is True
-    ).update({'extras': extras}, synchronize_session=False)
-
+    if hasattr(model, 'resource_revision_table'):
+        model.Session.query(model.resource_revision_table).filter(
+            model.ResourceRevision.id == update_dict['resource_id'],
+            model.ResourceRevision.current is True
+        ).update({'extras': extras}, synchronize_session=False)
     model.Session.commit()
 
     # get package with updated resource from solr
