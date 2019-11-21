@@ -98,7 +98,8 @@ Caveats
   resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric
   or datestamp and re-load the file. There is scope to do this automatically in
   future.
- * If you have existing data, you can pre-populate the Data Dictionary::
+
+  * If you have existing data, you can pre-populate the Data Dictionary:
 
      paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
 
