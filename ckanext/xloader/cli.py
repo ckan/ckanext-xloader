@@ -253,11 +253,6 @@ class MigrateTypesCommand(cli.CkanCommand):
 
                 all - Migrate all resources (this is the default)
 
-            options:
-
-                --include-text - Add Data Dictionary overrides even for text fields
-
-                --force - Overwrite existing data type if it exists
     '''
     summary = __doc__.split('\n')[0]
     usage = __doc__
@@ -267,7 +262,7 @@ class MigrateTypesCommand(cli.CkanCommand):
         super(MigrateTypesCommand, self).__init__(name)
         self.error_occured = False
 
-        self.parser.add_option('--include-text',
+        self.parser.add_option('-t', '--include-text',
                                action='store_true', default=False,
                                help='Add Data Dictionary overrides even for text fields')
 
@@ -285,14 +280,25 @@ class MigrateTypesCommand(cli.CkanCommand):
 
     def _migrate_all(self):
         session = model.Session
+        resource_count = session.query(model.Resource).filter_by(state='active').count()
+        print "Updating {} resource(s)".format(resource_count)
+        resources_done = 0
         for resource in session.query(model.Resource).filter_by(state='active'):
-            self._migrate_resource(resource.id)
+            resources_done += 1
+            self._migrate_resource(resource.id, prefix='[{}/{}]: '.format(resources_done, resource_count))
+            if resources_done % 100 == 0:
+                print "[{}/{}] done".format(resources_done, resource_count)
+        print "[{}/{}] done".format(resources_done, resource_count)
 
-    def _migrate_resource(self, resource_id):
+    def _migrate_resource(self, resource_id, prefix=''):
         data_dict = h.datastore_dictionary(resource_id)
 
+        def print_status(status):
+            if self.options.verbose:
+                print "{}{}: {}".format(prefix, resource_id, status)
+
         if not data_dict:
-            print "{}: not found".format(resource_id)
+            print_status("not found")
             return
 
         fields = []
@@ -307,7 +313,7 @@ class MigrateTypesCommand(cli.CkanCommand):
             elif self.options.force:
                 field['info'].update({'type_override': type_override})
             else:
-                print "{}: skipped".format(resource_id)
+                print_status("skipped")
                 return
 
             fields.append({
@@ -322,7 +328,7 @@ class MigrateTypesCommand(cli.CkanCommand):
                 'force': True,
                 'fields': fields
             })
-            print "{}: updated".format(resource_id)
+            print_status("updated")
         except Exception, e:
             self.error_occured = True
             print "{}: failed, {}".format(resource_id, e)
