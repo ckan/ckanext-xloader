@@ -21,12 +21,13 @@
     :target: https://pypi.org/project/ckanext-xloader/
     :alt: License
 
-================================
-Express Loader - ckanext-xloader
-================================
+=========================
+XLoader - ckanext-xloader
+=========================
 
 Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement
-for DataPusher because it offers ten times the speed and more robustness.
+for DataPusher because it offers ten times the speed and more robustness
+(hence the name, derived from "Express Loader")
 
 **OpenGov Inc.** has sponsored this development, with the aim of benefitting
 open data infrastructure worldwide.
@@ -43,9 +44,9 @@ data to a JSON string, calls datastore_create for each batch of rows, which
 reformats the data into an INSERT statement string, which is passed to
 PostgreSQL.
 
-Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
+XLoader - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader
+In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, XLoader
 is over ten times faster than DataPusher.
 
 Robustness
@@ -57,7 +58,7 @@ rows. So if a column is mainly numeric or dates, but a string (like "N/A")
 comes later on, then this will cause the load to error at that point, leaving
 it half-loaded into DataStore.
 
-Express Loader - loads all the cells as text, before allowing the admin to
+XLoader - loads all the cells as text, before allowing the admin to
 convert columns to the types they want (using the Data Dictionary feature). In
 future it could do automatic detection and conversion.
 
@@ -67,11 +68,10 @@ Simpler queueing tech
 DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
-Express Loader - job queue is done by RQ, which is simpler and is backed by
+XLoader - job queue is done by RQ, which is simpler and is backed by
 Redis and allows access to the CKAN model. You can also debug jobs easily using
-pdb. Job results are currently still stored in its own database, but the
-intention is to move this relatively small amount of data into CKAN's database,
-to reduce the complication of install.
+pdb. Job results are stored in Sqlite by default, and for production simply
+specify CKAN's database in the config and it's held there - easy.
 
 (The other obvious candidate is Celery, but we don't need its heavyweight
 architecture and its jobs are not debuggable with pdb.)
@@ -86,7 +86,7 @@ means more complicated code as info needs to be passed between the services in
 http requests, more for the user to set-up and manage - another app config,
 another apache config, separate log files.
 
-Express Loader - the job runs in a worker process, in the same app as CKAN, so
+XLoader - the job runs in a worker process, in the same app as CKAN, so
 can access the CKAN config, db and logging directly and avoids many HTTP calls.
 This simplification makes sense because the xloader job doesn't need to do much
 processing - mainly it is streaming the CSV file from disk into PostgreSQL.
@@ -113,7 +113,7 @@ Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 Installation
 ------------
 
-To install Express Loader:
+To install XLoader:
 
 1. Activate your CKAN virtual environment, for example::
 
@@ -198,7 +198,7 @@ Configuration:
 
 ::
 
-    # The connection string for the jobs database used by Express Loader. The
+    # The connection string for the jobs database used by XLoader. The
     # default of an sqlite file is fine for development. For production use a
     # Postgresql database.
     ckanext.xloader.jobs_db.uri = sqlite:////tmp/xloader_jobs.db
@@ -237,7 +237,7 @@ Configuration:
 Developer installation
 ------------------------
 
-To install Express Loader for development, activate your CKAN virtualenv and
+To install XLoader for development, activate your CKAN virtualenv and
 in the directory up from your local ckan repo::
 
     git clone https://github.com/ckan/ckanext-xloader.git
@@ -251,9 +251,9 @@ in the directory up from your local ckan repo::
 Upgrading from DataPusher
 -------------------------
 
-To upgrade from DataPusher to Express Loader:
+To upgrade from DataPusher to XLoader:
 
-1. Install Express Loader as above, including running the xloader worker.
+1. Install XLoader as above, including running the xloader worker.
 
 2. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
@@ -278,9 +278,28 @@ e.g. ::
 
     paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
 
-For a full list of commands::
+For debugging you can try xloading it synchronously (which does the load
+directly, rather than asking the worker to do it) with the ``-s`` option::
+
+    paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+
+See the status of jobs::
+
+    paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+
+For a full list of XLoader commands::
 
     paster --plugin=ckanext-xloader xloader --help
+
+Other useful commands related to jobs and workers are:
+
+Clear (delete) all outstanding jobs::
+
+    paster --plugin=ckan jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+
+If having trouble with the worker process, restarting it can help::
+
+    sudo supervisorctl restart ckan-worker:ckan-worker-00
 
 ---------------
 Troubleshooting
@@ -321,11 +340,11 @@ coverage installed in your virtualenv (``pip install coverage``) then run::
 
     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests
 
------------------------------------------
-Releasing a New Version of Express Loader
------------------------------------------
+----------------------------------
+Releasing a New Version of XLoader
+----------------------------------
 
-Express Loader is available on PyPI as https://pypi.org/project/ckanext-xloader.
+XLoader is available on PyPI as https://pypi.org/project/ckanext-xloader.
 
 To publish a new version to PyPI follow these steps:
 
