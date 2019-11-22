@@ -267,6 +267,21 @@ To upgrade from DataPusher to Express Loader:
        sudo service apache2 reload
        sudo service nginx reload
 
+----------------------
+Command-line interface
+----------------------
+
+You can submit single or multiple resources to be xloaded using the
+command-line interface.
+
+e.g. ::
+
+    paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+
+For a full list of commands::
+
+    paster --plugin=ckanext-xloader xloader --help
+
 ---------------
 Troubleshooting
 ---------------
