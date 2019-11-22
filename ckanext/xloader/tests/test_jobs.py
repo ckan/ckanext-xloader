@@ -13,7 +13,12 @@ import mock
 import responses
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
-from pylons import config
+
+import ckan.plugins as p
+try:
+    config = p.toolkit.config
+except AttributeError:
+    from pylons import config
 
 from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
