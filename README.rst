@@ -155,13 +155,11 @@ To install Express Loader:
    Ensure ``datastore`` is also listed, to enable CKAN DataStore.
 
 6. If it is a production server, you'll want to store jobs info in a more
-   robust database than the default sqlite file::
+   robust database than the default sqlite file. It can happily use the main
+   CKAN postgres db by adding this line to the config, but with the same value
+   as you have for ``sqlalchemy.url``::
 
-     sudo -u postgres createdb -O ckan_default xloader_jobs -E utf-8
-
-   And add this list to the config::
-
-     ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/xloader_jobs
+     ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/ckan_default
 
    (This step can be skipped when just developing or testing.)
 
