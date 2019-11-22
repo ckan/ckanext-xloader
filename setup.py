@@ -15,13 +15,14 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # http://packaging.python.org/en/latest/tutorial.html#version
-    version='0.3.1',
+    version='0.4.1',
 
     description='Express Loader - quickly load data into CKAN DataStore''',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
 
     # The project's main homepage.
-    url='https://github.com/davidread/ckanext-xloader',
+    url='https://github.com/ckan/ckanext-xloader',
 
     # Author details
     author='''David Read''',
