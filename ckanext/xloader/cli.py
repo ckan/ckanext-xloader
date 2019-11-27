@@ -285,7 +285,9 @@ class MigrateTypesCommand(cli.CkanCommand):
         resources_done = 0
         for resource in session.query(model.Resource).filter_by(state='active'):
             resources_done += 1
-            self._migrate_resource(resource.id, prefix='[{}/{}]: '.format(resources_done, resource_count))
+            self._migrate_resource(resource.id,
+                                   prefix='[{}/{}]: '.format(resources_done,
+                                                             resource_count))
             if resources_done % 100 == 0:
                 print "[{}/{}] done".format(resources_done, resource_count)
         print "[{}/{}] done".format(resources_done, resource_count)
@@ -308,8 +310,10 @@ class MigrateTypesCommand(cli.CkanCommand):
             else:
                 type_override = field['type']
 
-            if not 'info' in field:
-                field.update({'info': {'notes':'', 'type_override':type_override, 'label':''}})
+            if 'info' not in field:
+                field.update({'info': {'notes': '',
+                                       'type_override': type_override,
+                                       'label': ''}})
             elif self.options.force:
                 field['info'].update({'type_override': type_override})
             else:
@@ -337,4 +341,3 @@ class MigrateTypesCommand(cli.CkanCommand):
         if self.error_occured:
             print('Finished but saw errors - see above for details')
             sys.exit(1)
-
