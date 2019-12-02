@@ -266,7 +266,7 @@ def xloader_data_into_datastore_(input, job_dict):
             logger=logger)
     except JobError as e:
         logger.warning('Load using COPY failed: {}'.format(e))
-        logger.info('Trying again with messytables')
+        logger.info('Trying again with messytables to best-guess data types')
         try:
             loader.load_table(tmp_file.name,
                               resource_id=resource['id'],
