@@ -255,14 +255,18 @@ To upgrade from DataPusher to XLoader:
 
 1. Install XLoader as above, including running the xloader worker.
 
-2. If you've not already, change the enabled plugin in your config - on the
+2. (Optional) Pre-populate the Data Dictionary with the existing column types::
+
+       paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
+
+3. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
 
-3. Stop the datapusher worker::
+4. Stop the datapusher worker::
 
        sudo a2dissite datapusher
 
-4. Restart CKAN::
+5. Restart CKAN::
 
        sudo service apache2 reload
        sudo service nginx reload
