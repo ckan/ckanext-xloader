@@ -1,0 +1,7 @@
+include full_text_function.sql
+include *requirements*.txt
+include CHANGELOG
+include LICENSE
+include README.rst
+recursive-include ckanext/xloader/templates *.html
+recursive-include ckanext/xloader/templates-bs2 *.html
