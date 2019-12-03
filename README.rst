@@ -255,7 +255,7 @@ To upgrade from DataPusher to XLoader:
 
 1. Install XLoader as above, including running the xloader worker.
 
-2. (Optional) Pre-populate the Data Dictionary with the existing column types::
+2. (Optional) For existing datasets that have been datapushed to datastore, freeze the column types (in the data dictionaries), so that XLoader doesn't change them back to string on next xload::
 
        paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
 
