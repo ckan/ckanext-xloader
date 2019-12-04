@@ -244,9 +244,7 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('File hash: {}'.format(file_hash))
     resource['hash'] = file_hash  # TODO write this back to the actual resource
 
-    # Load it
-    logger.info('Loading CSV')
-    try:
+    def direct_load():
         fields = loader.load_csv(
             tmp_file.name,
             resource_id=resource['id'],
@@ -264,9 +262,8 @@ def xloader_data_into_datastore_(input, job_dict):
             fields=fields,
             resource_id=resource['id'],
             logger=logger)
-    except JobError as e:
-        logger.warning('Load using COPY failed: {}'.format(e))
-        logger.info('Trying again with messytables to best-guess data types')
+
+    def messytables_load():
         try:
             loader.load_table(tmp_file.name,
                               resource_id=resource['id'],
@@ -279,6 +276,15 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, api_key, ckan_url, logger)
         logger.info('Finished loading with messytables')
+
+    # Load it
+    logger.info('Loading CSV')
+    try:
+        direct_load()
+    except JobError as e:
+        logger.warning('Fast load using COPY failed: {}'.format(e))
+        logger.info('Trying again with messytables to best-guess data types')
+        messytables_load()
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: {}'.format(e))
