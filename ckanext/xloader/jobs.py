@@ -151,7 +151,7 @@ def xloader_data_into_datastore_(input, job_dict):
         return
 
     # download resource
-    tmp_file, file_hash = _get_tmp_file(resource, data, api_key, logger)
+    tmp_file, file_hash = _download_resource(resource, data, api_key, logger)
 
     # hash isn't actually stored, so this is a bit worthless at the moment
     if (resource.get('hash') == file_hash
@@ -219,7 +219,7 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Express Load completed')
 
 
-def _get_tmp_file(resource, data, api_key, logger):
+def _download_resource(resource, data, api_key, logger):
     # check scheme
     url = resource.get('url')
     scheme = urlparse.urlsplit(url).scheme
