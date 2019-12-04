@@ -1,3 +1,13 @@
+0.5.0 2019-12-04
+================
+
+Features:
+* migrate_types CLI command added for freezing/migrating data dictionaries created with datapusher #85
+
+Fixes:
+* DataStore tab missing from resource manage page, due to templates missing from PyPI package #74
+
+
 0.4.1 2019-11-13
 ================
 
