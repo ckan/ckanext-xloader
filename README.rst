@@ -68,10 +68,11 @@ Simpler queueing tech
 DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
-XLoader - job queue is done by RQ, which is simpler and is backed by
-Redis and allows access to the CKAN model. You can also debug jobs easily using
-pdb. Job results are stored in Sqlite by default, and for production simply
-specify CKAN's database in the config and it's held there - easy.
+XLoader - job queue is done by RQ, which is simpler, is backed by Redis, allows
+access to the CKAN model and is CKAN's default queue technology (sinc CKAN
+2.7). You can also debug jobs easily using pdb. Job results are stored in
+Sqlite by default, and for production simply specify CKAN's database in the
+config and it's held there - easy.
 
 (The other obvious candidate is Celery, but we don't need its heavyweight
 architecture and its jobs are not debuggable with pdb.)
@@ -91,13 +92,19 @@ can access the CKAN config, db and logging directly and avoids many HTTP calls.
 This simplification makes sense because the xloader job doesn't need to do much
 processing - mainly it is streaming the CSV file from disk into PostgreSQL.
 
-Caveats
--------
+Caveat - column types
+---------------------
 
-* All columns are loaded as 'text' type. However an admin can use the
-  resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric
-  or datestamp and re-load the file. There is scope to do this automatically in
-  future.
+Note: With XLoader, all columns are stored in DataStore's database as 'text'
+type (whereas DataPusher did some rudimentary type guessing - see 'Robustness'
+above). However once a resource is xloaded, an admin can use the resource's
+Data Dictionary tab (CKAN 2.7 onwards) to change these types to numeric or
+datestamp and re-load the file. When migrating from DataPusher to XLoader you
+can preserve the types of existing resources by using the ``migrate_types``
+command.
+
+There is scope to add functionality for automatically guessing column type -
+offers to contribute this are welcomed.
 
 
 ------------
@@ -291,11 +298,27 @@ See the status of jobs::
 
     paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
 
-For a full list of XLoader commands::
+Submit all datasets' resources to the DataStore::
+
+    paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+
+Re-submit all the resources already in the DataStore (Ignores any resources
+that have not been stored in DataStore e.g. because they are not tabular)::
+
+    paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+
+**Full list of XLoader CLI commands**::
 
     paster --plugin=ckanext-xloader xloader --help
 
-Other useful commands related to jobs and workers are:
+Jobs and workers
+----------------
+
+Main docs for managing jobs: <https://docs.ckan.org/en/latest/maintaining/background-tasks.html#managing-background-jobs>
+
+Main docs for running and managing workers are here: https://docs.ckan.org/en/latest/maintaining/background-tasks.html#running-background-jobs
+
+Useful commands:
 
 Clear (delete) all outstanding jobs::
 
@@ -303,7 +326,7 @@ Clear (delete) all outstanding jobs::
 
 If having trouble with the worker process, restarting it can help::
 
-    sudo supervisorctl restart ckan-worker:ckan-worker-00
+    sudo supervisorctl restart ckan-worker:*
 
 ---------------
 Troubleshooting
