@@ -289,7 +289,7 @@ def xloader_data_into_datastore_(input, job_dict):
             try:
                 direct_load()
             except JobError as e:
-                logger.warning('Fast load using COPY failed: {}'.format(e))
+                logger.warning('Load using COPY failed: {}'.format(e))
                 logger.info('Trying again with messytables to best-guess data types')
                 messytables_load()
     except FileCouldNotBeLoadedError as e:

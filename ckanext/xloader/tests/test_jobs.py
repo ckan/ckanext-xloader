@@ -429,7 +429,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         # check messytable portion of the logs
         logs = Logs(logs[copy_error_index + 1:])
-        eq_(logs[0], (u'INFO', u'Trying again with messytables'))
+        eq_(logs[0], (u'INFO', u'Trying again with messytables to best-guess data types'))
         logs.assert_no_errors()
 
         # Check ANALYZE was run
