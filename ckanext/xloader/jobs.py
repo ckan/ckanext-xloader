@@ -13,7 +13,7 @@ import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-from ckan.plugins.toolkit import get_action
+from ckan.plugins.toolkit import get_action, asbool
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -279,12 +279,19 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # Load it
     logger.info('Loading CSV')
+    compatibility_mode = config.get('ckanext.xloader.compatibility_mode', False)
     try:
-        direct_load()
-    except JobError as e:
-        logger.warning('Fast load using COPY failed: {}'.format(e))
-        logger.info('Trying again with messytables to best-guess data types')
-        messytables_load()
+        if asbool(compatibility_mode):
+            logger.info("Compatibility mode is {}, using messytables to guess types".format(compatibility_mode))
+            messytables_load()
+        else:
+            logger.info("Compatibility mode is {}, attempting fast direct copy".format(compatibility_mode))
+            try:
+                direct_load()
+            except JobError as e:
+                logger.warning('Fast load using COPY failed: {}'.format(e))
+                logger.info('Trying again with messytables to best-guess data types')
+                messytables_load()
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: {}'.format(e))
