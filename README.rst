@@ -215,6 +215,11 @@ Configuration:
     # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
     ckanext.xloader.max_content_length = 1000000000
 
+    # Always use messytables instead of attempting a direct PostgreSQL COPY.
+    # This more closely matches the DataPusher's behavior, both in results
+    # (automatically guessing column types) and in speed.
+    ckanext.xloader.compatibility_mode = True
+
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
     ckanext.xloader.job_timeout = 3600
@@ -264,11 +269,15 @@ To upgrade from DataPusher to Express Loader:
 3. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
 
-4. Stop the datapusher worker::
+4. (Optional) Enable 'compatibility mode' for slower loading but automatic
+   guessing of column types.
+   Add ``ckanext.xloader.compatibility_mode = True`` to your config.
+
+5. Stop the datapusher worker::
 
        sudo a2dissite datapusher
 
-5. Restart CKAN::
+6. Restart CKAN::
 
        sudo service apache2 reload
        sudo service nginx reload
