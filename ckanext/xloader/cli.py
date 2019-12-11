@@ -28,7 +28,7 @@ class xloaderCommand(cli.CkanCommand):
 
                 all-existing - Re-submits all the resources already in the
                     DataStore. (Ignores any resources that have not been stored
-                    in DataStore, for any reason.)
+                    in DataStore, e.g. because they are not tabular)
 
             options:
 
