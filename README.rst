@@ -63,7 +63,7 @@ convert columns to the types they want (using the Data Dictionary feature). In
 future it could do automatic detection and conversion.
 
 Simpler queueing tech
-----------------------
+---------------------
 
 DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
@@ -220,6 +220,13 @@ Configuration:
     # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
     ckanext.xloader.max_content_length = 1000000000
 
+    # To always use messytables to load data, instead of attempting a direct
+    # PostgreSQL COPY, set this to True. This more closely matches the
+    # DataPusher's behavior. It has the advantage that the column types
+    # are guessed. However it is more error prone, far slower and you can't run
+    # the CPU-intensive queue on a separate machine.
+    ckanext.xloader.just_load_with_messytables = False
+
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
     ckanext.xloader.job_timeout = 3600
@@ -269,11 +276,15 @@ To upgrade from DataPusher to XLoader:
 3. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
 
-4. Stop the datapusher worker::
+4. (Optional) If you wish, you can disable the direct loading and continue to
+   just use messytables - for more about this see the docs on config option:
+   ``ckanext.xloader.just_load_with_messytables``
+
+5. Stop the datapusher worker::
 
        sudo a2dissite datapusher
 
-5. Restart CKAN::
+6. Restart CKAN::
 
        sudo service apache2 reload
        sudo service nginx reload
