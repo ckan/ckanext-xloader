@@ -153,7 +153,8 @@ def xloader_data_into_datastore_(input, job_dict):
         return
 
     # download resource
-    tmp_file, file_hash = _download_resource(resource, data, api_key, logger)
+    tmp_file, file_hash = _download_resource_data(resource, data, api_key,
+                                                  logger)
 
     # hash isn't actually stored, so this is a bit worthless at the moment
     if (resource.get('hash') == file_hash
@@ -223,7 +224,19 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Express Load completed')
 
 
-def _download_resource(resource, data, api_key, logger):
+def _download_resource_data(resource, data, api_key, logger):
+    '''Downloads the resource['url'] as a tempfile.
+
+    :param resource: resource (i.e. metadata) dict (from the job dict)
+    :param data: job dict - may be written to during this function
+    :param api_key: CKAN api key - needed to obtain resources that are private
+    :param logger:
+
+    If the download is bigger than MAX_CONTENT_LENGTH then it just downloads a
+    excerpt (of MAX_EXCERPT_LINES) for preview, and flags it by setting
+    data['datastore_contains_all_records_of_source_file'] = False
+    which will be saved to the resource later on.
+    '''
     # check scheme
     url = resource.get('url')
     scheme = urlparse.urlsplit(url).scheme
