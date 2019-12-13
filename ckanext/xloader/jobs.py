@@ -37,8 +37,9 @@ CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
 
+# input = {
 # 'api_key': user['apikey'],
-# 'job_type': 'push_to_datastore',
+# 'job_type': 'xloader_to_datastore',
 # 'result_url': callback_url,
 # 'metadata': {
 #     'ignore_hash': data_dict.get('ignore_hash', False),
@@ -48,10 +49,11 @@ DOWNLOAD_TIMEOUT = 30
 #     'task_created': task['last_updated'],
 #     'original_url': resource_dict.get('url'),
 #     }
+# }
 
 def xloader_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
-    xloader_data_into_datastore, and makes sure it finishes by calling
+    xloader_data_into_datastore_, and makes sure it finishes by calling
     xloader_hook to update the task_status with the result.
 
     Errors are stored in task_status and job log and this method returns
@@ -197,17 +199,19 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # Load it
     logger.info('Loading CSV')
-    compatibility_mode = asbool(config.get('ckanext.xloader.compatibility_mode', False))
-    logger.info("Compatibility mode is {}".format(compatibility_mode))
+    just_load_with_messytables = asbool(config.get(
+        'ckanext.xloader.just_load_with_messytables', False))
+    logger.info("'Just load with messytables' mode is: {}".format(
+        just_load_with_messytables))
     try:
-        if compatibility_mode:
+        if just_load_with_messytables:
             messytables_load()
         else:
             try:
                 direct_load()
             except JobError as e:
                 logger.warning('Load using COPY failed: {}'.format(e))
-                logger.info('Trying again with messytables to best-guess data types')
+                logger.info('Trying again with messytables')
                 messytables_load()
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
