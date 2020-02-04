@@ -21,12 +21,13 @@
     :target: https://pypi.org/project/ckanext-xloader/
     :alt: License
 
-================================
-Express Loader - ckanext-xloader
-================================
+=========================
+XLoader - ckanext-xloader
+=========================
 
 Loads CSV (and similar) data into CKAN's DataStore. Designed as a replacement
-for DataPusher because it offers ten times the speed and more robustness.
+for DataPusher because it offers ten times the speed and more robustness
+(hence the name, derived from "Express Loader")
 
 **OpenGov Inc.** has sponsored this development, with the aim of benefitting
 open data infrastructure worldwide.
@@ -43,9 +44,9 @@ data to a JSON string, calls datastore_create for each batch of rows, which
 reformats the data into an INSERT statement string, which is passed to
 PostgreSQL.
 
-Express Loader - pipes the CSV file directly into PostgreSQL using COPY.
+XLoader - pipes the CSV file directly into PostgreSQL using COPY.
 
-In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, Express Loader
+In `tests <https://github.com/ckan/ckanext-xloader/issues/25>`_, XLoader
 is over ten times faster than DataPusher.
 
 Robustness
@@ -57,7 +58,7 @@ rows. So if a column is mainly numeric or dates, but a string (like "N/A")
 comes later on, then this will cause the load to error at that point, leaving
 it half-loaded into DataStore.
 
-Express Loader - loads all the cells as text, before allowing the admin to
+XLoader - loads all the cells as text, before allowing the admin to
 convert columns to the types they want (using the Data Dictionary feature). In
 future it could do automatic detection and conversion.
 
@@ -67,11 +68,11 @@ Simpler queueing tech
 DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
-Express Loader - job queue is done by RQ, which is simpler and is backed by
-Redis and allows access to the CKAN model. You can also debug jobs easily using
-pdb. Job results are currently still stored in its own database, but the
-intention is to move this relatively small amount of data into CKAN's database,
-to reduce the complication of install.
+XLoader - job queue is done by RQ, which is simpler, is backed by Redis, allows
+access to the CKAN model and is CKAN's default queue technology (sinc CKAN
+2.7). You can also debug jobs easily using pdb. Job results are stored in
+Sqlite by default, and for production simply specify CKAN's database in the
+config and it's held there - easy.
 
 (The other obvious candidate is Celery, but we don't need its heavyweight
 architecture and its jobs are not debuggable with pdb.)
@@ -86,18 +87,24 @@ means more complicated code as info needs to be passed between the services in
 http requests, more for the user to set-up and manage - another app config,
 another apache config, separate log files.
 
-Express Loader - the job runs in a worker process, in the same app as CKAN, so
+XLoader - the job runs in a worker process, in the same app as CKAN, so
 can access the CKAN config, db and logging directly and avoids many HTTP calls.
 This simplification makes sense because the xloader job doesn't need to do much
 processing - mainly it is streaming the CSV file from disk into PostgreSQL.
 
-Caveats
--------
+Caveat - column types
+---------------------
 
-* All columns are loaded as 'text' type. However an admin can use the
-  resource's Data Dictionary tab (CKAN 2.7 onwards) to change these to numeric
-  or datestamp and re-load the file. There is scope to do this automatically in
-  future.
+Note: With XLoader, all columns are stored in DataStore's database as 'text'
+type (whereas DataPusher did some rudimentary type guessing - see 'Robustness'
+above). However once a resource is xloaded, an admin can use the resource's
+Data Dictionary tab (CKAN 2.7 onwards) to change these types to numeric or
+datestamp and re-load the file. When migrating from DataPusher to XLoader you
+can preserve the types of existing resources by using the ``migrate_types``
+command.
+
+There is scope to add functionality for automatically guessing column type -
+offers to contribute this are welcomed.
 
 
 ------------
@@ -113,7 +120,7 @@ Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 Installation
 ------------
 
-To install Express Loader:
+To install XLoader:
 
 1. Activate your CKAN virtual environment, for example::
 
@@ -155,13 +162,11 @@ To install Express Loader:
    Ensure ``datastore`` is also listed, to enable CKAN DataStore.
 
 6. If it is a production server, you'll want to store jobs info in a more
-   robust database than the default sqlite file::
+   robust database than the default sqlite file. It can happily use the main
+   CKAN postgres db by adding this line to the config, but with the same value
+   as you have for ``sqlalchemy.url``::
 
-     sudo -u postgres createdb -O ckan_default xloader_jobs -E utf-8
-
-   And add this list to the config::
-
-     ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/xloader_jobs
+     ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/ckan_default
 
    (This step can be skipped when just developing or testing.)
 
@@ -200,7 +205,7 @@ Configuration:
 
 ::
 
-    # The connection string for the jobs database used by Express Loader. The
+    # The connection string for the jobs database used by XLoader. The
     # default of an sqlite file is fine for development. For production use a
     # Postgresql database.
     ckanext.xloader.jobs_db.uri = sqlite:////tmp/xloader_jobs.db
@@ -244,7 +249,7 @@ Configuration:
 Developer installation
 ------------------------
 
-To install Express Loader for development, activate your CKAN virtualenv and
+To install XLoader for development, activate your CKAN virtualenv and
 in the directory up from your local ckan repo::
 
     git clone https://github.com/ckan/ckanext-xloader.git
@@ -258,11 +263,11 @@ in the directory up from your local ckan repo::
 Upgrading from DataPusher
 -------------------------
 
-To upgrade from DataPusher to Express Loader:
+To upgrade from DataPusher to XLoader:
 
-1. Install Express Loader as above, including running the xloader worker.
+1. Install XLoader as above, including running the xloader worker.
 
-2. (Optional) Pre-populate the Data Dictionary with the existing column types::
+2. (Optional) For existing datasets that have been datapushed to datastore, freeze the column types (in the data dictionaries), so that XLoader doesn't change them back to string on next xload::
 
        paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
 
@@ -281,6 +286,56 @@ To upgrade from DataPusher to Express Loader:
 
        sudo service apache2 reload
        sudo service nginx reload
+
+----------------------
+Command-line interface
+----------------------
+
+You can submit single or multiple resources to be xloaded using the
+command-line interface.
+
+e.g. ::
+
+    paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+
+For debugging you can try xloading it synchronously (which does the load
+directly, rather than asking the worker to do it) with the ``-s`` option::
+
+    paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+
+See the status of jobs::
+
+    paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+
+Submit all datasets' resources to the DataStore::
+
+    paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+
+Re-submit all the resources already in the DataStore (Ignores any resources
+that have not been stored in DataStore e.g. because they are not tabular)::
+
+    paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+
+**Full list of XLoader CLI commands**::
+
+    paster --plugin=ckanext-xloader xloader --help
+
+Jobs and workers
+----------------
+
+Main docs for managing jobs: <https://docs.ckan.org/en/latest/maintaining/background-tasks.html#managing-background-jobs>
+
+Main docs for running and managing workers are here: https://docs.ckan.org/en/latest/maintaining/background-tasks.html#running-background-jobs
+
+Useful commands:
+
+Clear (delete) all outstanding jobs::
+
+    paster --plugin=ckan jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+
+If having trouble with the worker process, restarting it can help::
+
+    sudo supervisorctl restart ckan-worker:*
 
 ---------------
 Troubleshooting
@@ -321,11 +376,11 @@ coverage installed in your virtualenv (``pip install coverage``) then run::
 
     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests
 
------------------------------------------
-Releasing a New Version of Express Loader
------------------------------------------
+----------------------------------
+Releasing a New Version of XLoader
+----------------------------------
 
-Express Loader is available on PyPI as https://pypi.org/project/ckanext-xloader.
+XLoader is available on PyPI as https://pypi.org/project/ckanext-xloader.
 
 To publish a new version to PyPI follow these steps:
 
