@@ -1,12 +1,6 @@
 language: python
 sudo: required
 
-# use an older trusty image, because the newer images cause build errors with
-# psycopg2 that comes with CKAN<2.8:
-#   "Error: could not determine PostgreSQL version from '10.1'"
-# see https://github.com/travis-ci/travis-ci/issues/8897
-dist: trusty
-group: deprecated-2017Q4
 
 jobs:
   include:
@@ -18,6 +12,12 @@ jobs:
       env: CKANVERSION=2.8
     - python: "2.7"
       env: CKANVERSION=2.7
+      # use an older trusty image, because the newer images cause build errors with
+      # psycopg2 that comes with CKAN<2.8:
+      #   "Error: could not determine PostgreSQL version from '10.1'"
+      # see https://github.com/travis-ci/travis-ci/issues/8897
+      dist: trusty
+      group: deprecated-2017Q4
     - name: "Flake8 on Python 3.7"
       dist: xenial    # required for Python 3.7
       cache: pip
