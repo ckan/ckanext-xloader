@@ -62,7 +62,7 @@ class xloaderCommand(cli.CkanCommand):
 
     def command(self):
         if not self.args:
-            print self.usage
+            print(self.usage)
             sys.exit(1)
         if self.args[0] == 'submit':
             if len(self.args) < 2:
@@ -115,7 +115,7 @@ class xloaderCommand(cli.CkanCommand):
         )
         answer = cli.query_yes_no(question, default=None)
         if not answer == 'yes':
-            print "Aborting..."
+            print("Aborting...")
             sys.exit(0)
 
     def _submit_all_existing(self):
@@ -281,7 +281,7 @@ class MigrateTypesCommand(cli.CkanCommand):
     def _migrate_all(self):
         session = model.Session
         resource_count = session.query(model.Resource).filter_by(state='active').count()
-        print "Updating {} resource(s)".format(resource_count)
+        print("Updating {} resource(s)".format(resource_count))
         resources_done = 0
         for resource in session.query(model.Resource).filter_by(state='active'):
             resources_done += 1
@@ -289,15 +289,15 @@ class MigrateTypesCommand(cli.CkanCommand):
                                    prefix='[{}/{}]: '.format(resources_done,
                                                              resource_count))
             if resources_done % 100 == 0:
-                print "[{}/{}] done".format(resources_done, resource_count)
-        print "[{}/{}] done".format(resources_done, resource_count)
+                print("[{}/{}] done".format(resources_done, resource_count))
+        print("[{}/{}] done".format(resources_done, resource_count))
 
     def _migrate_resource(self, resource_id, prefix=''):
         data_dict = h.datastore_dictionary(resource_id)
 
         def print_status(status):
             if self.options.verbose:
-                print "{}{}: {}".format(prefix, resource_id, status)
+                print("{}{}: {}".format(prefix, resource_id, status))
 
         if not data_dict:
             print_status("not found")
@@ -333,9 +333,9 @@ class MigrateTypesCommand(cli.CkanCommand):
                 'fields': fields
             })
             print_status("updated")
-        except Exception, e:
+        except Exception as e:
             self.error_occured = True
-            print "{}: failed, {}".format(resource_id, e)
+            print("{}: failed, {}".format(resource_id, e))
 
     def _handle_command_status(self):
         if self.error_occured:
