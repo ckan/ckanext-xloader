@@ -278,7 +278,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         try:
             table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
-        except messytables.ReadError as e:
+        except messytables.ReadError:
             # try again with format
             tmp.seek(0)
             try:
