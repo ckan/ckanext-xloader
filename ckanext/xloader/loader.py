@@ -10,7 +10,9 @@ import messytables
 from unidecode import unidecode
 
 import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from ckanext.xloader.job_exceptions import (
+    LoaderError, FileCouldNotBeLoadedError
+)
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config

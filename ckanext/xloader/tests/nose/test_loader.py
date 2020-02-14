@@ -17,8 +17,8 @@ import util
 
 
 def get_sample_filepath(filename):
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), 'samples',
-                                        filename))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        '..', 'samples', filename))
 
 
 class PrintLogger(object):

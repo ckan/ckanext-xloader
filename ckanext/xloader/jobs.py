@@ -4,7 +4,7 @@ import hashlib
 import time
 import tempfile
 import json
-import urlparse
+from future.moves.urllib.parse import urlparse
 import datetime
 import traceback
 import sys
@@ -21,9 +21,11 @@ except ImportError:
     from pylons import config
 import ckan.lib.search as search
 
-import loader
-import db
-from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+from ckanext.xloader import loader
+from ckanext.xloader import db
+from ckanext.xloader.job_exceptions import (
+    JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+)
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False

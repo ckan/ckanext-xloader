@@ -23,7 +23,7 @@ except AttributeError:
 from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
-import util
+from ckanext.xloader.tests import util
 try:
     from ckan.tests import helpers, factories
 except ImportError:

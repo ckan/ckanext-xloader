@@ -12,9 +12,9 @@ import ckan.plugins as p
 from ckan.logic import side_effect_free
 
 import ckanext.xloader.schema
-import interfaces as xloader_interfaces
-import jobs
-import db
+import ckanext.xloader.interfaces as xloader_interfaces
+from ckanext.xloader import jobs
+from ckanext.xloader import db
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:

@@ -572,7 +572,8 @@ class Logs(list):
 
 
 def get_sample_file(filename):
-    filepath = os.path.join(os.path.dirname(__file__), 'samples', filename)
+    filepath = os.path.join(os.path.dirname(__file__),
+                            '..', 'samples', filename)
     return open(filepath).read()
 
 
