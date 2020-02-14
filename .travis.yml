@@ -18,21 +18,6 @@ jobs:
       env: CKANVERSION=2.8
     - python: "2.7"
       env: CKANVERSION=2.7
-
-# tests
-services:
-  - postgresql
-  - redis-server
-install:
-  - bash bin/travis-build.bash
-  - pip install coveralls
-script: bash bin/travis-run.sh
-after_success:
-  - coveralls
-
-# additional jobs
-jobs:
-  include:
     - name: "Flake8 on Python 3.7"
       dist: xenial    # required for Python 3.7
       cache: pip
@@ -45,6 +30,17 @@ jobs:
       env:
         - FLAKE8=true
         - CKANVERSION=master
+
+# tests
+services:
+  - postgresql
+  - redis-server
+install:
+  - bash bin/travis-build.bash
+  - pip install coveralls
+script: bash bin/travis-run.sh
+after_success:
+  - coveralls
 
 cache:
   directories:
