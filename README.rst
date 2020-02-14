@@ -115,6 +115,20 @@ Works with CKAN 2.7.x and later.
 
 Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 
+Compatibility with core CKAN versions:
+
+=============== =============
+CKAN version    Compatibility
+=============== =============
+2.3             yes, but no longer tested and you must install ckanext-rq
+2.4             yes, but no longer tested and you must install ckanext-rq
+2.5             yes, but no longer tested and you must install ckanext-rq
+2.6             yes, but no longer tested and you must install ckanext-rq
+2.7             yes
+2.8             yes
+2.9             not yet
+=============== =============
+
 
 ------------
 Installation
@@ -379,7 +393,7 @@ coverage installed in your virtualenv (``pip install coverage``) then run::
     nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests
 
 ----------------------------------
-Releasing a New Version of XLoader
+Releasing a new version of XLoader
 ----------------------------------
 
 XLoader is available on PyPI as https://pypi.org/project/ckanext-xloader.

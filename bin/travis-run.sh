@@ -13,6 +13,3 @@ nosetests --ckan \
           --cover-inclusive \
           --cover-erase \
           --cover-tests
-
-# strict linting
-flake8 . --count --max-complexity=27 --max-line-length=127 --statistics --exclude ckan,ckanext-xloader
