@@ -8,13 +8,16 @@ sudo: required
 dist: trusty
 group: deprecated-2017Q4
 
-# matrix
-python:
-  - 2.7
-env:
-  - CKANVERSION=master
-  - CKANVERSION=2.7
-  - CKANVERSION=2.8
+jobs:
+  include:
+    - python: "2.7"
+      env: CKANVERSION=master
+    - python: "3.6"
+      env: CKANVERSION=master
+    - python: "2.7"
+      env: CKANVERSION=2.8
+    - python: "2.7"
+      env: CKANVERSION=2.7
 
 # tests
 services:
@@ -23,12 +26,12 @@ services:
 install:
   - bash bin/travis-build.bash
   - pip install coveralls
-script: sh bin/travis-run.sh
+script: bash bin/travis-run.sh
 after_success:
   - coveralls
 
 # additional jobs
-matrix:
+jobs:
   include:
     - name: "Flake8 on Python 3.7"
       dist: xenial    # required for Python 3.7
@@ -42,3 +45,7 @@ matrix:
       env:
         - FLAKE8=true
         - CKANVERSION=master
+
+cache:
+  directories:
+    - $HOME/.cache/pip

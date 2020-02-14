@@ -383,14 +383,13 @@ The first time, your test datastore database needs the trigger applied::
 
     sudo -u postgres psql datastore_test -f full_text_function.sql
 
-To run the tests, do::
+To run the tests on CKAN >= 2.9, do:
 
-    nosetests --nologcapture --with-pylons=test.ini
+    pytest --ckan-ini=test.ini ckanext/xloader/tests
 
-To run the tests and produce a coverage report, first make sure you have
-coverage installed in your virtualenv (``pip install coverage``) then run::
+To run the tests on CKAN <= 2.8, do:
 
-    nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests
+    nosetests --nologcapture --ckan --with-pylons=test-nose.ini ckanext/xloader/tests/nose
 
 ----------------------------------
 Releasing a new version of XLoader
