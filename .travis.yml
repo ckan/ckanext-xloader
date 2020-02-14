@@ -38,7 +38,7 @@ services:
 install:
   - bash bin/travis-build.bash
   - pip install coveralls
-script: bash bin/travis-run.sh
+script: bash bin/travis-run.bash
 after_success:
   - coveralls
 
