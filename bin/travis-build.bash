@@ -43,7 +43,8 @@ then
 fi
 
 python setup.py develop
-if (( $CKAN_MINOR_VERSION >= 9 )) && (( $PYTHON_MAJOR_VERSION == 2 )) then
+if (( $CKAN_MINOR_VERSION >= 9 )) && (( $PYTHON_MAJOR_VERSION == 2 ))
+then
     pip install -r requirements-py2.txt
 else
     pip install -r requirements.txt
