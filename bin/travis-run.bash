@@ -17,5 +17,5 @@ if (( $CKAN_MINOR_VERSION >= 9 ))
 then
     pytest --ckan-ini=subdir/test.ini --cov=ckanext.xloader ckanext/xloader/tests
 else
-    nosetests --ckan --nologcapture --with-pylons=subdir/test-nose.ini --with-coverage --cover-package=ckanext.dcat --cover-inclusive --cover-erase --cover-tests ckanext/xloader/tests/nose
+    nosetests --ckan --nologcapture --with-pylons=subdir/test-nose.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests ckanext/xloader/tests/nose
 fi
