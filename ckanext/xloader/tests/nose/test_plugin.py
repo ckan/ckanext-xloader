@@ -1,11 +1,9 @@
-import mock
 import datetime
 
 # from nose.tools import eq_
 # import mock
 
 import ckan.plugins as p
-from ckan.logic import _actions
 from ckan.tests import helpers, factories
 
 
@@ -28,33 +26,29 @@ class TestNotify(object):
 
         helpers.reset_db()
 
-    def test_submit_on_resource_create(self, monkeypatch):
+    @helpers.mock_action('xloader_submit')
+    def test_submit_on_resource_create(self, mock_xloader_submit):
         dataset = factories.Dataset()
 
-        func = mock.Mock()
-        monkeypatch.setitem(_actions, 'xloader_submit', func)
-        func.assert_not_called()
+        assert not mock_xloader_submit.called
 
         helpers.call_action('resource_create', {},
                             package_id=dataset['id'],
                             url='http://example.com/file.csv',
                             format='CSV')
 
-        func.assert_called()
+        assert mock_xloader_submit.called
 
-    def test_submit_when_url_changes(self, monkeypatch):
+    @helpers.mock_action('xloader_submit')
+    def test_submit_when_url_changes(self, mock_xloader_submit):
         dataset = factories.Dataset()
-
-        func = mock.Mock()
-        monkeypatch.setitem(_actions, 'xloader_submit', func)
-        func.assert_not_called()
 
         resource = helpers.call_action('resource_create', {},
                                        package_id=dataset['id'],
                                        url='http://example.com/file.pdf',
                                        )
 
-        func.assert_not_called()  # because of the format being PDF
+        assert not mock_xloader_submit.called  # because of the format being PDF
 
         helpers.call_action('resource_update', {},
                             id=resource['id'],
@@ -63,7 +57,7 @@ class TestNotify(object):
                             format='CSV'
                             )
 
-        func.assert_called()
+        assert mock_xloader_submit.called
 
     def _pending_task(self, resource_id):
         return {

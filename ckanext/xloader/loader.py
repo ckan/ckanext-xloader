@@ -10,7 +10,9 @@ import messytables
 from unidecode import unidecode
 
 import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from ckanext.xloader.job_exceptions import (
+    LoaderError, FileCouldNotBeLoadedError
+)
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -278,7 +280,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         try:
             table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
-        except messytables.ReadError as e:
+        except messytables.ReadError:
             # try again with format
             tmp.seek(0)
             try:

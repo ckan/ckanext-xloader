@@ -13,12 +13,12 @@ from ckanext.xloader.loader import get_write_engine
 from ckanext.xloader.job_exceptions import LoaderError
 
 import ckan.plugins as p
-from ckanext.xloader.tests import util
+import util
 
 
 def get_sample_filepath(filename):
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), 'samples',
-                                        filename))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        '..', 'samples', filename))
 
 
 class PrintLogger(object):

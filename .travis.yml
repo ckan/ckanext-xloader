@@ -1,22 +1,47 @@
 language: python
-
-# the new trusty images of Travis cause build errors with psycopg2, see https://github.com/travis-ci/travis-ci/issues/8897
-dist: trusty
-group: deprecated-2017Q4
-
-python:
-    - "2.7"
-env:
-    - CKANVERSION=master
-    - CKANVERSION=2.8
-    - CKANVERSION=2.7
-install:
-    - bash bin/travis-build.bash
-services:
-    - postgresql
-    - redis
-addons:
-    postgresql: "9.3"
-script: sh bin/travis-run.sh
-after_success: coveralls
 sudo: required
+
+
+jobs:
+  include:
+    - python: "2.7"
+      env: CKANVERSION=master
+    - python: "3.6"
+      env: CKANVERSION=master
+    - python: "2.7"
+      env: CKANVERSION=2.8
+    - python: "2.7"
+      env: CKANVERSION=2.7
+      # use an older trusty image, because the newer images cause build errors with
+      # psycopg2 that comes with CKAN<2.8:
+      #   "Error: could not determine PostgreSQL version from '10.1'"
+      # see https://github.com/travis-ci/travis-ci/issues/8897
+      dist: trusty
+      group: deprecated-2017Q4
+    - name: "Flake8 on Python 3.7"
+      dist: xenial    # required for Python 3.7
+      cache: pip
+      install: pip install flake8
+      script:
+        - flake8 --version
+        - flake8 . --count --max-complexity=22 --max-line-length=127 --statistics --exclude ckan,ckanext-xloader
+      python: 3.7
+      # overwrite matrix
+      env:
+        - FLAKE8=true
+        - CKANVERSION=master
+
+# tests
+services:
+  - postgresql
+  - redis-server
+install:
+  - bash bin/travis-build.bash
+  - pip install coveralls
+script: bash bin/travis-run.bash
+after_success:
+  - coveralls
+
+cache:
+  directories:
+    - $HOME/.cache/pip

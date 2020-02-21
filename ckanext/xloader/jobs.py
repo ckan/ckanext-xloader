@@ -4,7 +4,7 @@ import hashlib
 import time
 import tempfile
 import json
-import urlparse
+from future.moves.urllib.parse import urlparse
 import datetime
 import traceback
 import sys
@@ -12,6 +12,7 @@ import sys
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
+import six
 
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
 try:
@@ -20,9 +21,11 @@ except ImportError:
     from pylons import config
 import ckan.lib.search as search
 
-import loader
-import db
-from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+from ckanext.xloader import loader
+from ckanext.xloader import db
+from ckanext.xloader.job_exceptions import (
+    JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+)
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -138,7 +141,7 @@ def xloader_data_into_datastore_(input, job_dict):
 
     try:
         resource, dataset = get_resource_and_dataset(resource_id)
-    except (JobError, ObjectNotFound) as e:
+    except (JobError, ObjectNotFound):
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
         resource, dataset = get_resource_and_dataset(resource_id)
@@ -557,10 +560,10 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = unicode(record.getMessage())
-            level = unicode(record.levelname)
-            module = unicode(record.module)
-            funcName = unicode(record.funcName)
+            message = six.text_type(record.getMessage())
+            level = six.text_type(record.levelname)
+            module = six.text_type(record.module)
+            funcName = six.text_type(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,

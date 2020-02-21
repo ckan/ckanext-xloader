@@ -1,7 +1,17 @@
 #!/bin/bash
-set -e
+set -e -x
 
 echo "This is travis-build.bash..."
+
+echo "Targeting CKAN $CKANVERSION on Python $TRAVIS_PYTHON_VERSION"
+if [ $CKANVERSION == 'master' ]
+then
+    export CKAN_MINOR_VERSION=100
+else
+    export CKAN_MINOR_VERSION=${CKANVERSION##*.}
+fi
+
+export PYTHON_MAJOR_VERSION=${TRAVIS_PYTHON_VERSION%.*}
 
 echo "Installing the packages that CKAN requires..."
 sudo apt-get update -qq
@@ -33,7 +43,7 @@ then
 fi
 
 python setup.py develop
-if [ -f requirements-py2.txt ]
+if (( $CKAN_MINOR_VERSION >= 9 )) && (( $PYTHON_MAJOR_VERSION == 2 ))
 then
     pip install -r requirements-py2.txt
 else
@@ -64,8 +74,14 @@ cd -
 
 echo "Initialising the database..."
 cd ckan
-paster db init -c test-core.ini
-paster datastore set-permissions -c test-core.ini | sudo -u postgres psql
+if (( $CKAN_MINOR_VERSION >= 9 ))
+then
+    ckan -c test-core.ini db init
+    ckan -c test-core.ini datastore set-permissions -c test-core.ini | sudo -u postgres psql --set ON_ERROR_STOP=1
+else
+    paster db init -c test-core.ini
+    paster datastore set-permissions -c test-core.ini | sudo -u postgres psql
+fi
 cd -
 
 echo "Installing ckanext-xloader and its requirements..."
@@ -76,5 +92,6 @@ pip install -r dev-requirements.txt
 echo "Moving test.ini into a subdir..."
 mkdir subdir
 mv test.ini subdir
+mv test-nose.ini subdir
 
 echo "travis-build.bash is done."

@@ -23,7 +23,7 @@ except AttributeError:
 from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
-from ckanext.xloader.tests import util
+import util
 try:
     from ckan.tests import helpers, factories
 except ImportError:
@@ -572,7 +572,8 @@ class Logs(list):
 
 
 def get_sample_file(filename):
-    filepath = os.path.join(os.path.dirname(__file__), 'samples', filename)
+    filepath = os.path.join(os.path.dirname(__file__),
+                            '..', 'samples', filename)
     return open(filepath).read()
 
 
