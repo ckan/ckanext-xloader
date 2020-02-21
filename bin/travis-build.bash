@@ -37,6 +37,11 @@ if [ -f requirements-py2.txt ]
 then
     pip install -r requirements-py2.txt
 else
+    # To avoid error:
+    # Error: could not determine PostgreSQL version from '10.1'
+    # we need newer psycopg2 and corresponding exc name change
+    sed -i -e 's/psycopg2==2.4.5/psycopg2==2.8.2/' requirements.txt
+    sed -i -e 's/except sqlalchemy.exc.InternalError:/except (sqlalchemy.exc.InternalError, sqlalchemy.exc.DBAPIError):/' ckan/config/environment.py
     pip install -r requirements.txt
 fi
 pip install -r dev-requirements.txt

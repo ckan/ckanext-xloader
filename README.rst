@@ -115,6 +115,19 @@ Works with CKAN 2.7.x and later.
 
 Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 
+Compatibility with core CKAN versions:
+
+=============== =============
+CKAN version    Compatibility
+=============== =============
+2.3             yes, but no longer tested and you must install ckanext-rq
+2.4             yes, but no longer tested and you must install ckanext-rq
+2.5             yes, but no longer tested and you must install ckanext-rq
+2.6             yes, but no longer tested and you must install ckanext-rq
+2.7             yes
+2.8             yes
+2.9             not yet
+=============== =============
 
 ------------
 Installation
