@@ -2,8 +2,7 @@
 import os
 
 import sqlalchemy.orm as orm
-from nose.tools import assert_equal, assert_raises, assert_in, nottest
-from nose.plugins.skip import SkipTest
+import pytest
 import datetime
 from decimal import Decimal
 
@@ -29,13 +28,13 @@ class PrintLogger(object):
         return print_func
 
 
-class TestLoadBase(util.PluginsMixin):
-    _load_plugins = ['datastore']
+@pytest.mark.ckan_config("ckan.plugins", "datastore")
+@pytest.mark.usefixtures("with_plugins", u"clean_db")
+class TestLoadBase(object):
 
     def setup(self):
         engine = get_write_engine()
         self.Session = orm.scoped_session(orm.sessionmaker(bind=engine))
-        helpers.reset_db()
         util.reset_datastore_db()
         util.add_full_text_trigger_function()
 
@@ -85,22 +84,20 @@ class TestLoadCsv(TestLoadBase):
         loader.load_csv(csv_filepath, resource_id=resource_id,
                         mimetype='text/csv', logger=PrintLogger())
 
-        assert_equal(self._get_records(
-            'test1', limit=1, exclude_full_text_column=False),
-                     [(1, "'-01':2,3 '1':4 '2011':1 'galway':5", u'2011-01-01', u'1', u'Galway')])
-        assert_equal(self._get_records('test1'),
-                     [(1, u'2011-01-01', u'1', u'Galway'),
-                      (2, u'2011-01-02', u'-1', u'Galway'),
-                      (3, u'2011-01-03', u'0', u'Galway'),
-                      (4, u'2011-01-01', u'6', u'Berkeley'),
-                      (5, None, None, u'Berkeley'),
-                      (6, u'2011-01-03', u'5', None)])
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
-        assert_equal(
-            self._get_column_types('test1'),
-            [u'int4', u'tsvector', u'text', u'text', u'text'])
+        assert self._get_records(
+            'test1', limit=1, exclude_full_text_column=False) == \
+            [(1, "'-01':2,3 '1':4 '2011':1 'galway':5", u'2011-01-01', u'1', u'Galway')]
+        assert self._get_records('test1') == \
+            [(1, u'2011-01-01', u'1', u'Galway'),
+            (2, u'2011-01-02', u'-1', u'Galway'),
+            (3, u'2011-01-03', u'0', u'Galway'),
+            (4, u'2011-01-01', u'6', u'Berkeley'),
+            (5, None, None, u'Berkeley'),
+            (6, u'2011-01-03', u'5', None)]
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'date', u'temperature', u'place']
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector', u'text', u'text', u'text']
 
     def test_simple_with_indexing(self):
         csv_filepath = get_sample_filepath('simple.csv')
@@ -111,12 +108,12 @@ class TestLoadCsv(TestLoadBase):
         loader.create_column_indexes(fields=fields, resource_id=resource_id,
                                      logger=PrintLogger())
 
-        assert_equal(self._get_records(
-            'test1', limit=1, exclude_full_text_column=False)[0][1],
-                     "'-01':2,3 '1':4 '2011':1 'galway':5")
+        assert self._get_records(
+            'test1', limit=1, exclude_full_text_column=False)[0][1] == \
+            "'-01':2,3 '1':4 '2011':1 'galway':5"
 
     # test disabled by default to avoid adding large file to repo and slow test
-    @nottest
+    @pytest.mark.skip(reason="slow test and requires large download")
     def test_boston_311_complete(self):
         # to get the test file:
         # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv  # noqa
@@ -131,7 +128,7 @@ class TestLoadCsv(TestLoadBase):
         print('Load: {}s'.format(time.time() - t0))
 
     # test disabled by default to avoid adding large file to repo and slow test
-    @nottest
+    @pytest.mark.skip(reason="slow test and requires large download")
     def test_boston_311_sample5(self):
         # to create the test file:
         # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
@@ -154,20 +151,17 @@ class TestLoadCsv(TestLoadBase):
 
         records = self._get_records('test1')
         print(records)
-        assert_equal(
-            records,
+        assert records == \
             [(1, u'101002153891', u'2017-07-06 23:38:43', u'2017-07-21 08:30:00', None, u'ONTIME', u'Open', u' ', u'Street Light Outages', u'Public Works Department', u'Street Lights', u'Street Light Outages', u'PWDx_Street Light Outages', u'PWDx', None, None, u'480 Harvard St  Dorchester  MA  02124', u'8', u'07', u'4', u'B3', u'Greater Mattapan', u'9', u'Ward 14', u'1411', u'480 Harvard St', u'02124', u'42.288', u'-71.0927', u'Citizens Connect App'),  # noqa
              (2, u'101002153890', u'2017-07-06 23:29:13', u'2017-09-11 08:30:00', None, u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg', None, u'522 Saratoga St  East Boston  MA  02128', u'1', u'09', u'1', u'A7', u'East Boston', u'1', u'Ward 1', u'0110', u'522 Saratoga St', u'02128', u'42.3807', u'-71.0259', u'Citizens Connect App'),  # noqa
              (3, u'101002153889', u'2017-07-06 23:24:20', u'2017-09-11 08:30:00', None, u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg', None, u'965 Bennington St  East Boston  MA  02128', u'1', u'09', u'1', u'A7', u'East Boston', u'1', u'Ward 1', u'0112', u'965 Bennington St', u'02128', u'42.386', u'-71.008', u'Citizens Connect App')]  # noqa
-            )
         print(self._get_column_names('test1'))
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'CASE_ENQUIRY_ID', u'open_dt', u'target_dt', u'closed_dt', u'OnTime_Status', u'CASE_STATUS', u'CLOSURE_REASON', u'CASE_TITLE', u'SUBJECT', u'REASON', u'TYPE', u'QUEUE', u'Department', u'SubmittedPhoto', u'ClosedPhoto', u'Location', u'Fire_district', u'pwd_district', u'city_council_district', u'police_district', u'neighborhood', u'neighborhood_services_district', u'ward', u'precinct', u'LOCATION_STREET_NAME', u'LOCATION_ZIPCODE', u'Latitude', u'Longitude', u'Source'])  # noqa
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'CASE_ENQUIRY_ID', u'open_dt', u'target_dt', u'closed_dt', u'OnTime_Status', u'CASE_STATUS', u'CLOSURE_REASON', u'CASE_TITLE', u'SUBJECT', u'REASON', u'TYPE', u'QUEUE', u'Department', u'SubmittedPhoto', u'ClosedPhoto', u'Location', u'Fire_district', u'pwd_district', u'city_council_district', u'police_district', u'neighborhood', u'neighborhood_services_district', u'ward', u'precinct', u'LOCATION_STREET_NAME', u'LOCATION_ZIPCODE', u'Latitude', u'Longitude', u'Source']  # noqa
         print(self._get_column_types('test1'))
-        assert_equal(self._get_column_types('test1'),
-                     [u'int4', u'tsvector'] +
-                     [u'text'] * (len(records[0]) - 1))
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector'] + \
+            [u'text'] * (len(records[0]) - 1)
 
     def test_brazilian(self):
         csv_filepath = get_sample_filepath('brazilian_sample.csv')
@@ -178,17 +172,15 @@ class TestLoadCsv(TestLoadBase):
 
         records = self._get_records('test1')
         print(records)
-        assert_equal(
-            records[0],
-            (1, u'01/01/1996 12:00:00 AM', u'1100015', u"ALTA FLORESTA D'OESTE", u'RO', None, u'128', u'0', u'8', u'119', u'1', u'0', u'3613', u'3051', u'130', u'7', u'121', u'3716', u'3078', u'127', u'7', None, None, None, None, u'6794', u'5036', u'1758', None, None, None, None, None, None, u'337', u'0.26112759', u'0.17210683', u'0.43323442', u'0.13353115', u'24.833692447908199', None, None, u'22.704964', u'67.080006197818605', u'65.144188573097907', u'74.672390253375497', u'16.7913561569619', u'19.4894563570641', u'8.649237411458509', u'7.60165422117368', u'11.1540090366186', u'17.263407056738099', u'8.5269823', u'9.2213373', u'5.3085136', u'52.472769803217503', None, None, None, None, None, None, u'25.0011414302354', u'22.830887000000001', u'66.8150490097632', u'64.893674212235595', u'74.288246611754104', u'17.0725384713319', u'19.8404105332814', u'8.856561911292371', u'7.74275834336647', u'11.357671741889', u'17.9410577459881', u'8.3696527', u'8.9979973', u'5.0570836', u'53.286314230720798', None, None, None, None, None, u'122988', None, u'10.155015000000001', u'14.826086999999999', u'11.671533', u'9.072917', None, None, None, None, None, None, None, None))  # noqa
+        assert records[0] == \
+            (1, u'01/01/1996 12:00:00 AM', u'1100015', u"ALTA FLORESTA D'OESTE", u'RO', None, u'128', u'0', u'8', u'119', u'1', u'0', u'3613', u'3051', u'130', u'7', u'121', u'3716', u'3078', u'127', u'7', None, None, None, None, u'6794', u'5036', u'1758', None, None, None, None, None, None, u'337', u'0.26112759', u'0.17210683', u'0.43323442', u'0.13353115', u'24.833692447908199', None, None, u'22.704964', u'67.080006197818605', u'65.144188573097907', u'74.672390253375497', u'16.7913561569619', u'19.4894563570641', u'8.649237411458509', u'7.60165422117368', u'11.1540090366186', u'17.263407056738099', u'8.5269823', u'9.2213373', u'5.3085136', u'52.472769803217503', None, None, None, None, None, None, u'25.0011414302354', u'22.830887000000001', u'66.8150490097632', u'64.893674212235595', u'74.288246611754104', u'17.0725384713319', u'19.8404105332814', u'8.856561911292371', u'7.74275834336647', u'11.357671741889', u'17.9410577459881', u'8.3696527', u'8.9979973', u'5.0570836', u'53.286314230720798', None, None, None, None, None, u'122988', None, u'10.155015000000001', u'14.826086999999999', u'11.671533', u'9.072917', None, None, None, None, None, None, None, None)  # noqa
         print(self._get_column_names('test1'))
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'NU_ANO_CENSO', u'CO_MUNICIPIO', u'MUNIC', u'SIGLA', u'CO_UF', u'SCHOOLS_NU', u'SCHOOLS_FED_NU', u'SCHOOLS_ESTADUAL_NU', u'SCHOOLS_MUN_NU', u'SCHOOLS_PRIV_NU', u'SCHOOLS_FED_STUD', u'SCHOOLS_ESTADUAL_STUD', u'SCHOOLS_MUN_STUD', u'SCHOOLS_PRIV_STUD', u'SCHOOLS_URBAN_NU', u'SCHOOLS_RURAL_NU', u'SCHOOLS_URBAN_STUD', u'SCHOOLS_RURAL_STUD', u'SCHOOLS_NIVFUND_1_NU', u'SCHOOLS_NIVFUND_2_NU', u'SCHOOLS_EIGHTYEARS_NU', u'SCHOOLS_NINEYEARS_NU', u'SCHOOLS_EIGHTYEARS_STUD', u'SCHOOLS_NINEYEARS_STUD', u'MATFUND_NU', u'MATFUND_I_NU', u'MATFUND_T_NU', u'SCHOOLS_INTERNET_AVG', u'SCHOOLS_WATER_PUBLIC_AVG', u'SCHOOLS_WATER_AVG', u'SCHOOLS_ELECTR_PUB_AVG', u'SCHOOLS_SEWAGE_PUB_AVG', u'SCHOOLS_SEWAGE_AVG', u'PROFFUNDTOT_NU', u'PROFFUNDINC_PC', u'PROFFUNDCOMP_PC', u'PROFMED_PC', u'PROFSUP_PC', u'CLASSSIZE', u'CLASSSIZE_I', u'CLASSSIZE_T', u'STUDTEACH', u'RATE_APROV', u'RATE_APROV_I', u'RATE_APROV_T', u'RATE_FAILURE', u'RATE_FAILURE_I', u'RATE_FAILURE_T', u'RATE_ABANDON', u'RATE_ABANDON_I', u'RATE_ABANDON_T', u'RATE_TRANSFER', u'RATE_TRANSFER_I', u'RATE_TRANSFER_T', u'RATE_OVERAGE', u'RATE_OVERAGE_I', u'RATE_OVERAGE_T', u'PROVA_MEAN_PORT_I', u'PROVA_MEAN_PORT_T', u'PROVA_MEAN_MAT_I', u'PROVA_MEAN_MAT_T', u'CLASSSIZE_PUB', u'STUDTEACH_PUB', u'RATE_APROV_PUB', u'RATE_APROV_I_PUB', u'RATE_APROV_T_PUB', u'RATE_FAILURE_PUB', u'RATE_FAILURE_I_PUB', u'RATE_FAILURE_T_PUB', u'RATE_ABANDON_PUB', u'RATE_ABANDON_I_PUB', u'RATE_ABANDON_T_PUB', u'RATE_TRANSFER_PUB', u'RATE_TRANSFER_I_PUB', u'RATE_TRANSFER_T_PUB', u'RATE_OVERAGE_PUB', u'RATE_OVERAGE_I_PUB', u'RATE_OVERAGE_T_PUB', u'PROVA_MEAN_PORT_I_PUB', u'PROVA_MEAN_PORT_T_PUB', u'PROVA_MEAN_MAT_I_PUB', u'PROFFUNDTOT_NU_PUB', u'PROVA_MEAN_MAT_T_PUB', u'EDUCTEACH_PUB', u'EDUCTEACH_FEDERAL', u'EDUCTEACH_STATE', u'EDUCTEACH_MUN', u'PROVA_MEAN_PORT_I_STATE', u'PROVA_MEAN_PORT_T_STATE', u'PROVA_MEAN_MAT_I_STATE', u'PROVA_MEAN_MAT_T_STATE', u'PROVA_MEAN_PORT_I_MUN', u'PROVA_MEAN_PORT_T_MUN', u'PROVA_MEAN_MAT_I_MUN', u'PROVA_MEAN_MAT_T_MUN'])  # noqa
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'NU_ANO_CENSO', u'CO_MUNICIPIO', u'MUNIC', u'SIGLA', u'CO_UF', u'SCHOOLS_NU', u'SCHOOLS_FED_NU', u'SCHOOLS_ESTADUAL_NU', u'SCHOOLS_MUN_NU', u'SCHOOLS_PRIV_NU', u'SCHOOLS_FED_STUD', u'SCHOOLS_ESTADUAL_STUD', u'SCHOOLS_MUN_STUD', u'SCHOOLS_PRIV_STUD', u'SCHOOLS_URBAN_NU', u'SCHOOLS_RURAL_NU', u'SCHOOLS_URBAN_STUD', u'SCHOOLS_RURAL_STUD', u'SCHOOLS_NIVFUND_1_NU', u'SCHOOLS_NIVFUND_2_NU', u'SCHOOLS_EIGHTYEARS_NU', u'SCHOOLS_NINEYEARS_NU', u'SCHOOLS_EIGHTYEARS_STUD', u'SCHOOLS_NINEYEARS_STUD', u'MATFUND_NU', u'MATFUND_I_NU', u'MATFUND_T_NU', u'SCHOOLS_INTERNET_AVG', u'SCHOOLS_WATER_PUBLIC_AVG', u'SCHOOLS_WATER_AVG', u'SCHOOLS_ELECTR_PUB_AVG', u'SCHOOLS_SEWAGE_PUB_AVG', u'SCHOOLS_SEWAGE_AVG', u'PROFFUNDTOT_NU', u'PROFFUNDINC_PC', u'PROFFUNDCOMP_PC', u'PROFMED_PC', u'PROFSUP_PC', u'CLASSSIZE', u'CLASSSIZE_I', u'CLASSSIZE_T', u'STUDTEACH', u'RATE_APROV', u'RATE_APROV_I', u'RATE_APROV_T', u'RATE_FAILURE', u'RATE_FAILURE_I', u'RATE_FAILURE_T', u'RATE_ABANDON', u'RATE_ABANDON_I', u'RATE_ABANDON_T', u'RATE_TRANSFER', u'RATE_TRANSFER_I', u'RATE_TRANSFER_T', u'RATE_OVERAGE', u'RATE_OVERAGE_I', u'RATE_OVERAGE_T', u'PROVA_MEAN_PORT_I', u'PROVA_MEAN_PORT_T', u'PROVA_MEAN_MAT_I', u'PROVA_MEAN_MAT_T', u'CLASSSIZE_PUB', u'STUDTEACH_PUB', u'RATE_APROV_PUB', u'RATE_APROV_I_PUB', u'RATE_APROV_T_PUB', u'RATE_FAILURE_PUB', u'RATE_FAILURE_I_PUB', u'RATE_FAILURE_T_PUB', u'RATE_ABANDON_PUB', u'RATE_ABANDON_I_PUB', u'RATE_ABANDON_T_PUB', u'RATE_TRANSFER_PUB', u'RATE_TRANSFER_I_PUB', u'RATE_TRANSFER_T_PUB', u'RATE_OVERAGE_PUB', u'RATE_OVERAGE_I_PUB', u'RATE_OVERAGE_T_PUB', u'PROVA_MEAN_PORT_I_PUB', u'PROVA_MEAN_PORT_T_PUB', u'PROVA_MEAN_MAT_I_PUB', u'PROFFUNDTOT_NU_PUB', u'PROVA_MEAN_MAT_T_PUB', u'EDUCTEACH_PUB', u'EDUCTEACH_FEDERAL', u'EDUCTEACH_STATE', u'EDUCTEACH_MUN', u'PROVA_MEAN_PORT_I_STATE', u'PROVA_MEAN_PORT_T_STATE', u'PROVA_MEAN_MAT_I_STATE', u'PROVA_MEAN_MAT_T_STATE', u'PROVA_MEAN_PORT_I_MUN', u'PROVA_MEAN_PORT_T_MUN', u'PROVA_MEAN_MAT_I_MUN', u'PROVA_MEAN_MAT_T_MUN']  # noqa
         print(self._get_column_types('test1'))
-        assert_equal(self._get_column_types('test1'),
-                     [u'int4', u'tsvector'] +
-                     [u'text'] * (len(records[0]) - 1))
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector'] + \
+            [u'text'] * (len(records[0]) - 1)
 
     def test_german(self):
         csv_filepath = get_sample_filepath('german_sample.csv')
@@ -199,13 +191,10 @@ class TestLoadCsv(TestLoadBase):
 
         records = self._get_records('test_german')
         print(records)
-        assert_equal(
-            records[0],
+        assert records[0] == \
             (1, u'Zürich', u'68260', u'65444', u'62646', u'6503', u'28800', u'1173', u'6891', u'24221', u'672')
-        )
         print(self._get_column_names('test_german'))
-        assert_equal(
-            self._get_column_names('test_german'),
+        assert self._get_column_names('test_german') == \
             [
                 u'_id',
                 u'_full_text',
@@ -220,13 +209,10 @@ class TestLoadCsv(TestLoadBase):
                 u'Schuler_Berufsausbildung_2010/2011',
                 u'Schuler_andere allgemeinbildende Schulen_2010/2011',
             ]
-        )
         print(self._get_column_types('test_german'))
-        assert_equal(
-            self._get_column_types('test_german'),
-            [u'int4', u'tsvector'] +
+        assert self._get_column_types('test_german') == \
+            [u'int4', u'tsvector'] + \
             [u'text'] * (len(records[0]) - 1)
-        )
 
     def test_integer_header_xlsx(self):
         # this xlsx file's header is detected by messytables.headers_guess as
@@ -254,17 +240,15 @@ class TestLoadCsv(TestLoadBase):
         loader.load_csv(csv_filepath, resource_id=resource_id,
                         mimetype='text/csv', logger=PrintLogger())
 
-        assert_equal(len(self._get_records('test1')), 6)
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
-        assert_equal(
-            self._get_column_types('test1'),
-            [u'int4', u'tsvector', u'text', u'text', u'text'])
+        assert len(self._get_records('test1')) == 6
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'date', u'temperature', u'place']
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector', u'text', u'text', u'text']
 
     def test_reload_with_overridden_types(self):
         if not p.toolkit.check_ckan_version(min_version='2.7'):
-            raise SkipTest('Requires CKAN 2.7 - see https://github.com/ckan/ckan/pull/3557')
+            pytest.skip('Requires CKAN 2.7 - see https://github.com/ckan/ckan/pull/3557')
         csv_filepath = get_sample_filepath('simple.csv')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
@@ -294,25 +278,17 @@ class TestLoadCsv(TestLoadBase):
         loader.create_column_indexes(fields=fields, resource_id=resource_id,
                                      logger=PrintLogger())
 
-        assert_equal(len(self._get_records('test1')), 6)
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
-        assert_equal(
-            self._get_column_types('test1'),
-            [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
+        assert len(self._get_records('test1')) == 6
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'date', u'temperature', u'place']
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector', u'timestamp', u'numeric', u'text']
 
         # check that rows with nulls are indexed correctly
         records = self._get_records('test1', exclude_full_text_column=False)
         print(records)
-        assert_equal(
-            records[4][1],
-            "'berkeley':1"
-            )
-        assert_equal(
-            records[5][1],
-            "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
-            )
+        assert records[4][1] == "'berkeley':1"
+        assert records[5][1] == "'-01':2 '-03':3 '00':4,5,6 '2011':1 '5':7"
 
     def test_encode_headers(self):
         test_string_headers = [u'id', u'namé']
@@ -322,14 +298,14 @@ class TestLoadCsv(TestLoadBase):
         test_result_float_headers = loader.encode_headers(test_float_headers)
         test_result_int_headers = loader.encode_headers(test_int_headers)
 
-        assert_in('id', test_result_string_headers)
-        assert_in('name', test_result_string_headers)
-        assert_in('id', test_result_float_headers)
-        assert_in('name', test_result_float_headers)
-        assert_in('2.0', test_result_float_headers)
-        assert_in('id', test_result_int_headers)
-        assert_in('nom', test_result_int_headers)
-        assert_in('3', test_result_int_headers)
+        assert 'id' in test_result_string_headers
+        assert 'name' in test_result_string_headers
+        assert 'id' in test_result_float_headers
+        assert 'name' in test_result_float_headers
+        assert '2.0' in test_result_float_headers
+        assert 'id' in test_result_int_headers
+        assert 'nom' in test_result_int_headers
+        assert '3' in test_result_int_headers
 
     def test_column_names(self):
         csv_filepath = get_sample_filepath('column_names.csv')
@@ -338,11 +314,10 @@ class TestLoadCsv(TestLoadBase):
         loader.load_csv(csv_filepath, resource_id=resource_id,
                         mimetype='text/csv', logger=PrintLogger())
 
-        assert_equal(
-            self._get_column_names('test1')[2:],
-            [u'd@t$e', u't^e&m*pe!r(a)t?u:r%%e', r'p\l/a[c{e%'])
-        assert_equal(self._get_records('test1')[0],
-                     (1, u'2011-01-01', u'1', u'Galway'))
+        assert self._get_column_names('test1')[2:] == \
+            [u'd@t$e', u't^e&m*pe!r(a)t?u:r%%e', r'p\l/a[c{e%']
+        assert self._get_records('test1')[0] == \
+            (1, u'2011-01-01', u'1', u'Galway')
 
 
 class TestLoadUnhandledTypes(TestLoadBase):
@@ -351,36 +326,34 @@ class TestLoadUnhandledTypes(TestLoadBase):
         filepath = get_sample_filepath('polling_locations.kml')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
-        with assert_raises(LoaderError) as exception:
+        with pytest.raises(LoaderError) as excinfo:
             loader.load_csv(filepath, resource_id=resource_id,
                             mimetype='text/csv', logger=PrintLogger())
-        assert_in('Error with field definition',
-                  str(exception.exception))
-        assert_in('"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name',
-                  str(exception.exception))
+        assert 'Error with field definition' in str(excinfo.value)
+        assert '"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name' in \
+            str(excinfo.value)
 
     def test_geojson(self):
         filepath = get_sample_filepath('polling_locations.geojson')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
-        with assert_raises(LoaderError) as exception:
+        with pytest.raises(LoaderError) as excinfo:
             loader.load_csv(filepath, resource_id=resource_id,
                             mimetype='text/csv', logger=PrintLogger())
-        assert_in('Error with field definition',
-                  str(exception.exception))
-        assert_in('"{"type":"FeatureCollection"" is not a valid field name',
-                  str(exception.exception))
+        assert 'Error with field definition' in str(excinfo.value)
+        assert '"{"type":"FeatureCollection"" is not a valid field name' in \
+            str(excinfo.value)
 
     def test_shapefile_zip(self):
         filepath = get_sample_filepath('polling_locations.shapefile.zip')
         resource_id = 'test1'
         factories.Resource(id=resource_id)
-        with assert_raises(LoaderError) as exception:
+        with pytest.raises(LoaderError) as excinfo:
             loader.load_csv(filepath, resource_id=resource_id,
                             mimetype='text/csv', logger=PrintLogger())
-        assert_in('Error during the load into PostgreSQL: '
-                  'unquoted carriage return found in data',
-                  str(exception.exception))
+        assert 'Error during the load into PostgreSQL: ' \
+            'unquoted carriage return found in data' in \
+            str(excinfo.value)
 
 
 class TestLoadMessytables(TestLoadBase):
@@ -392,31 +365,27 @@ class TestLoadMessytables(TestLoadBase):
         loader.load_table(csv_filepath, resource_id=resource_id,
                           mimetype='xls', logger=PrintLogger())
 
-        assert_in(
-            "'galway':",
-            self._get_records('test1', limit=1, exclude_full_text_column=False)[0][1])
+        assert "'galway':" in \
+            self._get_records('test1', limit=1, exclude_full_text_column=False)[0][1]
         # Indexed record looks like this (depending on CKAN version?):
         #   "'-01':2,3 '00':4,5,6 '1':7 '2011':1 'galway':8"
         #   "'-01':4,5 '00':6,7,8 '1':1 '2011':3 'galway':2"
         #   "'-01':2,3 '00':5,6 '1':7 '2011':1 'galway':8 't00':4"
 
-        assert_equal(
-            self._get_records('test1'),
+        assert self._get_records('test1') == \
             [(1, datetime.datetime(2011, 1, 1, 0, 0), Decimal('1'), u'Galway'),
              (2, datetime.datetime(2011, 1, 2, 0, 0), Decimal('-1'), u'Galway'),
              (3, datetime.datetime(2011, 1, 3, 0, 0), Decimal('0'), u'Galway'),
              (4, datetime.datetime(2011, 1, 1, 0, 0), Decimal('6'), u'Berkeley'),
              (5, datetime.datetime(2011, 1, 2, 0, 0), Decimal('8'), u'Berkeley'),
-             (6, datetime.datetime(2011, 1, 3, 0, 0), Decimal('5'), u'Berkeley')])
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'date', u'temperature', u'place'])
-        assert_equal(
-            self._get_column_types('test1'),
-            [u'int4', u'tsvector', u'timestamp', u'numeric', u'text'])
+             (6, datetime.datetime(2011, 1, 3, 0, 0), Decimal('5'), u'Berkeley')]
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'date', u'temperature', u'place']
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector', u'timestamp', u'numeric', u'text']
 
     # test disabled by default to avoid adding large file to repo and slow test
-    @nottest
+    @pytest.mark.skip(reason="slow test and requires large download")
     def test_boston_311_complete(self):
         # to get the test file:
         # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv  # noqa
@@ -431,7 +400,7 @@ class TestLoadMessytables(TestLoadBase):
         print('Load: {}s'.format(time.time() - t0))
 
     # test disabled by default to avoid adding large file to repo and slow test
-    @nottest
+    @pytest.mark.skip(reason="slow test and requires large download")
     def test_boston_311_sample5(self):
         # to create the test file:
         # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
@@ -454,20 +423,17 @@ class TestLoadMessytables(TestLoadBase):
 
         records = self._get_records('test1')
         print(records)
-        assert_equal(
-            records,
+        assert records == \
             [(1, Decimal('101002153891'), datetime.datetime(2017, 7, 6, 23, 38, 43), datetime.datetime(2017, 7, 21, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Street Light Outages', u'Public Works Department', u'Street Lights', u'Street Light Outages', u'PWDx_Street Light Outages', u'PWDx', u'', u'', u'480 Harvard St  Dorchester  MA  02124', Decimal('8'), Decimal('7'), Decimal('4'), u'B3', u'Greater Mattapan', Decimal('9'), u'Ward 14', Decimal('1411'), u'480 Harvard St', Decimal('2124'), Decimal('42.288'), Decimal('-71.0927'), u'Citizens Connect App'),  # noqa
              (2, Decimal('101002153890'), datetime.datetime(2017, 7, 6, 23, 29, 13), datetime.datetime(2017, 9, 11, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg', u'', u'522 Saratoga St  East Boston  MA  02128', Decimal('1'), Decimal('9'), Decimal('1'), u'A7', u'East Boston', Decimal('1'), u'Ward 1', Decimal('110'), u'522 Saratoga St', Decimal('2128'), Decimal('42.3807'), Decimal('-71.0259'), u'Citizens Connect App'),  # noqa
              (3, Decimal('101002153889'), datetime.datetime(2017, 7, 6, 23, 24, 20), datetime.datetime(2017, 9, 11, 8, 30), u'', u'ONTIME', u'Open', u' ', u'Graffiti Removal', u'Property Management', u'Graffiti', u'Graffiti Removal', u'PROP_GRAF_GraffitiRemoval', u'PROP', u' https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg', u'', u'965 Bennington St  East Boston  MA  02128', Decimal('1'), Decimal('9'), Decimal('1'), u'A7', u'East Boston', Decimal('1'), u'Ward 1', Decimal('112'), u'965 Bennington St', Decimal('2128'), Decimal('42.386'), Decimal('-71.008'), u'Citizens Connect App')]  # noqa
-            )
         print(self._get_column_names('test1'))
-        assert_equal(
-            self._get_column_names('test1'),
-            [u'_id', u'_full_text', u'CASE_ENQUIRY_ID', u'open_dt', u'target_dt', u'closed_dt', u'OnTime_Status', u'CASE_STATUS', u'CLOSURE_REASON', u'CASE_TITLE', u'SUBJECT', u'REASON', u'TYPE', u'QUEUE', u'Department', u'SubmittedPhoto', u'ClosedPhoto', u'Location', u'Fire_district', u'pwd_district', u'city_council_district', u'police_district', u'neighborhood', u'neighborhood_services_district', u'ward', u'precinct', u'LOCATION_STREET_NAME', u'LOCATION_ZIPCODE', u'Latitude', u'Longitude', u'Source'])  # noqa
+        assert self._get_column_names('test1') == \
+            [u'_id', u'_full_text', u'CASE_ENQUIRY_ID', u'open_dt', u'target_dt', u'closed_dt', u'OnTime_Status', u'CASE_STATUS', u'CLOSURE_REASON', u'CASE_TITLE', u'SUBJECT', u'REASON', u'TYPE', u'QUEUE', u'Department', u'SubmittedPhoto', u'ClosedPhoto', u'Location', u'Fire_district', u'pwd_district', u'city_council_district', u'police_district', u'neighborhood', u'neighborhood_services_district', u'ward', u'precinct', u'LOCATION_STREET_NAME', u'LOCATION_ZIPCODE', u'Latitude', u'Longitude', u'Source']  # noqa
         print(self._get_column_types('test1'))
-        assert_equal(self._get_column_types('test1'),
-                     [u'int4', u'tsvector',
-                      u'numeric', u'timestamp', u'timestamp', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'numeric', u'numeric', u'numeric', u'text', u'text', u'numeric', u'text', u'numeric', u'text', u'numeric', u'numeric', u'numeric', u'text'])  # noqa
+        assert self._get_column_types('test1') == \
+            [u'int4', u'tsvector',
+            u'numeric', u'timestamp', u'timestamp', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'text', u'numeric', u'numeric', u'numeric', u'text', u'text', u'numeric', u'text', u'numeric', u'text', u'numeric', u'numeric', u'numeric', u'text']  # noqa
 
     def test_no_entries(self):
         csv_filepath = get_sample_filepath('no_entries.csv')
@@ -475,6 +441,6 @@ class TestLoadMessytables(TestLoadBase):
         # datastore_active will be set on a non-existent datastore table
         resource_id = 'test1'
         factories.Resource(id=resource_id)
-        with assert_raises(LoaderError):
+        with pytest.raises(LoaderError):
             loader.load_table(csv_filepath, resource_id=resource_id,
                               mimetype='csv', logger=PrintLogger())

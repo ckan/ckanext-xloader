@@ -2,32 +2,12 @@ import sqlalchemy
 import sqlalchemy.orm as orm
 import os
 
-from ckan.tests import helpers
 from ckanext.datastore.tests import helpers as datastore_helpers
 from ckanext.xloader.loader import get_write_engine
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__))
 )
-
-
-class PluginsMixin(object):
-    @classmethod
-    def setup_class(cls):
-        import ckan.plugins as p
-        for plugin in getattr(cls, '_load_plugins', []):
-            if not p.plugin_loaded(plugin):
-                p.load(plugin)
-        helpers.reset_db()
-        reset_datastore_db()
-        add_full_text_trigger_function()
-
-    @classmethod
-    def teardown_class(cls):
-        import ckan.plugins as p
-        for plugin in reversed(getattr(cls, '_load_plugins', [])):
-            p.unload(plugin)
-        helpers.reset_db()
 
 
 def reset_datastore_db():

@@ -1,32 +1,17 @@
-import mock
 import datetime
 
-# from nose.tools import eq_
-# import mock
+import mock
+import pytest
 
 import ckan.plugins as p
 from ckan.logic import _actions
 from ckan.tests import helpers, factories
 
 
+@pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
+@pytest.mark.usefixtures("with_plugins")
+@pytest.mark.usefixtures(u"clean_db")
 class TestNotify(object):
-
-    @classmethod
-    def setup_class(cls):
-        if not p.plugin_loaded('datastore'):
-            p.load('datastore')
-        if not p.plugin_loaded('xloader'):
-            p.load('xloader')
-
-        helpers.reset_db()
-
-    @classmethod
-    def teardown_class(cls):
-
-        p.unload('xloader')
-        p.unload('datastore')
-
-        helpers.reset_db()
 
     def test_submit_on_resource_create(self, monkeypatch):
         dataset = factories.Dataset()

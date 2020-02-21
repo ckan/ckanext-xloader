@@ -8,80 +8,56 @@ try:
 except ImportError:
     from sqlalchemy.util import OrderedDict
 
-from nose.tools import eq_, make_decorator, assert_in
 import mock
 import responses
+import pytest
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 
 import ckan.plugins as p
-try:
-    config = p.toolkit.config
-except AttributeError:
-    from pylons import config
+from ckantoolkit import config
+from ckan.logic import _actions
 
 from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
 from ckanext.xloader.tests import util
-try:
-    from ckan.tests import helpers, factories
-except ImportError:
-    # older ckans
-    from ckan.new_tests import helpers, factories
+from ckantoolkit.tests import helpers, factories
 
 SOURCE_URL = 'http://www.example.com/static/file'
 
 
-def mock_actions(func):
+@pytest.fixture
+def mock_actions(monkeypatch):
+    ''' Mocks actions used by these tests
     '''
-    Decorator that mocks actions used by these tests
-    Based on ckan.test.helpers.mock_action
-    '''
-    def wrapper(*args, **kwargs):
-        # Mock CKAN's resource_show API
-        from ckan.logic import get_action as original_get_action
+    # Mock CKAN's resource_show API
+    def mock_resource_show(context, data_dict):
+        return {
+            'id': data_dict['id'],
+            'name': 'short name',
+            'url': SOURCE_URL,
+            'format': '',
+            'package_id': 'test-pkg',
+        }
+    monkeypatch.setitem(_actions, 'resource_show', mock_resource_show)
 
-        def side_effect(called_action_name):
-            if called_action_name == 'resource_show':
-                def mock_resource_show(context, data_dict):
-                    return {
-                       'id': data_dict['id'],
-                       'name': 'short name',
-                       'url': SOURCE_URL,
-                       'format': '',
-                       'package_id': 'test-pkg',
-                    }
-                return mock_resource_show
-            elif called_action_name == 'package_show':
-                def mock_package_show(context, data_dict):
-                    return {
-                       'id': data_dict['id'],
-                       'name': 'pkg-name',
-                    }
-                return mock_package_show
-            else:
-                return original_get_action(called_action_name)
-        try:
-            with mock.patch('ckanext.xloader.jobs.get_action') as mock_get_action:
-                mock_get_action.side_effect = side_effect
-
-                return_value = func(*args, **kwargs)
-        finally:
-            pass
-            # Make sure to stop the mock, even with an exception
-            # mock_action.stop()
-        return return_value
-
-    return make_decorator(func)(wrapper)
+    def mock_package_show(context, data_dict):
+        return {
+            'id': data_dict['id'],
+            'name': 'pkg-name',
+        }
+    monkeypatch.setitem(_actions, 'package_show', mock_package_show)
 
 
-class TestxloaderDataIntoDatastore(util.PluginsMixin):
-    _load_plugins = ['datastore']
+@pytest.mark.ckan_config("ckan.plugins", "datastore")
+@pytest.mark.usefixtures("with_plugins", "clean_db")
+class TestxloaderDataIntoDatastore(object):
 
     @classmethod
     def setup_class(cls):
-        super(TestxloaderDataIntoDatastore, cls).setup_class()
+        util.reset_datastore_db()
+        util.add_full_text_trigger_function()
         cls.host = 'www.ckan.org'
         cls.api_key = 'my-fake-key'
         cls.resource_id = 'foo-bar-42'
@@ -185,9 +161,8 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         last_analyze_datetimes = result.fetchall()[0]
         return max([x for x in last_analyze_datetimes if x] or [None])
 
-    @mock_actions
     @responses.activate
-    def test_simple_csv(self):
+    def test_simple_csv(self, mock_actions):
         # Test not only the load and xloader_hook is called at the end
         self.register_urls(filename='simple.csv')
         data = {
@@ -211,53 +186,51 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert result is None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == 'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
                            u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         # Check the load
         data = self.get_datastore_table()
-        eq_(data['headers'],
-            ['_id', '_full_text', 'date', 'temperature', 'place'])
-        eq_(data['header_dict']['date'], 'TEXT')
+        assert data['headers'] == \
+            ['_id', '_full_text', 'date', 'temperature', 'place']
+        assert data['header_dict']['date'] == 'TEXT'
         # 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['temperature'], 'TEXT')  # 'NUMERIC')
-        eq_(data['header_dict']['place'], 'TEXT')  # 'TEXT')
-        eq_(data['num_rows'], 6)
-        eq_(data['rows'][0][2:],
-            (u'2011-01-01', u'1', u'Galway'))
+        assert data['header_dict']['temperature'] == 'TEXT'  # 'NUMERIC'
+        assert data['header_dict']['place'] == 'TEXT'  # 'TEXT')
+        assert data['num_rows'] == 6
+        assert data['rows'][0][2:] == (u'2011-01-01', u'1', u'Galway')
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+        assert mocked_set_resource_metadata.call_args[1]['update_dict'] == \
             {'datastore_contains_all_records_of_source_file': True,
              'datastore_active': True,
              'ckan_url': 'http://www.ckan.org/',
-             'resource_id': 'foo-bar-42'})
+             'resource_id': 'foo-bar-42'}
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'complete')
-        eq_(job['error'], None)
+        assert job['status'] == u'complete'
+        assert job['error'] is None
 
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
         assert(last_analyze)
 
-    @mock_actions
     @responses.activate
     @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
     @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
-    def test_too_large_csv(self):
+    def test_too_large_csv(self, mock_actions):
 
         # Test not only the load and xloader_hook is called at the end
         self.register_urls(filename='simple-large.csv')
@@ -282,52 +255,50 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert result is None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'datastore_contains_all_records_of_source_file': False,
                            u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         # Check the load
         data = self.get_datastore_table()
-        eq_(data['headers'],
-            ['_id', '_full_text', 'id', 'text'])
-        eq_(data['header_dict']['id'], 'TEXT')
+        assert data['headers'] == ['_id', '_full_text', 'id', 'text']
+        assert data['header_dict']['id'] == 'TEXT'
         # 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['text'], 'TEXT')
+        assert data['header_dict']['text'] == 'TEXT'
         assert data['num_rows'] <= 100
         assert data['num_rows'] > 0
-        eq_(data['rows'][0][2:],
-            (u'1', u'a'))
+        assert data['rows'][0][2:] == (u'1', u'a')
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+        assert mocked_set_resource_metadata.call_args[1]['update_dict'] == \
             {'datastore_contains_all_records_of_source_file': False,
              'datastore_active': True,
              'ckan_url': 'http://www.ckan.org/',
-             'resource_id': 'foo-bar-42'})
+             'resource_id': 'foo-bar-42'}
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'complete')
-        eq_(job['error'], None)
+        assert job['status'] == u'complete'
+        assert job['error'] is None
 
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
         assert(last_analyze)
 
-    @mock_actions
     @responses.activate
     @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
     @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
-    def test_too_large_xls(self):
+    def test_too_large_xls(self, mock_actions):
 
         # Test not only the load and xloader_hook is called at the end
         self.register_urls(filename='simple-large.xls')
@@ -351,24 +322,24 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert result is not None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url,
-            'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'error', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'status': u'error',
              u'metadata': {u'ckan_url': u'http://www.ckan.org/',
                            u'datastore_contains_all_records_of_source_file': False,
                            u'resource_id': u'foo-bar-42'},
-             u'error': u'Loading file raised an error: array index out of range'})
+             u'error': u'Loading file raised an error: array index out of range'}
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'error')
-        eq_(job['error'], {u'message': u'Loading file raised an error: array index out of range'})
+        assert job['status'] == u'error'
+        assert job['error'] == \
+            {u'message': u'Loading file raised an error: array index out of range'}
 
-    @mock_actions
     @responses.activate
-    def test_messytables(self):
+    def test_messytables(self, mock_actions):
         # xloader's COPY can't handle xls, so it will be dealt with by
         # messytables
         self.register_urls(filename='simple.xls',
@@ -391,37 +362,38 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             with mock.patch('ckanext.xloader.jobs.get_current_job',
                             return_value=mock.Mock(id=job_id)):
                 result = jobs.xloader_data_into_datastore(data)
-        eq_(result, None)
+        assert result is None
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
                            u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         # Check the load
         data = self.get_datastore_table()
-        eq_(data['headers'],
-            ['_id', '_full_text', 'date', 'temperature', 'place'])
-        eq_(data['header_dict']['date'], 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['temperature'], 'NUMERIC')
-        eq_(data['header_dict']['place'], 'TEXT')
-        eq_(data['num_rows'], 6)
-        eq_(data['rows'][0][2:],
-            (datetime.datetime(2011, 1, 1), 1, u'Galway'))
+        assert data['headers'] == \
+            ['_id', '_full_text', 'date', 'temperature', 'place']
+        assert data['header_dict']['date'] == 'TIMESTAMP WITHOUT TIME ZONE'
+        assert data['header_dict']['temperature'] == 'NUMERIC'
+        assert data['header_dict']['place'], 'TEXT'
+        assert data['num_rows'] == 6
+        assert data['rows'][0][2:] == \
+            (datetime.datetime(2011, 1, 1), 1, u'Galway')
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+        assert mocked_set_resource_metadata.call_args[1]['update_dict'] == \
             {'ckan_url': 'http://www.ckan.org/',
              'datastore_contains_all_records_of_source_file': True,
              'datastore_active': True,
-             'resource_id': 'foo-bar-42'})
+             'resource_id': 'foo-bar-42'}
 
         # check logs have the error doing the COPY
         logs = self.get_load_logs(job_id)
@@ -434,16 +406,15 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
 
         # check messytable portion of the logs
         logs = Logs(logs[copy_error_index + 1:])
-        eq_(logs[0], (u'INFO', u'Trying again with messytables'))
+        assert logs[0] == (u'INFO', u'Trying again with messytables')
         logs.assert_no_errors()
 
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
         assert(last_analyze)
 
-    @mock_actions
     @responses.activate
-    def test_umlaut_and_extra_comma(self):
+    def test_umlaut_and_extra_comma(self, mock_actions):
         self.register_urls(filename='umlaut_and_extra_comma.csv')
         # This csv has an extra comma which causes the COPY to throw a
         # psycopg2.DataError and the umlaut can cause problems for logging the
@@ -469,26 +440,26 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert result is None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'datastore_contains_all_records_of_source_file': True,
                            u'datastore_active': True,
                            u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'complete')
-        eq_(job['error'], None)
+        assert job['status'] == u'complete'
+        assert job['error'] is None
 
-    @mock_actions
     @responses.activate
-    def test_first_request_is_202_pending_response(self):
+    def test_first_request_is_202_pending_response(self, mock_actions):
         # when you first get the CSV it returns this 202 response, which is
         # what this server does: https://data-cdfw.opendata.arcgis.com/datasets
         responses.add(responses.GET, SOURCE_URL,
@@ -518,43 +489,43 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         assert result is None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url, 'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
                            u'datastore_contains_all_records_of_source_file': True,
                            u'datastore_active': True,
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         # Check the load
         data = self.get_datastore_table()
-        eq_(data['headers'],
-            ['_id', '_full_text', 'date', 'temperature', 'place'])
-        eq_(data['header_dict']['date'], 'TEXT')
+        assert data['headers'] == \
+            ['_id', '_full_text', 'date', 'temperature', 'place']
+        assert data['header_dict']['date'] == 'TEXT'
         # 'TIMESTAMP WITHOUT TIME ZONE')
-        eq_(data['header_dict']['temperature'], 'TEXT')  # 'NUMERIC')
-        eq_(data['header_dict']['place'], 'TEXT')  # 'TEXT')
-        eq_(data['num_rows'], 6)
-        eq_(data['rows'][0][2:],
-            (u'2011-01-01', u'1', u'Galway'))
+        assert data['header_dict']['temperature'] == 'TEXT'  # 'NUMERIC')
+        assert data['header_dict']['place'] == 'TEXT'  # 'TEXT')
+        assert data['num_rows'] == 6
+        assert data['rows'][0][2:] == (u'2011-01-01', u'1', u'Galway')
         # (datetime.datetime(2011, 1, 1), 1, 'Galway'))
 
         # Check it wanted to set the datastore_active=True
         mocked_set_resource_metadata.assert_called_once()
-        eq_(mocked_set_resource_metadata.call_args[1]['update_dict'],
+        assert mocked_set_resource_metadata.call_args[1]['update_dict'] == \
             {'datastore_contains_all_records_of_source_file': True,
              'datastore_active': True,
              'ckan_url': 'http://www.ckan.org/',
-             'resource_id': 'foo-bar-42'})
+             'resource_id': 'foo-bar-42'}
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'complete')
-        eq_(job['error'], None)
+        assert job['status'] == u'complete'
+        assert job['error'] is None
 
 
 class Logs(list):
@@ -576,10 +547,8 @@ def get_sample_file(filename):
     return open(filepath).read()
 
 
+@pytest.mark.usefixtures(u"clean_db")
 class TestSetResourceMetadata(object):
-    @classmethod
-    def setup_class(cls):
-        helpers.reset_db()
 
     def test_simple(self):
         resource = factories.Resource()
@@ -593,10 +562,10 @@ class TestSetResourceMetadata(object):
         resource = helpers.call_action('resource_show', id=resource['id'])
         from pprint import pprint
         pprint(resource)
-        assert_in(resource['datastore_contains_all_records_of_source_file'],
-                  (True, u'True'))
+        assert resource['datastore_contains_all_records_of_source_file'] in \
+            (True, u'True')
         # I'm not quite sure why this is a string on travis - I get the bool
         # locally
 
-        eq_(resource['datastore_active'], True)
-        eq_(resource['ckan_url'], 'http://www.ckan.org/')
+        assert resource['datastore_active'] is True
+        assert resource['ckan_url'] == 'http://www.ckan.org/'

@@ -1,14 +1,11 @@
-from nose.tools import eq_
 import mock
+import pytest
 
 import ckan.plugins as p
-try:
-    from ckan.tests import helpers, factories
-except ImportError:
-    # older ckans
-    from ckan.new_tests import helpers, factories
+from ckantoolkit.tests import helpers, factories
 
 
+@pytest.mark.usefixtures(u"clean_db")
 class TestAction():
 
     @classmethod
@@ -18,15 +15,11 @@ class TestAction():
         if not p.plugin_loaded('xloader'):
             p.load('xloader')
 
-        helpers.reset_db()
-
     @classmethod
     def teardown_class(cls):
 
         p.unload('xloader')
         p.unload('datastore')
-
-        helpers.reset_db()
 
     def test_submit(self):
         # checks that xloader_submit enqueues the resource (to be xloadered)
@@ -40,7 +33,7 @@ class TestAction():
             helpers.call_action(
                 'xloader_submit', context=dict(user=user['name']),
                 resource_id=res['id'])
-            eq_(1, enqueue_mock.call_count)
+            assert enqueue_mock.call_count == 1
 
     def test_duplicated_submits(self):
         def submit(res, user):
@@ -55,12 +48,12 @@ class TestAction():
             enqueue_mock.reset_mock()
             # creating the resource causes it to be queued
             res = factories.Resource(user=user, format='csv')
-            eq_(1, enqueue_mock.call_count)
+            assert enqueue_mock.call_count == 1
 
             # a second request to queue it will be stopped, because of the
             # existing task for this resource - shown by task_status_show
             submit(res, user)
-            eq_(1, enqueue_mock.call_count)
+            assert enqueue_mock.call_count == 1
 
     def test_xloader_hook(self):
         # Check the task_status is stored correctly after a xloader job.
@@ -89,4 +82,4 @@ class TestAction():
             task_type='xloader',
             key='xloader',
         )
-        eq_(task_status['state'], 'complete')
+        assert task_status['state'] == 'complete'
