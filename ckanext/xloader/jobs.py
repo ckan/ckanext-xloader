@@ -4,7 +4,7 @@ import hashlib
 import time
 import tempfile
 import json
-from future.moves.urllib.parse import urlparse
+from future.moves.urllib.parse import urlsplit
 import datetime
 import traceback
 import sys
@@ -15,10 +15,7 @@ import sqlalchemy as sa
 import six
 
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    from pylons import config
+from ckantoolkit import config
 import ckan.lib.search as search
 
 from ckanext.xloader import loader
@@ -86,8 +83,12 @@ def xloader_data_into_datastore(input):
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
-        db.mark_job_as_errored(
-            job_id, traceback.format_tb(sys.exc_traceback)[-1] + repr(e))
+        if six.PY3:
+            err_msg = traceback.format_list(traceback.extract_tb(
+                sys.exc_info()[2]))[-1]
+        else:
+            err_msg = traceback.format_tb(sys.exc_traceback)[-1] + repr(e)
+        db.mark_job_as_errored(job_id, err_msg)
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
-    scheme = urlparse.urlsplit(url).scheme
+    scheme = urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -293,7 +294,7 @@ def _download_resource_data(resource, data, api_key, logger):
         line_count = 0
         m = hashlib.md5()
         for line in response.iter_lines(CHUNK_SIZE):
-            tmp_file.write(line + '\n')
+            tmp_file.write(line + b'\n')
             m.update(line)
             length += len(line)
             line_count += 1
@@ -503,7 +504,7 @@ def get_url(action, ckan_url):
     """
     Get url for ckan action
     """
-    if not urlparse.urlsplit(ckan_url).scheme:
+    if not urlsplit(ckan_url).scheme:
         ckan_url = 'http://' + ckan_url.lstrip('/')
     ckan_url = ckan_url.rstrip('/')
     return '{ckan_url}/api/3/action/{action}'.format(

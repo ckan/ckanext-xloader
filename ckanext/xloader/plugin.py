@@ -1,7 +1,7 @@
 from ckan import model
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-from ckan.common import config
+from ckantoolkit import config
 
 from ckanext.xloader import action, auth
 import ckanext.xloader.helpers as xloader_helpers

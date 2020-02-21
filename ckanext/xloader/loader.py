@@ -14,11 +14,7 @@ from ckanext.xloader.job_exceptions import (
     LoaderError, FileCouldNotBeLoadedError
 )
 import ckan.plugins.toolkit as tk
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    # older versions of ckan
-    from pylons import config
+from ckantoolkit import config
 
 if tk.check_ckan_version(min_version='2.7'):
     import ckanext.datastore.backend.postgres as datastore_db

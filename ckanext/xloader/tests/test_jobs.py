@@ -51,11 +51,12 @@ def mock_actions(monkeypatch):
 
 
 @pytest.mark.ckan_config("ckan.plugins", "datastore")
-@pytest.mark.usefixtures("with_plugins", "clean_db")
+@pytest.mark.usefixtures("with_plugins")
 class TestxloaderDataIntoDatastore(object):
 
     @classmethod
     def setup_class(cls):
+        helpers.reset_db()
         util.reset_datastore_db()
         util.add_full_text_trigger_function()
         cls.host = 'www.ckan.org'
@@ -69,7 +70,6 @@ class TestxloaderDataIntoDatastore(object):
 
     @classmethod
     def teardown_class(cls):
-        super(TestxloaderDataIntoDatastore, cls).teardown_class()
         if '_datastore' in dir(cls):
             connection = cls._datastore[1]
             connection.close()
@@ -230,7 +230,7 @@ class TestxloaderDataIntoDatastore(object):
     @responses.activate
     @mock.patch('ckanext.xloader.jobs.MAX_CONTENT_LENGTH', 10000)
     @mock.patch('ckanext.xloader.jobs.MAX_EXCERPT_LINES', 100)
-    def test_too_large_csv(self, mock_actions):
+    def test_too_large_csv(self, app, mock_actions):
 
         # Test not only the load and xloader_hook is called at the end
         self.register_urls(filename='simple-large.csv')

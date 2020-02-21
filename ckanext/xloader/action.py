@@ -26,10 +26,7 @@ except ImportError:
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-try:
-    config = p.toolkit.config
-except AttributeError:
-    from pylons import config
+from ckantoolkit import config
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
@@ -108,7 +105,7 @@ def xloader_submit(context, data_dict):
         if existing_task.get('state') == 'pending':
             import re  # here because it takes a moment to load
             queued_res_ids = [
-                re.search(r"'resource_id': u'([^']+)'",
+                re.search(r"'resource_id': u?'([^']+)'",
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in str(job)  # filter out test_job etc

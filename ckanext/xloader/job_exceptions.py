@@ -1,3 +1,5 @@
+import six
+
 class DataTooBigError(Exception):
     pass
 
@@ -38,9 +40,14 @@ class HTTPError(JobError):
         self.response = response
 
     def __str__(self):
+        if six.PY3:
+            return self.__unicode__()
+        else:
+            return self.__unicode__().encode('ascii', 'replace')
+
+    def __unicode__(self):
         return u'{} status={} url={} response={}'.format(
-            self.message, self.status_code, self.request_url, self.response) \
-            .encode('ascii', 'replace')
+            self.args[0], self.status_code, self.request_url, self.response)
 
 
 class LoaderError(JobError):
