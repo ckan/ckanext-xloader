@@ -14,7 +14,6 @@ import pytest
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select
 
-import ckan.plugins as p
 from ckantoolkit import config
 from ckan.logic import _actions
 
@@ -30,6 +29,9 @@ SOURCE_URL = 'http://www.example.com/static/file'
 @pytest.fixture
 def mock_actions(monkeypatch):
     ''' Mocks actions used by these tests
+
+    NB always load this fixture AFTER the "app" fixture, because it resets the
+    actions.
     '''
     # Mock CKAN's resource_show API
     def mock_resource_show(context, data_dict):

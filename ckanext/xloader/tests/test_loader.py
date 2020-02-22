@@ -6,7 +6,7 @@ import pytest
 import datetime
 from decimal import Decimal
 
-from ckan.tests import helpers, factories
+from ckan.tests import factories
 from ckanext.xloader import loader
 from ckanext.xloader.loader import get_write_engine
 from ckanext.xloader.job_exceptions import LoaderError
@@ -89,11 +89,11 @@ class TestLoadCsv(TestLoadBase):
             [(1, "'-01':2,3 '1':4 '2011':1 'galway':5", u'2011-01-01', u'1', u'Galway')]
         assert self._get_records('test1') == \
             [(1, u'2011-01-01', u'1', u'Galway'),
-            (2, u'2011-01-02', u'-1', u'Galway'),
-            (3, u'2011-01-03', u'0', u'Galway'),
-            (4, u'2011-01-01', u'6', u'Berkeley'),
-            (5, None, None, u'Berkeley'),
-            (6, u'2011-01-03', u'5', None)]
+             (2, u'2011-01-02', u'-1', u'Galway'),
+             (3, u'2011-01-03', u'0', u'Galway'),
+             (4, u'2011-01-01', u'6', u'Berkeley'),
+             (5, None, None, u'Berkeley'),
+             (6, u'2011-01-03', u'5', None)]
         assert self._get_column_names('test1') == \
             [u'_id', u'_full_text', u'date', u'temperature', u'place']
         assert self._get_column_types('test1') == \

@@ -23,10 +23,10 @@ try:
     import ckan.lib.jobs as rq_jobs
 except ImportError:
     import ckanext.rq.jobs as rq_jobs
+from ckantoolkit import config
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-from ckantoolkit import config
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 

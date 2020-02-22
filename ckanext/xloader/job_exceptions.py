@@ -1,5 +1,6 @@
 import six
 
+
 class DataTooBigError(Exception):
     pass
 

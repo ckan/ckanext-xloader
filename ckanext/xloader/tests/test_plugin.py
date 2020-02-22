@@ -3,7 +3,6 @@ import datetime
 import mock
 import pytest
 
-import ckan.plugins as p
 from ckan.logic import _actions
 from ckan.tests import helpers, factories
 
