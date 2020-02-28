@@ -379,6 +379,10 @@ and 2.9.0+.
 Running the Tests
 -----------------
 
+Tests depend on the dev-requirements:
+
+    pip install -r dev-requirements.txt
+
 The first time, your test datastore database needs the trigger applied::
 
     sudo -u postgres psql datastore_test -f full_text_function.sql
