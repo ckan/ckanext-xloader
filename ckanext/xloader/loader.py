@@ -4,6 +4,8 @@ import os.path
 import tempfile
 import itertools
 import csv
+import io
+import six
 
 import psycopg2
 import messytables
@@ -64,16 +66,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
-    # Guess the delimiter used in the file
-    with open(csv_filepath, 'r') as f:
-        header_line = f.readline()
-    try:
-        sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(header_line).delimiter
-    except csv.Error:
-        logger.warning('Could not determine delimiter from file, use default ","')
-        delimiter = ','
-
     # Setup the converters that run when you iterate over the row_set.
     # With pgloader only the headers will be iterated over.
     row_set.register_processor(messytables.headers_processor(headers))
@@ -100,6 +92,17 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 f_write.write(line)
             f_write.close()   # ensures the last line is written
             csv_filepath = f_write.name
+
+        # Guess the delimiter used in the file
+        # (use io.open to get python3-style 'encoding' option in python2)
+        with io.open(csv_filepath, 'r', encoding='utf-8') as f:
+            header_line = f.readline()
+        try:
+            sniffer = csv.Sniffer()
+            delimiter = sniffer.sniff(header_line).delimiter
+        except csv.Error:
+            logger.warning('Could not determine delimiter from file, use default ","')
+            delimiter = ','
 
         # check tables exists
 
@@ -216,10 +219,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                 ),
                             f)
                     except psycopg2.DataError as e:
-                        # e is a str but with foreign chars e.g.
-                        # 'extra data: "paul,pa\xc3\xbcl"\n'
-                        # but logging and exceptions need a normal (7 bit) str
-                        error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        if six.PY2:
+                            # e is a str but with foreign chars e.g.
+                            # 'extra data: "paul,pa\xc3\xbcl"\n'
+                            # but logging and exceptions need a normal (7 bit) str
+                            error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        else:
+                            error_str = str(e)  # python3 logs fine with unicode
                         logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
                                           ' {}'.format(error_str))

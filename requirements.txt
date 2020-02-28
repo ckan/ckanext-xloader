@@ -1,3 +1,3 @@
-messytables==0.15.2
+-e git://github.com/okfn/messytables.git@3366a08e06ca19abcdb6c624069e1d28414a3363#egg=messytables
 Unidecode==1.0.22
 future

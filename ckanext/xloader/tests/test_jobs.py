@@ -323,7 +323,7 @@ class TestxloaderDataIntoDatastore(object):
                 result = jobs.xloader_data_into_datastore(data)
         assert result is not None, jobs_db.get_job(job_id)['error']['message']
 
-        # Check it said it was successful
+        # Check whether it said it was successful
         assert responses.calls[-1].request.url == \
             'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
@@ -546,7 +546,7 @@ class Logs(list):
 
 def get_sample_file(filename):
     filepath = os.path.join(os.path.dirname(__file__), 'samples', filename)
-    return open(filepath).read()
+    return open(filepath, 'rb').read()
 
 
 @pytest.mark.usefixtures(u"clean_db")
