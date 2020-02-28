@@ -351,9 +351,11 @@ class TestLoadUnhandledTypes(TestLoadBase):
         with pytest.raises(LoaderError) as excinfo:
             loader.load_csv(filepath, resource_id=resource_id,
                             mimetype='text/csv', logger=PrintLogger())
-        assert 'Error during the load into PostgreSQL: ' \
-            'unquoted carriage return found in data' in \
-            str(excinfo.value)
+        # the exact error varies across python versions:
+        assert ('Error during the load into PostgreSQL: '
+                'unquoted carriage return found in data'
+                in str(excinfo.value)) or\
+            ('Messytables headers_guess error' in str(excinfo.value))
 
 
 class TestLoadMessytables(TestLoadBase):
