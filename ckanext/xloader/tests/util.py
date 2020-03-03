@@ -1,3 +1,4 @@
+from builtins import object
 import sqlalchemy
 import sqlalchemy.orm as orm
 import os

@@ -1,3 +1,4 @@
+from builtins import object
 from nose.tools import eq_
 import mock
 
@@ -9,7 +10,7 @@ except ImportError:
     from ckan.new_tests import helpers, factories
 
 
-class TestAction():
+class TestAction(object):
 
     @classmethod
     def setup_class(cls):

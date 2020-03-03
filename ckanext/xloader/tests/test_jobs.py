@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import os
 import json
 import random
@@ -23,7 +26,7 @@ except AttributeError:
 from ckanext.xloader import jobs
 from ckanext.xloader import db as jobs_db
 from ckanext.xloader.loader import get_write_engine
-import util
+from . import util
 try:
     from ckan.tests import helpers, factories
 except ImportError:
@@ -156,7 +159,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
             result = conn.execute(s)
         return dict(
             num_rows=result.rowcount,
-            headers=result.keys(),
+            headers=list(result.keys()),
             header_dict=OrderedDict([(c.key, str(c.type))
                                     for c in table.columns]),
             rows=result.fetchall(),

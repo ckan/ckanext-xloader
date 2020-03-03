@@ -1,3 +1,4 @@
+from builtins import object
 from ckan import model
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -43,9 +44,24 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
-    plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceController, inherit=True)
+
+    if toolkit.check_ckan_version('2.9'):
+        plugins.implements(plugins.IBlueprint)
+        # IBlueprint
+        def get_blueprint(self):
+            from ckanext.xloader.views import get_blueprints
+            return get_blueprints()
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
+        # IRoutes
+        def before_map(self, m):
+            m.connect(
+                'xloader.resource_data', '/dataset/{id}/resource_data/{resource_id}',
+                controller='ckanext.xloader.controllers:ResourceDataController',
+                action='resource_data', ckan_icon='cloud-upload')
+            return m
 
     # IResourceController
 
@@ -158,15 +174,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
             }
-
-    # IRoutes
-
-    def before_map(self, m):
-        m.connect(
-            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.xloader.controllers:ResourceDataController',
-            action='resource_data', ckan_icon='cloud-upload')
-        return m
 
     # ITemplateHelpers
 

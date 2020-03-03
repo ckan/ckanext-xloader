@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+from __future__ import absolute_import
+from builtins import str
 import logging
 import json
 import datetime
@@ -12,9 +14,9 @@ import ckan.plugins as p
 from ckan.logic import side_effect_free
 
 import ckanext.xloader.schema
-import interfaces as xloader_interfaces
-import jobs
-import db
+from . import interfaces as xloader_interfaces
+from . import jobs
+from . import db
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:

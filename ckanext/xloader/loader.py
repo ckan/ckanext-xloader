@@ -1,4 +1,7 @@
 'Load a CSV into postgres'
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
 import os
 import os.path
 import tempfile
@@ -10,7 +13,7 @@ import messytables
 from unidecode import unidecode
 
 import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -351,7 +354,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     h['info'] = existing_info[h['id']]
                     # create columns with types user requested
                     type_override = existing_info[h['id']].get('type_override')
-                    if type_override in _TYPE_MAPPING.values():
+                    if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
 
         logger.info('Determined headers and types: {headers}'.format(
