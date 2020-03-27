@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 'Load a CSV into postgres'
 import os
 import os.path

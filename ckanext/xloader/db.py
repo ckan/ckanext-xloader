@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 '''
 Abstracts a database. Used for storing logging when it xloaders a resource into
 DataStore.

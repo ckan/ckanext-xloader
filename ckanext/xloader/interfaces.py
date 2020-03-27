@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from ckan.plugins.interfaces import Interface
 
 

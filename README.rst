@@ -168,7 +168,7 @@ To install XLoader:
 
 5. Add ``xloader`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
-   ``/etc/ckan/default/production.ini``).
+   ``/etc/ckan/default/ckan.ini``).
 
    You should also remove ``datapusher`` if it is in the list, to avoid them
    both trying to load resources into the DataStore.
@@ -188,17 +188,23 @@ To install XLoader:
 
      sudo service apache2 reload
 
-8. Run the worker. First test it on the command-line::
+8. Run the worker
 
+   First test it on the command-line::
+
+     # for CKAN 2.9:
+     ckan -c /etc/ckan/default/ckan.ini jobs worker
+     # for CKAN 2.8 & 2.7:
      paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
-
-   or if you have CKAN version 2.6.x or less (and are therefore using ckanext-rq)::
-
+     # for CKAN 2.6 and earlier:
      paster --plugin=ckanext-rq jobs -c /etc/ckan/default/ckan.ini worker
 
    Test it will load a CSV ok by submitting a `CSV in the web interface <http://docs.ckan.org/projects/datapusher/en/latest/using.html#ckan-2-2-and-above>`_
    or in another shell::
 
+     # for CKAN 2.9:
+     ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
+     # for CKAN 2.8 and earlier:
      paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
 
    Clearly, running the worker on the command-line is only for testing - for
@@ -374,6 +380,14 @@ This behavior was documented in
 `Issue 75 <https://github.com/ckan/ckanext-xloader/issues/75>`_ and is related
 to a bug in CKAN that is fixed in versions 2.6.9, 2.7.7, 2.8.4
 and 2.9.0+.
+
+**Error: No such command "xloader".**
+
+* Ensure xloader is pip installed into your virtualenv.
+* Ensure ``xloader`` is listed in ``ckan.plugins`` in your config file.
+* Delete any stray pyc files from a previous version::
+
+      find ../ckanext-xloader -name *.pyc -delete
 
 -----------------
 Running the Tests

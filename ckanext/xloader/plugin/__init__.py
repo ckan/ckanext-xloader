@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
+
 from ckan import model
-import ckan.plugins as plugins
+import ckan.plugins as p
 import ckan.plugins.toolkit as toolkit
 from ckantoolkit import config
 
@@ -7,8 +9,12 @@ from ckanext.xloader import action, auth
 import ckanext.xloader.helpers as xloader_helpers
 from ckanext.xloader.loader import fulltext_function_exists, get_write_engine
 
+if p.toolkit.check_ckan_version(min_version='2.9.0'):
+    from ckanext.xloader.plugin.flask_plugin import MixinPlugin
+else:
+    from ckanext.xloader.plugin.pylons_plugin import MixinPlugin
+
 log = __import__('logging').getLogger(__name__)
-p = plugins
 
 
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
@@ -36,15 +42,15 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
-class xloaderPlugin(plugins.SingletonPlugin):
-    plugins.implements(plugins.IConfigurer)
-    plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IResourceUrlChange)
-    plugins.implements(plugins.IActions)
-    plugins.implements(plugins.IAuthFunctions)
-    plugins.implements(plugins.IRoutes, inherit=True)
-    plugins.implements(plugins.ITemplateHelpers)
-    plugins.implements(plugins.IResourceController, inherit=True)
+class xloaderPlugin(MixinPlugin, p.SingletonPlugin):
+    p.implements(p.IConfigurer)
+    p.implements(p.IConfigurable)
+    p.implements(p.IResourceUrlChange)
+    p.implements(p.IActions)
+    p.implements(p.IAuthFunctions)
+    p.implements(p.IRoutes, inherit=True)
+    p.implements(p.ITemplateHelpers)
+    p.implements(p.IResourceController, inherit=True)
 
     # IResourceController
 
@@ -167,15 +173,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
             }
-
-    # IRoutes
-
-    def before_map(self, m):
-        m.connect(
-            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.xloader.controllers:ResourceDataController',
-            action='resource_data', ckan_icon='cloud-upload')
-        return m
 
     # ITemplateHelpers
 
