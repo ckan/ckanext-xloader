@@ -143,6 +143,7 @@ def xloader_submit(context, data_dict):
 
     context['ignore_auth'] = True
     context['user'] = ''  # benign - needed for ckan 2.5
+    context['session'] = context['model'].meta.create_local_session()
     p.toolkit.get_action('task_status_update')(context, task)
 
     data = {
