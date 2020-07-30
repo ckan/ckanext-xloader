@@ -7,7 +7,7 @@ Loosely based on ckan-service-provider's db.py
 
 import datetime
 import json
-
+import six
 import sqlalchemy
 
 
@@ -16,6 +16,10 @@ _METADATA = None
 JOBS_TABLE = None
 METADATA_TABLE = None
 LOGS_TABLE = None
+
+if six.PY3:
+    unicode = str
+    basestring = str
 
 
 def init(config, echo=False):

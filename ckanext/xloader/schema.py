@@ -1,5 +1,10 @@
 import ckan.plugins as p
 import ckanext.datastore.logic.schema as dsschema
+import six
+
+if six.PY3:
+    unicode = str
+    basestring = str
 
 get_validator = p.toolkit.get_validator
 

@@ -8,6 +8,7 @@ import urlparse
 import datetime
 import traceback
 import sys
+import six
 
 import requests
 from rq import get_current_job
@@ -23,6 +24,10 @@ import ckan.lib.search as search
 import loader
 import db
 from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+
+if six.PY3:
+    unicode = str
+    basestring = str
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
