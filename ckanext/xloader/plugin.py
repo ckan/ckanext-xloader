@@ -39,7 +39,6 @@ class XLoaderFormats(object):
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
@@ -87,60 +86,59 @@ class xloaderPlugin(plugins.SingletonPlugin):
                                 'See ckanext-xloader\'s README.rst for more '
                                 'details.')
 
-    # IDomainObjectModification
     # IResourceUrlChange
 
-    def notify(self, entity, operation=None):
-        if isinstance(entity, model.Resource):
-            if (operation == model.domain_object.DomainObjectOperation.new or
-                    not operation):
-                # if operation is None, resource URL has been changed, as
-                # the notify function in IResourceUrlChange only takes
-                # 1 parameter
-                context = {'model': model, 'ignore_auth': True,
-                           'defer_commit': True}
-                if not XLoaderFormats.is_it_an_xloader_format(entity.format):
-                    log.debug('Skipping xloading resource {r.id} because '
-                              'format "{r.format}" is not configured to be '
-                              'xloadered'
-                              .format(r=entity))
-                    return
-                if entity.url_type in ('datapusher', 'xloader'):
-                    log.debug('Skipping xloading resource {r.id} because '
-                              'url_type "{r.url_type}" means resource.url '
-                              'points to the datastore already, so loading '
-                              'would be circular.'.format(r=entity))
-                    return
+    def notify(self, resource):
+        context = {
+            u'model': model,
+            u'ignore_auth': True,
+        }
+        resource_dict = toolkit.get_action(u'resource_show')(
+            context, {
+            u'id': resource.id,
+            }
+        )
+        self._submit_to_xloader(resource_dict)
 
-                # try:
-                #     task = p.toolkit.get_action('task_status_show')(
-                #         context, {
-                #             'entity_id': entity.id,
-                #             'task_type': 'datapusher',
-                #             'key': 'datapusher'}
-                #     )
-                #     if task.get('state') == 'pending':
-                #         # There already is a pending DataPusher submission,
-                #         # skip this one ...
-                #         log.debug(
-                #             'Skipping DataPusher submission for '
-                #             'resource {0}'.format(entity.id))
-                #         return
-                # except p.toolkit.ObjectNotFound:
-                #     pass
+    # IResourceController
 
-                try:
-                    log.debug('Submitting resource {0} to be xloadered'
-                              .format(entity.id))
-                    p.toolkit.get_action('xloader_submit')(context, {
-                        'resource_id': entity.id,
-                        'ignore_hash': self.ignore_hash,
-                    })
-                except p.toolkit.ValidationError as e:
-                    # If xloader is offline, we want to catch error instead
-                    # of raising otherwise resource save will fail with 500
-                    log.critical(e)
-                    pass
+    def after_create(self, context, resource_dict):
+
+        self._submit_to_xloader(resource_dict)
+
+    def _submit_to_xloader(self, resource_dict):
+
+        context = {'model': model, 'ignore_auth': True,
+                   'defer_commit': True}
+        if not XLoaderFormats.is_it_an_xloader_format(resource_dict['format']):
+            log.debug('Skipping xloading resource {id} because '
+                      'format "{format}" is not configured to be '
+                      'xloadered'
+                      .format(
+                          id=resource_dict['id'],
+                          format=resource_dict['format']))
+            return
+        if resource_dict['url_type'] in ('datapusher', 'xloader'):
+            log.debug('Skipping xloading resource {id} because '
+                      'url_type "{url_type}" means resource.url '
+                      'points to the datastore already, so loading '
+                      'would be circular.'.format(
+                          id=resource_dict['id'],
+                          url_type=resource_dict['url_type']))
+            return
+
+        try:
+            log.debug('Submitting resource {0} to be xloadered'
+                      .format(resource_dict['id']))
+            p.toolkit.get_action('xloader_submit')(context, {
+                'resource_id': resource_dict['id'],
+                'ignore_hash': self.ignore_hash,
+            })
+        except p.toolkit.ValidationError as e:
+            # If xloader is offline, we want to catch error instead
+            # of raising otherwise resource save will fail with 500
+            log.critical(e)
+            pass
 
     # IActions
 
