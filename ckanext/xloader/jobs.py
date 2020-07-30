@@ -491,8 +491,9 @@ def get_resource_and_dataset(resource_id):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    res_dict = get_action('resource_show')(None, {'id': resource_id})
-    pkg_dict = get_action('package_show')(None, {'id': res_dict['package_id']})
+    context = {'ignore_auth': True}
+    res_dict = get_action('resource_show')(context, {'id': resource_id})
+    pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
 
 
