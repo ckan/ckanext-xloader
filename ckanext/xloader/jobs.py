@@ -8,12 +8,13 @@ import urlparse
 import datetime
 import traceback
 import sys
+import six
 
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-from ckan.plugins.toolkit import get_action, asbool
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -23,6 +24,10 @@ import ckan.lib.search as search
 import loader
 import db
 from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+
+if six.PY3:
+    unicode = str
+    basestring = str
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -136,7 +141,7 @@ def xloader_data_into_datastore_(input, job_dict):
 
     try:
         resource, dataset = get_resource_and_dataset(resource_id)
-    except JobError, e:
+    except (JobError, ObjectNotFound) as e:
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
         resource, dataset = get_resource_and_dataset(resource_id)
@@ -547,7 +552,7 @@ class StoringHandler(logging.Handler):
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
-                timestamp=datetime.datetime.now(),
+                timestamp=datetime.datetime.utcnow(),
                 message=message,
                 level=level,
                 module=module,

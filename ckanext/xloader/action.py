@@ -6,6 +6,7 @@ import datetime
 
 from dateutil.parser import parse as parse_date
 
+# import ckan.lib.helpers as h
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
@@ -334,14 +335,13 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        # timestamp is a date, so not sure why this code was there
+        # Attach time zone data to logs if needed
+        # job_detail['logs']  TypeError: 'NoneType' object has no attribute '__getitem__'
         # for log in job_detail['logs']:
         #     if 'timestamp' in log:
-        #         date = time.strptime(
-        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-        #         date = datetime.datetime.utcfromtimestamp(
-        #             time.mktime(date))
-        #         log['timestamp'] = date
+        #         date = log['timestamp']
+        #         if not date.tzinfo:
+        #             log['timestamp'] = h.get_display_timezone().localize(date)
     try:
         error = json.loads(task['error'])
     except ValueError:
