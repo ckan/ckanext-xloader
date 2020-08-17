@@ -6,7 +6,6 @@ from nose.tools import assert_equal, assert_raises, assert_in, nottest
 from nose.plugins.skip import SkipTest
 import datetime
 from decimal import Decimal
-import mock
 
 from ckan.tests import helpers, factories
 from ckanext.xloader import loader
@@ -355,7 +354,8 @@ class TestLoadCsv(TestLoadBase):
         print records
         assert_equal(
             records[0],
-            (1, u'229312',u'פ בית העמק עמקה 3',u'360',u'פרטי',u'Cl',u'תקן ישראלי מותר',u'400',u'20/09/2018',u'44.85',u'11.20')
+            (1, u'229312', u'פ בית העמק עמקה 3', u'360', u'פרטי', u'Cl', u'תקן ישראלי מותר', u'400', u'20/09/2018',
+             u'44.85', u'11.20')
         )
         print self._get_column_names('test_hebrew')
         assert_equal(
@@ -521,8 +521,10 @@ class TestLoadMessytables(TestLoadBase):
         print records
         assert_equal(
             records[0],
-            (1, Decimal('229312'), u'פ בית העמק עמקה 3', Decimal('360'), u'פרטי', u'Cl', u'תקן ישראלי מותר', Decimal('400'), datetime.datetime(2018, 9, 20, 0, 0),
-             Decimal('44.85000000000000142108547152020037174224853515625'), Decimal('11.199999999999999289457264239899814128875732421875'))
+            (1, Decimal('229312'), u'פ בית העמק עמקה 3', Decimal('360'), u'פרטי', u'Cl', u'תקן ישראלי מותר',
+             Decimal('400'), datetime.datetime(2018, 9, 20, 0, 0),
+             Decimal('44.85000000000000142108547152020037174224853515625'),
+             Decimal('11.199999999999999289457264239899814128875732421875'))
         )
         print self._get_column_names('hebrew_sample_xlsx')
         assert_equal(
