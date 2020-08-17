@@ -37,7 +37,7 @@ _drop_indexes = datastore_db._drop_indexes
 MAX_COLUMN_LENGTH = 63
 
 
-def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
+def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None, unicode_headers=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
     # use messytables to determine the header row
@@ -64,7 +64,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = encode_headers(headers)
+    headers = encode_headers(headers, unicode_headers=unicode_headers)
 
     # Guess the delimiter used in the file
     with open(csv_filepath, 'r') as f:
@@ -196,6 +196,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
         #    the superuser issue. <-- picked
 
+        if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+            column_names = ', '.join(['"{}"'.format(h.encode('UTF8')) for h in headers])
+        else:
+            column_names = ', '.join(['"{}"'.format(h) for h in headers])
         raw_connection = engine.raw_connection()
         try:
             cur = raw_connection.cursor()
@@ -211,8 +215,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                             "      ENCODING '{encoding}');"
                             .format(
                                 resource_id=resource_id,
-                                column_names=', '.join(['"{}"'.format(h)
-                                                        for h in headers]),
+                                column_names=column_names,
                                 delimiter=delimiter,
                                 encoding='UTF8',
                                 ),
@@ -236,7 +239,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('...copying done')
 
     logger.info('Creating search index...')
-    _populate_fulltext(connection, resource_id, fields=fields)
+
+    if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+        encoded_fields = [{'type': x['type'], 'id': x['id'].encode('UTF8')} for x in fields]
+    else:
+        encoded_fields = fields
+
+    _populate_fulltext(connection, resource_id, fields=encoded_fields)
     logger.info('...search index created')
 
     return fields
@@ -259,7 +268,7 @@ def create_column_indexes(fields, resource_id, logger):
     logger.info('...column indexes created.')
 
 
-def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
+def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None, unicode_headers=None):
     '''Loads an Excel file (or other tabular data recognized by messytables)
     into Datastore and creates indexes.
 
@@ -299,7 +308,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = encode_headers(headers)
+        headers = encode_headers(headers, unicode_headers=unicode_headers)
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
@@ -400,13 +409,17 @@ def get_types():
     return _TYPES, TYPE_MAPPING
 
 
-def encode_headers(headers):
+def encode_headers(headers, unicode_headers=None):
+    if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+        decode_func = unicode
+    else:
+        decode_func = unidecode
     encoded_headers = []
     for header in headers:
         try:
-            encoded_headers.append(unidecode(header))
+            encoded_headers.append(decode_func(header))
         except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+            encoded_headers.append(decode_func(str(header)))
 
     return encoded_headers
 
@@ -514,7 +527,7 @@ def _populate_fulltext(connection, resource_id, fields):
             (text/numeric/timestamp)
     '''
     sql = \
-        u'''
+        '''
         UPDATE {table}
         SET _full_text = to_tsvector({cols});
         '''.format(
@@ -560,8 +573,8 @@ def _create_fulltext_trigger(connection, resource_id):
 def identifier(s):
     # "%" needs to be escaped, otherwise connection.execute thinks it is for
     # substituting a bind parameter
-    return u'"' + s.replace(u'"', u'""').replace(u'\0', '').replace('%', '%%')\
-        + u'"'
+    return '"' + s.replace('"', '""').replace('\0', '').replace('%', '%%')\
+        + '"'
 
 
 def literal_string(s):
