@@ -344,12 +344,13 @@ class TestLoadCsv(TestLoadBase):
         assert_equal(self._get_records('test1')[0],
                      (1, u'2011-01-01', u'1', u'Galway'))
 
+    @helpers.change_config('ckanext.xloader.unicode_headers', 'True')
     def test_unicode_column_names(self):
         csv_filepath = get_sample_filepath('hebrew_sample.csv')
         resource_id = 'test_hebrew'
         factories.Resource(id=resource_id)
         loader.load_csv(csv_filepath, resource_id=resource_id,
-                        mimetype='text/csv', logger=PrintLogger(), unicode_headers=True)
+                        mimetype='text/csv', logger=PrintLogger())
         records = self._get_records('test_hebrew')
         print records
         assert_equal(
@@ -511,12 +512,13 @@ class TestLoadMessytables(TestLoadBase):
             loader.load_table(csv_filepath, resource_id=resource_id,
                               mimetype='csv', logger=PrintLogger())
 
+    @helpers.change_config('ckanext.xloader.unicode_headers', 'True')
     def test_hebrew_unicode_headers(self):
         xlsx_filepath = get_sample_filepath('hebrew_sample.xlsx')
         resource_id = 'hebrew_sample_xlsx'
         factories.Resource(id=resource_id)
         loader.load_table(xlsx_filepath, resource_id=resource_id,
-                          mimetype='xlsx', logger=PrintLogger(), unicode_headers=True)
+                          mimetype='xlsx', logger=PrintLogger())
         records = self._get_records('hebrew_sample_xlsx')
         print records
         assert_equal(

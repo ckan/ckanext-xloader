@@ -37,7 +37,7 @@ _drop_indexes = datastore_db._drop_indexes
 MAX_COLUMN_LENGTH = 63
 
 
-def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None, unicode_headers=None):
+def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
     # use messytables to determine the header row
@@ -64,7 +64,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None, unicod
         header_offset, headers = messytables.headers_guess(row_set.sample)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = encode_headers(headers, unicode_headers=unicode_headers)
+    headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
     with open(csv_filepath, 'r') as f:
@@ -196,7 +196,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None, unicod
         # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
         #    the superuser issue. <-- picked
 
-        if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+        if config.get('ckanext.xloader.unicode_headers'):
             column_names = ', '.join(['"{}"'.format(h.encode('UTF8')) for h in headers])
         else:
             column_names = ', '.join(['"{}"'.format(h) for h in headers])
@@ -240,7 +240,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None, unicod
 
     logger.info('Creating search index...')
 
-    if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+    if config.get('ckanext.xloader.unicode_headers'):
         encoded_fields = [{'type': x['type'], 'id': x['id'].encode('UTF8')} for x in fields]
     else:
         encoded_fields = fields
@@ -268,7 +268,7 @@ def create_column_indexes(fields, resource_id, logger):
     logger.info('...column indexes created.')
 
 
-def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None, unicode_headers=None):
+def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads an Excel file (or other tabular data recognized by messytables)
     into Datastore and creates indexes.
 
@@ -308,7 +308,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None, un
                 for f in existing.get('fields', []) if 'info' in f)
 
         # Some headers might have been converted from strings to floats and such.
-        headers = encode_headers(headers, unicode_headers=unicode_headers)
+        headers = encode_headers(headers)
 
         row_set.register_processor(messytables.headers_processor(headers))
         row_set.register_processor(messytables.offset_processor(offset + 1))
@@ -409,8 +409,8 @@ def get_types():
     return _TYPES, TYPE_MAPPING
 
 
-def encode_headers(headers, unicode_headers=None):
-    if unicode_headers or config.get('ckanext.xloader.unicode_headers'):
+def encode_headers(headers):
+    if config.get('ckanext.xloader.unicode_headers'):
         decode_func = unicode
     else:
         decode_func = unidecode
