@@ -1,4 +1,3 @@
-from builtins import object
 from ckan import model
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit

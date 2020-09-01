@@ -1,11 +1,10 @@
 from __future__ import absolute_import
-from builtins import str
-from builtins import object
 import os
 import json
 import random
 import datetime
 import time
+import six
 try:
     from collections import OrderedDict  # from python 2.7
 except ImportError:
@@ -160,7 +159,7 @@ class TestxloaderDataIntoDatastore(util.PluginsMixin):
         return dict(
             num_rows=result.rowcount,
             headers=list(result.keys()),
-            header_dict=OrderedDict([(c.key, str(c.type))
+            header_dict=OrderedDict([(c.key, six.text_type(c.type))
                                     for c in table.columns]),
             rows=result.fetchall(),
         )

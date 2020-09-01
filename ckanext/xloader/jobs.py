@@ -1,20 +1,17 @@
 from __future__ import division
 from __future__ import absolute_import
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from past.utils import old_div
 import math
 import logging
 import hashlib
 import time
 import tempfile
 import json
-import urllib.parse
 import datetime
 import traceback
 import sys
+import six
 
+from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
@@ -245,7 +242,7 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
-    scheme = urllib.parse.urlsplit(url).scheme
+    scheme = urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -506,7 +503,7 @@ def get_url(action, ckan_url):
     """
     Get url for ckan action
     """
-    if not urllib.parse.urlsplit(ckan_url).scheme:
+    if not urlsplit(ckan_url).scheme:
         ckan_url = 'http://' + ckan_url.lstrip('/')
     ckan_url = ckan_url.rstrip('/')
     return '{ckan_url}/api/3/action/{action}'.format(
@@ -563,10 +560,10 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = str(record.getMessage())
-            level = str(record.levelname)
-            module = str(record.module)
-            funcName = str(record.funcName)
+            message = six.text_type(record.getMessage())
+            level = six.text_type(record.levelname)
+            module = six.text_type(record.module)
+            funcName = six.text_type(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
@@ -595,5 +592,5 @@ def printable_file_size(size_bytes):
     size_name = ('bytes', 'KB', 'MB', 'GB', 'TB')
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
-    s = round(old_div(size_bytes, p), 1)
+    s = round(float(size_bytes) / p, 1)
     return "%s %s" % (s, size_name[i])
