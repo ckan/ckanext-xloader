@@ -126,7 +126,7 @@ CKAN version    Compatibility
 2.6             yes, but no longer tested and you must install ckanext-rq
 2.7             yes
 2.8             yes
-2.9             not yet
+2.9             not yet - see https://github.com/ckan/ckanext-xloader/issues/104
 =============== =============
 
 ------------
@@ -409,7 +409,7 @@ To publish a new version to PyPI follow these steps:
 
        pip install --upgrade setuptools wheel twine
 
-4. Create a source and binary distributions of the new version::
+4. Create source and binary distributions of the new version::
 
        python setup.py sdist bdist_wheel && twine check dist/*
 
