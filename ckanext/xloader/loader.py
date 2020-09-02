@@ -64,8 +64,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         if not table_set.tables:
             raise LoaderError('Could not detect tabular data in this file')
         row_set = table_set.tables.pop()
-        header_offset, headers = messytables.headers_guess(row_set.sample)
-
+        try:
+            header_offset, headers = messytables.headers_guess(row_set.sample)
+        except messytables.ReadError as e:
+            raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
