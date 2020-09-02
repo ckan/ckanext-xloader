@@ -182,8 +182,8 @@ def xloader_data_into_datastore_(input, job_dict):
             fields=fields,
             resource_id=resource['id'],
             logger=logger)
-        resource['datastore_active'] = data['datastore_active']
-        update_resource(resource)
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
         logger.info('File Hash updated for resource: {}'.format(resource['hash']))
 
     def messytables_load():
@@ -199,8 +199,8 @@ def xloader_data_into_datastore_(input, job_dict):
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, logger)
         logger.info('Finished loading with messytables')
-        resource['datastore_active'] = data['datastore_active']
-        update_resource(resource)
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
         logger.info('File Hash updated for resource: {}'.format(resource['hash']))
 
     # Load it
@@ -470,14 +470,16 @@ def validate_input(input):
         raise JobError('No CKAN API key provided')
 
 
-def update_resource(resource):
+def update_resource(resource, patch_only=False):
     """
     Update the given CKAN resource to say that it has been stored in datastore
     ok.
+    or patch the given CKAN resource for file hash
     """
+    action = 'resource_update' if not patch_only else 'resource_patch'
     from ckan import model
     context = {'model': model, 'session': model.Session, 'ignore_auth': True}
-    get_action('resource_update')(context, resource)
+    get_action(action)(context, resource)
 
 
 def get_resource_and_dataset(resource_id):
