@@ -8,6 +8,7 @@ import tempfile
 import itertools
 import csv
 
+import six
 import psycopg2
 import messytables
 from unidecode import unidecode
@@ -72,11 +73,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
-    with open(csv_filepath, 'r') as f:
+    with open(csv_filepath, 'rb') as f:
         header_line = f.readline()
     try:
         sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(header_line).delimiter
+        delimiter = sniffer.sniff(six.ensure_text(header_line)).delimiter
     except csv.Error:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
