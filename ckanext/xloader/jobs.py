@@ -16,7 +16,8 @@ import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
+import ckan.model as model
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, c
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -138,13 +139,12 @@ def xloader_data_into_datastore_(input, job_dict):
     ckan_url = data['ckan_url']
     resource_id = data['resource_id']
     api_key = input.get('api_key')
-
     try:
-        resource, dataset = get_resource_and_dataset(resource_id)
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
     except (JobError, ObjectNotFound) as e:
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
-        resource, dataset = get_resource_and_dataset(resource_id)
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
     resource_ckan_url = '/dataset/{}/resource/{}' \
         .format(dataset['name'], resource['id'])
     logger.info('Express Load starting: {}'.format(resource_ckan_url))
@@ -490,12 +490,18 @@ def update_resource(resource, api_key, ckan_url):
     check_response(r, url, 'CKAN')
 
 
-def get_resource_and_dataset(resource_id):
+def get_resource_and_dataset(resource_id, api_key):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    res_dict = get_action('resource_show')(None, {'id': resource_id})
-    pkg_dict = get_action('package_show')(None, {'id': res_dict['package_id']})
+    user = model.Session.query(model.User).filter_by(
+        apikey=api_key).first()
+    if user is not None:
+        context = {'user': user.name}
+    else:
+        context = None
+    res_dict = get_action('resource_show')(context, {'id': resource_id})
+    pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
 
 
