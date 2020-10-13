@@ -99,4 +99,4 @@ echo "Moving test.ini into a subdir... (because the core ini file is referenced 
 mkdir subdir
 mv test.ini subdir
 
-echo "travis-build.bash is done."
+echo "The travis-build.bash is done."
