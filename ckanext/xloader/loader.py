@@ -1,16 +1,20 @@
 'Load a CSV into postgres'
+from __future__ import absolute_import
+from builtins import zip
+from builtins import str
 import os
 import os.path
 import tempfile
 import itertools
 import csv
 
+import six
 import psycopg2
 import messytables
 from unidecode import unidecode
 
 import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -61,17 +65,19 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         if not table_set.tables:
             raise LoaderError('Could not detect tabular data in this file')
         row_set = table_set.tables.pop()
-        header_offset, headers = messytables.headers_guess(row_set.sample)
-
+        try:
+            header_offset, headers = messytables.headers_guess(row_set.sample)
+        except messytables.ReadError as e:
+            raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
-    with open(csv_filepath, 'r') as f:
+    with open(csv_filepath, 'rb') as f:
         header_line = f.readline()
     try:
         sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(header_line).delimiter
+        delimiter = sniffer.sniff(six.ensure_text(header_line)).delimiter
     except csv.Error:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
@@ -351,7 +357,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     h['info'] = existing_info[h['id']]
                     # create columns with types user requested
                     type_override = existing_info[h['id']].get('type_override')
-                    if type_override in _TYPE_MAPPING.values():
+                    if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
 
         logger.info('Determined headers and types: {headers}'.format(

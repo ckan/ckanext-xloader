@@ -1,20 +1,23 @@
 # encoding: utf-8
 
+from __future__ import absolute_import
+from builtins import str
 import logging
 import json
 import datetime
 
 from dateutil.parser import parse as parse_date
 
+import ckan.model as model
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
 from ckan.logic import side_effect_free
 
 import ckanext.xloader.schema
-import interfaces as xloader_interfaces
-import jobs
-import db
+from . import interfaces as xloader_interfaces
+from . import jobs
+from . import db
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:
@@ -108,7 +111,7 @@ def xloader_submit(context, data_dict):
         if existing_task.get('state') == 'pending':
             import re  # here because it takes a moment to load
             queued_res_ids = [
-                re.search(r"'resource_id': u'([^']+)'",
+                re.search(r"'resource_id': u?'([^']+)'",
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in str(job)  # filter out test_job etc
@@ -143,6 +146,10 @@ def xloader_submit(context, data_dict):
 
     context['ignore_auth'] = True
     context['user'] = ''  # benign - needed for ckan 2.5
+
+    model = context['model']
+    original_session = model.Session
+    model.Session = model.meta.create_local_session()
     p.toolkit.get_action('task_status_update')(context, task)
 
     data = {
@@ -168,6 +175,7 @@ def xloader_submit(context, data_dict):
             job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
+        model.Session = original_session
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
 
@@ -177,6 +185,7 @@ def xloader_submit(context, data_dict):
     task['state'] = 'pending'
     task['last_updated'] = str(datetime.datetime.utcnow()),
     p.toolkit.get_action('task_status_update')(context, task)
+    model.Session = original_session
 
     return True
 
