@@ -227,7 +227,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                         # e is a str but with foreign chars e.g.
                         # 'extra data: "paul,pa\xc3\xbcl"\n'
                         # but logging and exceptions need a normal (7 bit) str
-                        error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        error_str = str(e)
                         logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
                                           ' {}'.format(error_str))
