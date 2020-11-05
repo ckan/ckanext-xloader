@@ -142,8 +142,9 @@ class xloaderCommand(cli.CkanCommand):
         # for each package in the package list,
         #   submit each resource w/ _submit_package
         import ckan.model as model
-        package_list = p.toolkit.get_action('package_list')(
-            {'model': model, 'ignore_auth': True}, {})
+        package_list = p.toolkit.get_action('package_search')(
+            {'model': model, 'ignore_auth': True}, {'include_private': True, 'rows': 1000})
+        package_list = [pkg['id'] for pkg in package_list['results']]
         print('Processing %d datasets' % len(package_list))
         user = p.toolkit.get_action('get_site_user')(
             {'model': model, 'ignore_auth': True}, {})
