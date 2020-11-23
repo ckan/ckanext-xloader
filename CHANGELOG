@@ -1,3 +1,14 @@
+0.7.0 2020-11-23
+================
+
+Features:
+* Python 3 support #113
+* CKAN 2.9 support #113
+
+Fixes:
+* Update resource hash after load to datastore #116
+
+
 0.6.1 2020-05-03
 ================
 
