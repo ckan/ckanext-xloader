@@ -311,35 +311,35 @@ command-line interface.
 
 e.g. ::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
 
 For debugging you can try xloading it synchronously (which does the load
 directly, rather than asking the worker to do it) with the ``-s`` option::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
 
 See the status of jobs::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini xloader status
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader status
+    [pre-2.9] paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
 
 Submit all datasets' resources to the DataStore::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini submit all
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini submit all
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
 
 Re-submit all the resources already in the DataStore (Ignores any resources
 that have not been stored in DataStore e.g. because they are not tabular)::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
 
 **Full list of XLoader CLI commands**::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini xloader --help
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader --help
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader --help
+    [pre-2.9] paster --plugin=ckanext-xloader xloader --help
 
 Jobs and workers
 ----------------
@@ -352,8 +352,8 @@ Useful commands:
 
 Clear (delete) all outstanding jobs::
 
-    **CKAN 2.9, Python 3** ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
-    **CKAN <2.9, Python 2** paster --plugin=ckanext-xloader xloader jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+    CKAN 2.9, Python 3 ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
+    CKAN <2.9, Python 2 paster --plugin=ckanext-xloader xloader jobs clear [QUEUES] -c /etc/ckan/default/development.ini
 
 If having trouble with the worker process, restarting it can help::
 
