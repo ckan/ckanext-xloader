@@ -314,13 +314,12 @@ def _download_resource(resource, data, api_key, logger):
 
 def get_response(url, headers):
     def get_url():
-        return requests.get(
-            url,
-            headers=headers,
-            timeout=DOWNLOAD_TIMEOUT,
-            verify=SSL_VERIFY,
-            stream=True,  # just gets the headers for now
-        )
+        kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
+                  'verify': SSL_VERIFY, 'stream': True} # just gets the headers for now
+        if 'ckan.download_proxy' in config:
+            proxy = config.get('ckan.download_proxy')
+            kwargs['proxies'] = {'http': proxy, 'https': proxy}
+        return requests.get(url, **kwargs)
     response = get_url()
     if response.status_code == 202:
         # Seen: https://data-cdfw.opendata.arcgis.com/datasets
