@@ -23,7 +23,6 @@ DEFAULT_FORMATS = [
 
 class XLoaderFormats(object):
     formats = None
-
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:
@@ -44,9 +43,24 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
-    plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceController, inherit=True)
+
+    if toolkit.check_ckan_version('2.9'):
+        plugins.implements(plugins.IBlueprint)
+        # IBlueprint
+        def get_blueprint(self):
+            from ckanext.xloader.views import get_blueprints
+            return get_blueprints()
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
+        # IRoutes
+        def before_map(self, m):
+            m.connect(
+                'xloader.resource_data', '/dataset/{id}/resource_data/{resource_id}',
+                controller='ckanext.xloader.controllers:ResourceDataController',
+                action='resource_data', ckan_icon='cloud-upload')
+            return m
 
     # IResourceController
 
@@ -113,13 +127,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
                               'would be circular.'.format(r=entity))
                     return
 
-                # try:
-                #     task = p.toolkit.get_action('task_status_show')(
-                #         context, {
-                #             'entity_id': entity.id,
-                #             'task_type': 'datapusher',
-                #             'key': 'datapusher'}
-                #     )
+                try:
+                    task = p.toolkit.get_action('task_status_show')(
+                        context, {
+                            'entity_id': entity.id,
+                            'task_type': 'xloader',
+                            'key': 'xloader'}
+                    )
                 #     if task.get('state') == 'pending':
                 #         # There already is a pending DataPusher submission,
                 #         # skip this one ...
@@ -127,8 +141,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 #             'Skipping DataPusher submission for '
                 #             'resource {0}'.format(entity.id))
                 #         return
-                # except p.toolkit.ObjectNotFound:
-                #     pass
+                except p.toolkit.ObjectNotFound:
+                    pass
 
                 try:
                     log.debug('Submitting resource {0} to be xloadered'
@@ -159,15 +173,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
             }
-
-    # IRoutes
-
-    def before_map(self, m):
-        m.connect(
-            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.xloader.controllers:ResourceDataController',
-            action='resource_data', ckan_icon='cloud-upload')
-        return m
 
     # ITemplateHelpers
 

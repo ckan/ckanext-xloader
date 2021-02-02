@@ -1,3 +1,30 @@
+0.7.0 2020-11-23
+================
+
+Features:
+* Python 3 support #113
+* CKAN 2.9 support #113
+
+Fixes:
+* Update resource hash after load to datastore #116
+
+
+0.6.1 2020-05-03
+================
+
+Features:
+* Add 'just_load_with_messytables' option #96
+
+Fixes:
+* When getting the resource from CKAN, it now copes with the edge case that CKAN hasn't quite added the resource yet - now it successfully retries #94
+
+
+0.6.0 2020-04-27
+================
+
+Release withdrawn
+
+
 0.5.0 2019-12-04
 ================
 

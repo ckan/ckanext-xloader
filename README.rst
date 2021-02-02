@@ -63,13 +63,13 @@ convert columns to the types they want (using the Data Dictionary feature). In
 future it could do automatic detection and conversion.
 
 Simpler queueing tech
-----------------------
+---------------------
 
 DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
 XLoader - job queue is done by RQ, which is simpler, is backed by Redis, allows
-access to the CKAN model and is CKAN's default queue technology (sinc CKAN
+access to the CKAN model and is CKAN's default queue technology (since CKAN
 2.7). You can also debug jobs easily using pdb. Job results are stored in
 Sqlite by default, and for production simply specify CKAN's database in the
 config and it's held there - easy.
@@ -115,6 +115,19 @@ Works with CKAN 2.7.x and later.
 
 Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
 
+Compatibility with core CKAN versions:
+
+=============== =============
+CKAN version    Compatibility
+=============== =============
+2.3             yes, but no longer tested and you must install ckanext-rq
+2.4             yes, but no longer tested and you must install ckanext-rq
+2.5             yes, but no longer tested and you must install ckanext-rq
+2.6             yes, but no longer tested and you must install ckanext-rq
+2.7             yes
+2.8             yes
+2.9             yes (both Python2 and Python3)
+=============== =============
 
 ------------
 Installation
@@ -220,10 +233,12 @@ Configuration:
     # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
     ckanext.xloader.max_content_length = 1000000000
 
-    # Always use messytables instead of attempting a direct PostgreSQL COPY.
-    # This more closely matches the DataPusher's behavior, both in results
-    # (automatically guessing column types) and in speed.
-    ckanext.xloader.compatibility_mode = True
+    # To always use messytables to load data, instead of attempting a direct
+    # PostgreSQL COPY, set this to True. This more closely matches the
+    # DataPusher's behavior. It has the advantage that the column types
+    # are guessed. However it is more error prone, far slower and you can't run
+    # the CPU-intensive queue on a separate machine.
+    ckanext.xloader.just_load_with_messytables = False
 
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
@@ -269,14 +284,14 @@ To upgrade from DataPusher to XLoader:
 
 2. (Optional) For existing datasets that have been datapushed to datastore, freeze the column types (in the data dictionaries), so that XLoader doesn't change them back to string on next xload::
 
-       paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
+       ckan -c /etc/ckan/default/ckan.ini migrate_types
 
 3. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
 
-4. (Optional) Enable 'compatibility mode' for slower loading but automatic
-   guessing of column types.
-   Add ``ckanext.xloader.compatibility_mode = True`` to your config.
+4. (Optional) If you wish, you can disable the direct loading and continue to
+   just use messytables - for more about this see the docs on config option:
+   ``ckanext.xloader.just_load_with_messytables``
 
 5. Stop the datapusher worker::
 
@@ -296,29 +311,35 @@ command-line interface.
 
 e.g. ::
 
-    paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
 
 For debugging you can try xloading it synchronously (which does the load
 directly, rather than asking the worker to do it) with the ``-s`` option::
 
-    paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
 
 See the status of jobs::
 
-    paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader status
+    [pre-2.9] paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
 
 Submit all datasets' resources to the DataStore::
 
-    paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini submit all
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
 
 Re-submit all the resources already in the DataStore (Ignores any resources
 that have not been stored in DataStore e.g. because they are not tabular)::
 
-    paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
 
 **Full list of XLoader CLI commands**::
 
-    paster --plugin=ckanext-xloader xloader --help
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader --help
+    [pre-2.9] paster --plugin=ckanext-xloader xloader --help
 
 Jobs and workers
 ----------------
@@ -331,7 +352,8 @@ Useful commands:
 
 Clear (delete) all outstanding jobs::
 
-    paster --plugin=ckan jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+    CKAN 2.9, Python 3 ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
+    CKAN <2.9, Python 2 paster --plugin=ckanext-xloader xloader jobs clear [QUEUES] -c /etc/ckan/default/development.ini
 
 If having trouble with the worker process, restarting it can help::
 
@@ -394,7 +416,7 @@ To publish a new version to PyPI follow these steps:
 
        pip install --upgrade setuptools wheel twine
 
-4. Create a source and binary distributions of the new version::
+4. Create source and binary distributions of the new version::
 
        python setup.py sdist bdist_wheel && twine check dist/*
 
