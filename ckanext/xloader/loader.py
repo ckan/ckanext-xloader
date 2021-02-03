@@ -7,6 +7,7 @@ import itertools
 import csv
 
 import six
+from six.moves import zip
 import psycopg2
 import messytables
 from unidecode import unidecode
@@ -89,7 +90,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
     # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
-    #                  for field in six.zip(headers, types)]
+    #                  for field in zip(headers, types)]
 
     # TODO worry about csv header name problems
     # e.g. duplicate names
@@ -317,7 +318,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 'numeric': messytables.DecimalType(),
                 'timestamp': messytables.DateUtilType(),
                 }.get(existing_info.get(h, {}).get('type_override'), t)
-                for t, h in six.zip(types, headers)]
+                for t, h in zip(types, headers)]
 
         row_set.register_processor(messytables.types_processor(types))
 
@@ -346,7 +347,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             delete_datastore_resource(resource_id)
 
         headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
-                         for field in six.zip(headers, types)]
+                         for field in zip(headers, types)]
 
         # Maintain data dictionaries from matching column names
         if existing_info:
