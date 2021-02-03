@@ -1,16 +1,19 @@
 'Load a CSV into postgres'
+from __future__ import absolute_import
 import os
 import os.path
 import tempfile
 import itertools
 import csv
 
+import six
+from six.moves import zip
 import psycopg2
 import messytables
 from unidecode import unidecode
 
 import ckan.plugins as p
-from job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -61,17 +64,19 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         if not table_set.tables:
             raise LoaderError('Could not detect tabular data in this file')
         row_set = table_set.tables.pop()
-        header_offset, headers = messytables.headers_guess(row_set.sample)
-
+        try:
+            header_offset, headers = messytables.headers_guess(row_set.sample)
+        except messytables.ReadError as e:
+            raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
     # Guess the delimiter used in the file
-    with open(csv_filepath, 'r') as f:
+    with open(csv_filepath, 'rb') as f:
         header_line = f.readline()
     try:
         sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(header_line).delimiter
+        delimiter = sniffer.sniff(six.ensure_text(header_line)).delimiter
     except csv.Error:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
@@ -84,7 +89,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
+    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
     #                  for field in zip(headers, types)]
 
     # TODO worry about csv header name problems
@@ -163,7 +168,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             else:
                 raise LoaderError(
                     'Validation error when creating the database table: {}'
-                    .format(str(e)))
+                    .format(six.text_type(e)))
         except Exception as e:
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
@@ -221,7 +226,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                         # e is a str but with foreign chars e.g.
                         # 'extra data: "paul,pa\xc3\xbcl"\n'
                         # but logging and exceptions need a normal (7 bit) str
-                        error_str = str(e).decode('ascii', 'replace').encode('ascii', 'replace')
+                        error_str = six.text_type(e)
                         logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
                                           ' {}'.format(error_str))
@@ -341,7 +346,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 res_id=resource_id))
             delete_datastore_resource(resource_id)
 
-        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
+        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
                          for field in zip(headers, types)]
 
         # Maintain data dictionaries from matching column names
@@ -351,7 +356,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     h['info'] = existing_info[h['id']]
                     # create columns with types user requested
                     type_override = existing_info[h['id']].get('type_override')
-                    if type_override in _TYPE_MAPPING.values():
+                    if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
 
         logger.info('Determined headers and types: {headers}'.format(
@@ -406,7 +411,7 @@ def encode_headers(headers):
         try:
             encoded_headers.append(unidecode(header))
         except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+            encoded_headers.append(unidecode(six.text_type(header)))
 
     return encoded_headers
 
@@ -440,7 +445,7 @@ def send_resource_to_datastore(resource_id, headers, records):
         p.toolkit.get_action('datastore_create')(context, request)
     except p.toolkit.ValidationError as e:
         raise LoaderError('Validation error writing rows to db: {}'
-                          .format(str(e)))
+                          .format(six.text_type(e)))
 
 
 def datastore_resource_exists(resource_id):
