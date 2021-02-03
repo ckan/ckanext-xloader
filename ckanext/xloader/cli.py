@@ -8,7 +8,7 @@ import ckan.model as model
 
 import ckanext.datastore.helpers as h
 
-
+# CKAN 2.8 paster commands
 class xloaderCommand(cli.CkanCommand):
     '''xloader commands
 

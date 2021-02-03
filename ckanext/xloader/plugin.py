@@ -47,7 +47,12 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
 
     if toolkit.check_ckan_version('2.9'):
+        plugins.implements(plugins.IClick)
         plugins.implements(plugins.IBlueprint)
+        # IClick
+        def get_commands(self):
+            from ckanext.xloader.click import get_commands
+            return get_commands()
         # IBlueprint
         def get_blueprint(self):
             from ckanext.xloader.views import get_blueprints
