@@ -116,7 +116,7 @@ class XloaderCmd:
             print(' ' * indent + 'ERROR submitting resource')
             self.error_occured = True
 
-    def print_status():
+    def print_status(self):
         try:
             import ckan.lib.jobs as rq_jobs
         except ImportError:

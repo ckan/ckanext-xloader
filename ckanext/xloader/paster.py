@@ -87,7 +87,7 @@ class xloaderCommand(cli.CkanCommand):
             self._handle_command_status(cmd.error_occured)
         elif self.args[0] == 'status':
             self._load_config()
-            print_status
+            cmd.print_status()
         else:
             self.parser.error('Unrecognized command')
 
