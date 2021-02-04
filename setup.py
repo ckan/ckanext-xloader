@@ -86,8 +86,8 @@ setup(
         ckan = ckan.lib.extract:extract_ckan
 
         [paste.paster_command]
-        xloader = ckanext.xloader.cli:xloaderCommand
-        migrate_types = ckanext.xloader.cli:MigrateTypesCommand
+        xloader = ckanext.xloader.paster:xloaderCommand
+        migrate_types = ckanext.xloader.paster:MigrateTypesCommand
 
     ''',
 

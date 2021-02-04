@@ -3,14 +3,9 @@
 import logging
 import ckan.plugins.toolkit as tk
 
-class Opts:
-    def __init__(self, dry_run, ignore_format):
+class XloaderCmd:
+    def __init__(self, dry_run = False):
         self.dry_run = dry_run
-        self.ignore_format = ignore_format
-
-class XloaderCommand:
-    def __init__(self, options):
-        self.options = options
         self.error_occured = False
 
     def _setup_xloader_logger(self):
@@ -111,7 +106,7 @@ class XloaderCommand:
             'resource_id': resource['id'],
             'ignore_hash': True,
         }
-        if self.options.dry_run:
+        if self.dry_run:
             print(' ' * indent + '(not submitted - dry-run)')
             return
         success = tk.get_action('xloader_submit')({'user': user['name']}, data_dict)
@@ -121,22 +116,22 @@ class XloaderCommand:
             print(' ' * indent + 'ERROR submitting resource')
             self.error_occured = True
 
-def print_status():
-    try:
-        import ckan.lib.jobs as rq_jobs
-    except ImportError:
-        import ckanext.rq.jobs as rq_jobs
-    jobs = rq_jobs.get_queue().jobs
-    if not jobs:
-        print('No jobs currently queued')
-    for job in jobs:
-        job_params = eval(job.description.replace(
-            'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
-        job_metadata = job_params['metadata']
-        print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
-                'url={url}'.format(
-                    id=job._id,
-                    enqueued=job.enqueued_at,
-                    res_id=job_metadata['resource_id'],
-                    url=job_metadata['original_url'],
-                    ))
+    def print_status():
+        try:
+            import ckan.lib.jobs as rq_jobs
+        except ImportError:
+            import ckanext.rq.jobs as rq_jobs
+        jobs = rq_jobs.get_queue().jobs
+        if not jobs:
+            print('No jobs currently queued')
+        for job in jobs:
+            job_params = eval(job.description.replace(
+                'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
+            job_metadata = job_params['metadata']
+            print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
+                    'url={url}'.format(
+                        id=job._id,
+                        enqueued=job.enqueued_at,
+                        res_id=job_metadata['resource_id'],
+                        url=job_metadata['original_url'],
+                        ))

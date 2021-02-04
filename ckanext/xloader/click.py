@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import click
-from .command import XloaderCommand, Opts, print_status
+from ckanext.xloader.command import XloaderCmd
 
-# CKAN 2.9 Click commands
+# Click commands for CKAN 2.9 and above
 
 @click.group()
 def xloader():
@@ -15,19 +15,18 @@ def xloader():
 def status():
     """Shows status of jobs
     """
-    print_status()
+    cmd = XloaderCmd()
+    cmd.print_status()
 
 @xloader.command()
 @click.argument(u'dataset-spec')
 @click.option('-y', default=False, help='Always answer yes to questions')
 @click.option('--dry-run', default=False, help='Don\'t actually submit any resources')
-@click.option('--ignore-format', default=False, help="""Submit resources even if they have a format
-                not in the configured ckanext.xloader.formats""")
-def submit(dataset_spec, y, dry_run, ignore_format):
+def submit(dataset_spec, y, dry_run):
     """
         xloader submit [options] <dataset-spec>
     """
-    cmd = XloaderCommand(Opts(dry_run, ignore_format))
+    cmd = XloaderCmd(dry_run)
 
     if dataset_spec == 'all':
         cmd._setup_xloader_logger()
