@@ -1,6 +1,5 @@
 from __future__ import print_function
 import sys
-import logging
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
@@ -10,6 +9,8 @@ import ckanext.datastore.helpers as h
 from ckanext.xloader.command import XloaderCmd
 
 # Paster command for CKAN 2.8 and below
+
+
 class xloaderCommand(cli.CkanCommand):
     '''xloader commands
 
@@ -108,6 +109,7 @@ class xloaderCommand(cli.CkanCommand):
         if not answer == 'yes':
             print("Aborting...")
             sys.exit(0)
+
 
 class MigrateTypesCommand(cli.CkanCommand):
     '''Migrate command

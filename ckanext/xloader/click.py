@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import click
 from ckanext.xloader.command import XloaderCmd
 
 # Click commands for CKAN 2.9 and above
+
 
 @click.group()
 def xloader():
@@ -11,12 +13,14 @@ def xloader():
     """
     pass
 
+
 @xloader.command()
 def status():
     """Shows status of jobs
     """
     cmd = XloaderCmd()
     cmd.print_status()
+
 
 @xloader.command()
 @click.argument(u'dataset-spec')
@@ -44,8 +48,10 @@ def submit(dataset_spec, y, dry_run):
         print('Finished but saw errors - see above for details')
         sys.exit(1)
 
+
 def get_commands():
     return [xloader]
+
 
 def _confirm_or_abort(yes, dry_run):
     if yes or dry_run:

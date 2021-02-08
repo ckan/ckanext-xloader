@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import logging
 import ckan.plugins.toolkit as tk
 
+
 class XloaderCmd:
-    def __init__(self, dry_run = False):
+    def __init__(self, dry_run=False):
         self.dry_run = dry_run
         self.error_occured = False
 
@@ -129,9 +131,9 @@ class XloaderCmd:
                 'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
             job_metadata = job_params['metadata']
             print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
-                    'url={url}'.format(
-                        id=job._id,
-                        enqueued=job.enqueued_at,
-                        res_id=job_metadata['resource_id'],
-                        url=job_metadata['original_url'],
-                        ))
+                  'url={url}'.format(
+                    id=job._id,
+                    enqueued=job.enqueued_at,
+                    res_id=job_metadata['resource_id'],
+                    url=job_metadata['original_url'],
+                  ))
