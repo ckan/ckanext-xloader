@@ -1,7 +1,5 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
-from builtins import zip
-from builtins import str
 import os
 import os.path
 import tempfile
@@ -9,6 +7,7 @@ import itertools
 import csv
 
 import six
+from six.moves import zip
 import psycopg2
 import messytables
 from unidecode import unidecode
@@ -90,7 +89,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
+    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
     #                  for field in zip(headers, types)]
 
     # TODO worry about csv header name problems
@@ -169,7 +168,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             else:
                 raise LoaderError(
                     'Validation error when creating the database table: {}'
-                    .format(str(e)))
+                    .format(six.text_type(e)))
         except Exception as e:
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
@@ -227,7 +226,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                         # e is a str but with foreign chars e.g.
                         # 'extra data: "paul,pa\xc3\xbcl"\n'
                         # but logging and exceptions need a normal (7 bit) str
-                        error_str = str(e)
+                        error_str = six.text_type(e)
                         logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
                                           ' {}'.format(error_str))
@@ -347,7 +346,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 res_id=resource_id))
             delete_datastore_resource(resource_id)
 
-        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
+        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
                          for field in zip(headers, types)]
 
         # Maintain data dictionaries from matching column names
@@ -412,7 +411,7 @@ def encode_headers(headers):
         try:
             encoded_headers.append(unidecode(header))
         except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+            encoded_headers.append(unidecode(six.text_type(header)))
 
     return encoded_headers
 
@@ -446,7 +445,7 @@ def send_resource_to_datastore(resource_id, headers, records):
         p.toolkit.get_action('datastore_create')(context, request)
     except p.toolkit.ValidationError as e:
         raise LoaderError('Validation error writing rows to db: {}'
-                          .format(str(e)))
+                          .format(six.text_type(e)))
 
 
 def datastore_resource_exists(resource_id):

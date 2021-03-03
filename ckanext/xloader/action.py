@@ -1,10 +1,10 @@
 # encoding: utf-8
 
 from __future__ import absolute_import
-from builtins import str
 import logging
 import json
 import datetime
+import six
 
 from dateutil.parser import parse as parse_date
 
@@ -91,7 +91,7 @@ def xloader_submit(context, data_dict):
         'entity_id': res_id,
         'entity_type': 'resource',
         'task_type': 'xloader',
-        'last_updated': str(datetime.datetime.utcnow()),
+        'last_updated': six.text_type(datetime.datetime.utcnow()),
         'state': 'submitting',
         'key': 'xloader',
         'value': '{}',
@@ -114,7 +114,7 @@ def xloader_submit(context, data_dict):
                 re.search(r"'resource_id': u?'([^']+)'",
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
-                if 'xloader_to_datastore' in str(job)  # filter out test_job etc
+                if 'xloader_to_datastore' in six.text_type(job)  # filter out test_job etc
                 ]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -183,7 +183,7 @@ def xloader_submit(context, data_dict):
 
     task['value'] = value
     task['state'] = 'pending'
-    task['last_updated'] = str(datetime.datetime.utcnow()),
+    task['last_updated'] = six.text_type(datetime.datetime.utcnow()),
     p.toolkit.get_action('task_status_update')(context, task)
     model.Session = original_session
 
@@ -256,7 +256,7 @@ def xloader_hook(context, data_dict):
     })
 
     task['state'] = status
-    task['last_updated'] = str(datetime.datetime.utcnow())
+    task['last_updated'] = six.text_type(datetime.datetime.utcnow())
     task['error'] = data_dict.get('error')
 
     resubmit = False
