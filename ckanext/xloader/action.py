@@ -8,7 +8,6 @@ import six
 
 from dateutil.parser import parse as parse_date
 
-import ckan.model as model
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
@@ -115,12 +114,12 @@ def xloader_submit(context, data_dict):
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in six.text_type(job)  # filter out test_job etc
-                ]
+            ]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
             time_since_last_updated = datetime.datetime.utcnow() - updated
-            if (res_id not in queued_res_ids and
-                    time_since_last_updated > assume_task_stillborn_after):
+            if (res_id not in queued_res_ids
+                    and time_since_last_updated > assume_task_stillborn_after):
                 # it's not on the queue (and if it had just been started then
                 # its taken too long to update the task_status from pending -
                 # the first thing it should do in the xloader job).
@@ -163,8 +162,8 @@ def xloader_submit(context, data_dict):
             'set_url_type': data_dict.get('set_url_type', False),
             'task_created': task['last_updated'],
             'original_url': resource_dict.get('url'),
-            }
         }
+    }
     timeout = config.get('ckanext.xloader.job_timeout', '3600')
     try:
         try:
@@ -282,8 +281,8 @@ def xloader_hook(context, data_dict):
             })
 
         # Check if the uploaded file has been modified in the meantime
-        if (resource_dict.get('last_modified') and
-                metadata.get('task_created')):
+        if (resource_dict.get('last_modified')
+                and metadata.get('task_created')):
             try:
                 last_modified_datetime = parse_date(
                     resource_dict['last_modified'])
@@ -295,9 +294,9 @@ def xloader_hook(context, data_dict):
             except ValueError:
                 pass
         # Check if the URL of the file has been modified in the meantime
-        elif (resource_dict.get('url') and
-                metadata.get('original_url') and
-                resource_dict['url'] != metadata['original_url']):
+        elif (resource_dict.get('url')
+              and metadata.get('original_url')
+              and resource_dict['url'] != metadata['original_url']):
             log.debug('URLs are different: {0} != {1}'.format(
                 resource_dict['url'], metadata['original_url']))
             resubmit = True
