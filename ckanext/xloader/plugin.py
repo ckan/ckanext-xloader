@@ -23,6 +23,7 @@ DEFAULT_FORMATS = [
 
 class XLoaderFormats(object):
     formats = None
+
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:
@@ -47,12 +48,14 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     if toolkit.check_ckan_version('2.9'):
         plugins.implements(plugins.IBlueprint)
+
         # IBlueprint
         def get_blueprint(self):
             from ckanext.xloader.views import get_blueprints
             return get_blueprints()
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
+
         # IRoutes
         def before_map(self, m):
             m.connect(
@@ -76,15 +79,15 @@ class xloaderPlugin(plugins.SingletonPlugin):
         context = {'model': model, 'ignore_auth': True,
                    'defer_commit': True}
         if not XLoaderFormats.is_it_an_xloader_format(resource_dict['format']):
-            log.debug('Skipping xloading resource {} because '
-                      'format "{}" is not configured to be '
+            log.debug('Skipping xloading resource %s because '
+                      'format "%s" is not configured to be '
                       'xloadered',
                       resource_dict['id'],
                       resource_dict['format'])
             return
         if resource_dict['url_type'] in ('datapusher', 'xloader'):
-            log.debug('Skipping xloading resource {} because '
-                      'url_type "{}" means resource.url '
+            log.debug('Skipping xloading resource %s because '
+                      'url_type "%s" means resource.url '
                       'points to the datastore already, so loading '
                       'would be circular.',
                       resource_dict['id'],
@@ -92,7 +95,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             return
 
         try:
-            log.debug('Submitting resource {} to be xloadered',
+            log.debug('Submitting resource %s to be xloadered',
                       resource_dict['id'])
             p.toolkit.get_action('xloader_submit')(context, {
                 'resource_id': resource_dict['id'],
@@ -146,7 +149,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         }
         resource_dict = toolkit.get_action(u'resource_show')(
             context, {
-            u'id': resource.id,
+                u'id': resource.id,
             }
         )
         self._submit_to_xloader(resource_dict)
@@ -158,7 +161,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': action.xloader_submit,
             'xloader_hook': action.xloader_hook,
             'xloader_status': action.xloader_status,
-            }
+        }
 
     # IAuthFunctions
 
@@ -166,7 +169,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
-            }
+        }
 
     # ITemplateHelpers
 

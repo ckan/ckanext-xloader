@@ -17,7 +17,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, c
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -136,18 +136,17 @@ def xloader_data_into_datastore_(input, job_dict):
 
     data = input['metadata']
 
-    ckan_url = data['ckan_url']
     resource_id = data['resource_id']
     api_key = input.get('api_key')
     try:
         resource, dataset = get_resource_and_dataset(resource_id, api_key)
-    except (JobError, ObjectNotFound) as e:
+    except (JobError, ObjectNotFound):
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
         resource, dataset = get_resource_and_dataset(resource_id, api_key)
     resource_ckan_url = '/dataset/{}/resource/{}' \
         .format(dataset['name'], resource['id'])
-    logger.info('Express Load starting: {}'.format(resource_ckan_url))
+    logger.info('Express Load starting: %s', resource_ckan_url)
 
     # check if the resource url_type is a datastore
     if resource.get('url_type') == 'datastore':
@@ -164,7 +163,7 @@ def xloader_data_into_datastore_(input, job_dict):
         logger.info('Ignoring resource - the file hash hasn\'t changed: '
                     '{hash}.'.format(hash=file_hash))
         return
-    logger.info('File hash: {}'.format(file_hash))
+    logger.info('File hash: %s', file_hash)
     resource['hash'] = file_hash
 
     def direct_load():
@@ -180,14 +179,14 @@ def xloader_data_into_datastore_(input, job_dict):
         callback_xloader_hook(result_url=input['result_url'],
                               api_key=api_key,
                               job_dict=job_dict)
-        logger.info('Data now available to users: {}'.format(resource_ckan_url))
+        logger.info('Data now available to users: %s', resource_ckan_url)
         loader.create_column_indexes(
             fields=fields,
             resource_id=resource['id'],
             logger=logger)
         update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
                         patch_only=True)
-        logger.info('File Hash updated for resource: {}'.format(resource['hash']))
+        logger.info('File Hash updated for resource: %s', resource['hash'])
 
     def messytables_load():
         try:
@@ -196,7 +195,7 @@ def xloader_data_into_datastore_(input, job_dict):
                               mimetype=resource.get('format'),
                               logger=logger)
         except JobError as e:
-            logger.error('Error during messytables load: {}'.format(e))
+            logger.error('Error during messytables load: %s', e)
             raise
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
@@ -204,14 +203,14 @@ def xloader_data_into_datastore_(input, job_dict):
         logger.info('Finished loading with messytables')
         update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
                         patch_only=True)
-        logger.info('File Hash updated for resource: {}'.format(resource['hash']))
+        logger.info('File Hash updated for resource: %s', resource['hash'])
 
     # Load it
     logger.info('Loading CSV')
     just_load_with_messytables = asbool(config.get(
         'ckanext.xloader.just_load_with_messytables', False))
-    logger.info("'Just load with messytables' mode is: {}".format(
-        just_load_with_messytables))
+    logger.info("'Just load with messytables' mode is: %s",
+                just_load_with_messytables)
     try:
         if just_load_with_messytables:
             messytables_load()
@@ -219,12 +218,12 @@ def xloader_data_into_datastore_(input, job_dict):
             try:
                 direct_load()
             except JobError as e:
-                logger.warning('Load using COPY failed: {}'.format(e))
+                logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with messytables')
                 messytables_load()
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
-        logger.error('Loading file raised an error: {}'.format(e))
+        logger.error('Loading file raised an error: %s', e)
         raise JobError('Loading file raised an error: {}'.format(e))
 
     tmp_file.close()
@@ -307,7 +306,7 @@ def _download_resource_data(resource, data, api_key, logger):
         data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
         # status code error
-        logger.debug('HTTP error: {}'.format(error))
+        logger.debug('HTTP error: %s', error)
         raise HTTPError(
             "Xloader received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
@@ -321,7 +320,7 @@ def _download_resource_data(resource, data, api_key, logger):
             err_message = str(e.reason)
         except AttributeError:
             err_message = str(e)
-        logger.warning('URL error: {}'.format(err_message))
+        logger.warning('URL error: %s', err_message)
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
@@ -348,7 +347,7 @@ def get_response(url, headers):
         # 202 can mean other things, but there's no harm in retries.
         wait = 1
         while wait < 120 and response.status_code == 202:
-            # logger.info('Retrying after {}s'.format(wait))
+            # logger.info('Retrying after %ss', wait)
             time.sleep(wait)
             response = get_url()
             wait *= 3

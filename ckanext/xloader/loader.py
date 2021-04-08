@@ -146,7 +146,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
 
-        logger.info('Fields: {}'.format(fields))
+        logger.info('Fields: %s', fields)
 
         # Create table
         from ckan import model
@@ -154,7 +154,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         data_dict = dict(
             resource_id=resource_id,
             fields=fields,
-            )
+        )
         data_dict['records'] = None  # just create an empty table
         data_dict['force'] = True  # TODO check this - I don't fully
         # understand read-only/datastore resources
@@ -221,7 +221,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                                         for h in headers]),
                                 delimiter=delimiter,
                                 encoding='UTF8',
-                                ),
+                            ),
                             f)
                     except psycopg2.DataError as e:
                         # e is a str but with foreign chars e.g.
@@ -255,7 +255,7 @@ def create_column_indexes(fields, resource_id, logger):
     data_dict = dict(
         resource_id=resource_id,
         fields=fields,
-        )
+    )
     engine = get_write_engine()
     connection = context['connection'] = engine.connect()
 
@@ -284,7 +284,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         try:
             table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
-        except messytables.ReadError as e:
+        except messytables.ReadError:
             # try again with format
             tmp.seek(0)
             try:
@@ -314,10 +314,11 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         # override with types user requested
         if existing_info:
-            types = [{
-                'text': messytables.StringType(),
-                'numeric': messytables.DecimalType(),
-                'timestamp': messytables.DateUtilType(),
+            types = [
+                {
+                    'text': messytables.StringType(),
+                    'numeric': messytables.DecimalType(),
+                    'timestamp': messytables.DateUtilType(),
                 }.get(existing_info.get(h, {}).get('type_override'), t)
                 for t, h in zip(types, headers)]
 
@@ -530,11 +531,11 @@ def _populate_fulltext(connection, resource_id, fields):
                 'coalesce({}, \'\')'.format(
                     identifier(field['id'])
                     + ('::text' if field['type'] != 'text' else '')
-                    )
+                )
                 for field in fields
                 if not field['id'].startswith('_')
-                )
             )
+        )
     connection.execute(sql)
 
 

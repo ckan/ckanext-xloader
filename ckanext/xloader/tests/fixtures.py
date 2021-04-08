@@ -3,7 +3,6 @@ import sqlalchemy
 import sqlalchemy.orm as orm
 import os
 
-from ckan.tests import helpers
 from ckanext.datastore.tests import helpers as datastore_helpers
 from ckanext.xloader.loader import get_write_engine
 
@@ -17,7 +16,7 @@ try:
 except ImportError:
     import pytest
 
-    import ckan.tests.helpers as test_helpers
+    from ckan.tests import helpers as test_helpers
     import ckan.plugins
     import ckan.lib.search as search
 
