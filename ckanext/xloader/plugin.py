@@ -42,9 +42,24 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
-    plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceController, inherit=True)
+
+    if toolkit.check_ckan_version('2.9'):
+        plugins.implements(plugins.IBlueprint)
+        # IBlueprint
+        def get_blueprint(self):
+            from ckanext.xloader.views import get_blueprints
+            return get_blueprints()
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
+        # IRoutes
+        def before_map(self, m):
+            m.connect(
+                'xloader.resource_data', '/dataset/{id}/resource_data/{resource_id}',
+                controller='ckanext.xloader.controllers:ResourceDataController',
+                action='resource_data', ckan_icon='cloud-upload')
+            return m
 
     # IResourceController
 
@@ -52,6 +67,42 @@ class xloaderPlugin(plugins.SingletonPlugin):
         resource_dict[
             'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
             resource_dict.get('datastore_contains_all_records_of_source_file'))
+
+    def after_create(self, context, resource_dict):
+        self._submit_to_xloader(resource_dict)
+
+    def _submit_to_xloader(self, resource_dict):
+
+        context = {'model': model, 'ignore_auth': True,
+                   'defer_commit': True}
+        if not XLoaderFormats.is_it_an_xloader_format(resource_dict['format']):
+            log.debug('Skipping xloading resource {} because '
+                      'format "{}" is not configured to be '
+                      'xloadered',
+                      resource_dict['id'],
+                      resource_dict['format'])
+            return
+        if resource_dict['url_type'] in ('datapusher', 'xloader'):
+            log.debug('Skipping xloading resource {} because '
+                      'url_type "{}" means resource.url '
+                      'points to the datastore already, so loading '
+                      'would be circular.',
+                      resource_dict['id'],
+                      resource_dict['url_type'])
+            return
+
+        try:
+            log.debug('Submitting resource {} to be xloadered',
+                      resource_dict['id'])
+            p.toolkit.get_action('xloader_submit')(context, {
+                'resource_id': resource_dict['id'],
+                'ignore_hash': self.ignore_hash,
+            })
+        except p.toolkit.ValidationError as e:
+            # If xloader is offline, we want to catch error instead
+            # of raising otherwise resource save will fail with 500
+            log.critical(e)
+            pass
 
     # IConfigurer
 
@@ -100,46 +151,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
         )
         self._submit_to_xloader(resource_dict)
 
-    # IResourceController
-
-    def after_create(self, context, resource_dict):
-
-        self._submit_to_xloader(resource_dict)
-
-    def _submit_to_xloader(self, resource_dict):
-
-        context = {'model': model, 'ignore_auth': True,
-                   'defer_commit': True}
-        if not XLoaderFormats.is_it_an_xloader_format(resource_dict['format']):
-            log.debug('Skipping xloading resource {id} because '
-                      'format "{format}" is not configured to be '
-                      'xloadered'
-                      .format(
-                          id=resource_dict['id'],
-                          format=resource_dict['format']))
-            return
-        if resource_dict['url_type'] in ('datapusher', 'xloader'):
-            log.debug('Skipping xloading resource {id} because '
-                      'url_type "{url_type}" means resource.url '
-                      'points to the datastore already, so loading '
-                      'would be circular.'.format(
-                          id=resource_dict['id'],
-                          url_type=resource_dict['url_type']))
-            return
-
-        try:
-            log.debug('Submitting resource {0} to be xloadered'
-                      .format(resource_dict['id']))
-            p.toolkit.get_action('xloader_submit')(context, {
-                'resource_id': resource_dict['id'],
-                'ignore_hash': self.ignore_hash,
-            })
-        except p.toolkit.ValidationError as e:
-            # If xloader is offline, we want to catch error instead
-            # of raising otherwise resource save will fail with 500
-            log.critical(e)
-            pass
-
     # IActions
 
     def get_actions(self):
@@ -156,15 +167,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
             }
-
-    # IRoutes
-
-    def before_map(self, m):
-        m.connect(
-            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.xloader.controllers:ResourceDataController',
-            action='resource_data', ckan_icon='cloud-upload')
-        return m
 
     # ITemplateHelpers
 

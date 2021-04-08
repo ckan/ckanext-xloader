@@ -1,28 +1,32 @@
+from __future__ import division
+from __future__ import absolute_import
 import math
 import logging
 import hashlib
 import time
 import tempfile
 import json
-import urlparse
 import datetime
 import traceback
 import sys
+import six
 
+from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
+import ckan.model as model
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, c
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
     from pylons import config
 import ckan.lib.search as search
 
-import loader
-import db
-from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+from . import loader
+from . import db
+from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
 if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
     SSL_VERIFY = False
@@ -84,7 +88,7 @@ def xloader_data_into_datastore(input):
         errored = True
     except Exception as e:
         db.mark_job_as_errored(
-            job_id, traceback.format_tb(sys.exc_traceback)[-1] + repr(e))
+            job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
@@ -135,13 +139,12 @@ def xloader_data_into_datastore_(input, job_dict):
     ckan_url = data['ckan_url']
     resource_id = data['resource_id']
     api_key = input.get('api_key')
-
     try:
-        resource, dataset = get_resource_and_dataset(resource_id)
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
     except (JobError, ObjectNotFound) as e:
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
-        resource, dataset = get_resource_and_dataset(resource_id)
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
     resource_ckan_url = '/dataset/{}/resource/{}' \
         .format(dataset['name'], resource['id'])
     logger.info('Express Load starting: {}'.format(resource_ckan_url))
@@ -156,14 +159,13 @@ def xloader_data_into_datastore_(input, job_dict):
     tmp_file, file_hash = _download_resource_data(resource, data, api_key,
                                                   logger)
 
-    # hash isn't actually stored, so this is a bit worthless at the moment
     if (resource.get('hash') == file_hash
             and not data.get('ignore_hash')):
         logger.info('Ignoring resource - the file hash hasn\'t changed: '
                     '{hash}.'.format(hash=file_hash))
         return
     logger.info('File hash: {}'.format(file_hash))
-    resource['hash'] = file_hash  # TODO write this back to the actual resource
+    resource['hash'] = file_hash
 
     def direct_load():
         fields = loader.load_csv(
@@ -173,7 +175,7 @@ def xloader_data_into_datastore_(input, job_dict):
             logger=logger)
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, api_key, ckan_url, logger)
+        set_datastore_active(data, resource, logger)
         job_dict['status'] = 'running_but_viewable'
         callback_xloader_hook(result_url=input['result_url'],
                               api_key=api_key,
@@ -183,6 +185,9 @@ def xloader_data_into_datastore_(input, job_dict):
             fields=fields,
             resource_id=resource['id'],
             logger=logger)
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
+        logger.info('File Hash updated for resource: {}'.format(resource['hash']))
 
     def messytables_load():
         try:
@@ -195,8 +200,11 @@ def xloader_data_into_datastore_(input, job_dict):
             raise
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, api_key, ckan_url, logger)
+        set_datastore_active(data, resource, logger)
         logger.info('Finished loading with messytables')
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
+        logger.info('File Hash updated for resource: {}'.format(resource['hash']))
 
     # Load it
     logger.info('Loading CSV')
@@ -239,7 +247,7 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
-    scheme = urlparse.urlsplit(url).scheme
+    scheme = urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -354,10 +362,11 @@ def get_tmp_file(url):
     return tmp_file
 
 
-def set_datastore_active(data, resource, api_key, ckan_url, logger):
+def set_datastore_active(data, resource, logger):
     if data.get('set_url_type', False):
         logger.debug('Setting resource.url_type = \'datapusher\'')
-        update_resource(resource, api_key, ckan_url)
+        resource['url_type'] = 'datapusher'
+        update_resource(resource)
 
     data['datastore_active'] = True
     logger.info('Setting resource.datastore_active = True')
@@ -464,34 +473,28 @@ def validate_input(input):
         raise JobError('No CKAN API key provided')
 
 
-def update_resource(resource, api_key, ckan_url):
+def update_resource(resource, patch_only=False):
     """
     Update the given CKAN resource to say that it has been stored in datastore
     ok.
-
-    Could simply call the logic layer (the http request is a hangover from
-    datapusher).
+    or patch the given CKAN resource for file hash
     """
-
-    resource['url_type'] = 'datapusher'
-
-    url = get_url('resource_update', ckan_url)
-    r = requests.post(
-        url,
-        verify=SSL_VERIFY,
-        data=json.dumps(resource),
-        headers={'Content-Type': 'application/json',
-                 'Authorization': api_key}
-    )
-
-    check_response(r, url, 'CKAN')
+    action = 'resource_update' if not patch_only else 'resource_patch'
+    from ckan import model
+    context = {'model': model, 'session': model.Session, 'ignore_auth': True}
+    get_action(action)(context, resource)
 
 
-def get_resource_and_dataset(resource_id):
+def get_resource_and_dataset(resource_id, api_key):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    context = {'ignore_auth': True}
+    user = model.Session.query(model.User).filter_by(
+        apikey=api_key).first()
+    if user is not None:
+        context = {'user': user.name}
+    else:
+        context = None
     res_dict = get_action('resource_show')(context, {'id': resource_id})
     pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
@@ -501,7 +504,7 @@ def get_url(action, ckan_url):
     """
     Get url for ckan action
     """
-    if not urlparse.urlsplit(ckan_url).scheme:
+    if not urlsplit(ckan_url).scheme:
         ckan_url = 'http://' + ckan_url.lstrip('/')
     ckan_url = ckan_url.rstrip('/')
     return '{ckan_url}/api/3/action/{action}'.format(
@@ -558,10 +561,10 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = unicode(record.getMessage())
-            level = unicode(record.levelname)
-            module = unicode(record.module)
-            funcName = unicode(record.funcName)
+            message = six.text_type(record.getMessage())
+            level = six.text_type(record.levelname)
+            module = six.text_type(record.module)
+            funcName = six.text_type(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
@@ -590,5 +593,5 @@ def printable_file_size(size_bytes):
     size_name = ('bytes', 'KB', 'MB', 'GB', 'TB')
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
-    s = round(size_bytes / p, 1)
+    s = round(float(size_bytes) / p, 1)
     return "%s %s" % (s, size_name[i])
