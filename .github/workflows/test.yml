@@ -60,12 +60,9 @@ jobs:
       if: ${{ matrix.ckan-version != '2.7' && matrix.ckan-version != '2.8' }}
       run: |
         ckan -c test.ini db init
-        #ckan -c test.ini jobs worker
     - name: Setup extension (CKAN < 2.9)
       if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
       run: |
         paster --plugin=ckan db init -c test.ini
-        paster --plugin=ckan jobs worker -c test.ini
     - name: Run tests
       run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
-      
