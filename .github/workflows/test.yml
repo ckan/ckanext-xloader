@@ -58,15 +58,15 @@ jobs:
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
     - name: Setup extension (CKAN >= 2.9)
       if: ${{ matrix.ckan-version != '2.7' && matrix.ckan-version != '2.8' }}
-      run: |
+      run:
+        ckan -c test.ini db init
         ckan -c test.ini jobs worker
-        #ckan -c test.ini db init
         #ckan -c test.ini harvester initdb
     - name: Setup extension (CKAN < 2.9)
       if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
-      run: |
-        paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
-        #paster --plugin=ckan db init -c test.ini
+      run:
+        paster --plugin=ckan db init -c test.ini
+        paster --plugin=ckan jobs worker -c test.ini 
         #paster --plugin=ckanext-harvest harvester initdb -c test.ini
     - name: Run tests
       run: pytest --ckan-ini=test.ini --cov=ckanext.harvest --disable-warnings ckanext/harvest/tests
