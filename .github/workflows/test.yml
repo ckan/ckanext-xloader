@@ -64,6 +64,7 @@ jobs:
     - name: Setup extension (CKAN < 2.9)
       if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
       run: |
+        pip install future
         paster --plugin=ckan db init -c test.ini
     - name: Run tests
       run: |
