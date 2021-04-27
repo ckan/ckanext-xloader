@@ -52,7 +52,7 @@ jobs:
         pip install -r pip-requirements.txt
         pip install -r dev-requirements.txt
         pip install -e .
-        pip install -r https://raw.githubusercontent.com/ckan/ckanext-xloader/master/requirements.txt
+        # pip install -r https://raw.githubusercontent.com/ckan/ckanext-xloader/master/requirements.txt
         pip install -U requests[security]
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
