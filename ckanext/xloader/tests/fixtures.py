@@ -186,4 +186,4 @@ def add_full_text_trigger_function():
 def full_reset(reset_db):
     reset_db()
     reset_datastore_db()
-    add_full_text_trigger_function()
+    #add_full_text_trigger_function()
