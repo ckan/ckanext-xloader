@@ -67,6 +67,4 @@ jobs:
         pip install future
         paster --plugin=ckan db init -c test.ini
     - name: Run tests
-      run: |
-        pwd
-        pytest --debug --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
+      run: pytest --debug --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
