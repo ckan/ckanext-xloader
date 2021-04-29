@@ -68,4 +68,4 @@ jobs:
         paster --plugin=ckan db init -c test.ini
     - name: Run tests
       run: |
-        pytest -v --cache-clear --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
+        pytest --debug --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
