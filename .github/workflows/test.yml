@@ -70,7 +70,7 @@ jobs:
       if: ${{ matrix.ckan-version == '2.7' }}
       run: |
         pip install future
-        sudo -u postgres psql datastore_default -f full_text_function.sql
+        psql datastore_default -f full_text_function.sql
         paster --plugin=ckan db init -c test.ini
     - name: Run tests
       run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests/test_action.py
