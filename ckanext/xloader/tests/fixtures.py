@@ -162,7 +162,7 @@ except ImportError:
         with test_request_context():
             yield
 
-    @pytest.fixture()
+    @pytest.fixture
     def full_reset(reset_db):
         reset_db()
         reset_datastore_db()
