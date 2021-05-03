@@ -73,8 +73,6 @@ jobs:
       run: | 
         pip install future
         psql -d postgresql://postgres:pass@postgres/ckan_test -f full_text_function.sql
-        env:
-          PGPASSWORD: postgres
         paster --plugin=ckan db init -c test.ini
     - name: Run tests
       run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests/test_action.py
