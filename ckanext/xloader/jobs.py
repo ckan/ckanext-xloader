@@ -483,7 +483,8 @@ def update_resource(resource, patch_only=False):
     from ckan import model
     user = get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
     context = {'model': model, 'session': model.Session, 'ignore_auth': True, 
-    #           'user': user['name'], 'auth_user_obj': None}
+               'user': user['name'], 'auth_user_obj': None}
+    context =
     context = {'model': model, 'session': model.Session, 'ignore_auth': True}
     get_action(action)(context, resource)
 
