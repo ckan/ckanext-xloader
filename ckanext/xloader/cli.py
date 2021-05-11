@@ -185,16 +185,16 @@ class xloaderCommand(cli.CkanCommand):
         from ckanext.xloader.plugin import XLoaderFormats
 
         if not XLoaderFormats.is_it_an_xloader_format(resource['format']):
-            print(' ' * indent +
-                  'Skipping resource {r[id]} because format "{r[format]}" is '
+            print(' ' * indent
+                  + 'Skipping resource {r[id]} because format "{r[format]}" is '
                   'not configured to be xloadered'.format(r=resource))
             return
         if resource['url_type'] in ('datapusher', 'xloader'):
-            print(' ' * indent +
-                  'Skipping resource {r[id]} because url_type "{r[url_type]}" '
+            print(' ' * indent
+                  + 'Skipping resource {r[id]} because url_type "{r[url_type]}" '
                   'means resource.url points to the datastore '
                   'already, so loading would be circular.'.format(
-                    r=resource))
+                      r=resource))
             return
         dataset_ref = resource.get('package_name', resource['package_id'])
         print('{indent}Submitting /dataset/{dataset}/resource/{r[id]}\n'
@@ -233,7 +233,7 @@ class xloaderCommand(cli.CkanCommand):
                       enqueued=job.enqueued_at,
                       res_id=job_metadata['resource_id'],
                       url=job_metadata['original_url'],
-                      ))
+                  ))
 
 
 class MigrateTypesCommand(cli.CkanCommand):

@@ -23,6 +23,7 @@ DEFAULT_FORMATS = [
 
 class XLoaderFormats(object):
     formats = None
+
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:
@@ -48,12 +49,14 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     if toolkit.check_ckan_version('2.9'):
         plugins.implements(plugins.IBlueprint)
+
         # IBlueprint
         def get_blueprint(self):
             from ckanext.xloader.views import get_blueprints
             return get_blueprints()
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
+
         # IRoutes
         def before_map(self, m):
             m.connect(
@@ -107,8 +110,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def notify(self, entity, operation=None):
         if isinstance(entity, model.Resource):
-            if (operation == model.domain_object.DomainObjectOperation.new or
-                    not operation):
+            if (not operation
+                    or operation == model.domain_object.DomainObjectOperation.new):
                 # if operation is None, resource URL has been changed, as
                 # the notify function in IResourceUrlChange only takes
                 # 1 parameter
@@ -127,13 +130,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
                               'would be circular.'.format(r=entity))
                     return
 
-                try:
-                    task = p.toolkit.get_action('task_status_show')(
-                        context, {
-                            'entity_id': entity.id,
-                            'task_type': 'xloader',
-                            'key': 'xloader'}
-                    )
+                # try:
+                #     task = p.toolkit.get_action('task_status_show')(
+                #         context, {
+                #             'entity_id': entity.id,
+                #             'task_type': 'xloader',
+                #             'key': 'xloader'}
+                #     )
                 #     if task.get('state') == 'pending':
                 #         # There already is a pending DataPusher submission,
                 #         # skip this one ...
@@ -141,8 +144,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 #             'Skipping DataPusher submission for '
                 #             'resource {0}'.format(entity.id))
                 #         return
-                except p.toolkit.ObjectNotFound:
-                    pass
+                # except p.toolkit.ObjectNotFound:
+                #     pass
 
                 try:
                     log.debug('Submitting resource {0} to be xloadered'
@@ -164,7 +167,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': action.xloader_submit,
             'xloader_hook': action.xloader_hook,
             'xloader_status': action.xloader_status,
-            }
+        }
 
     # IAuthFunctions
 
@@ -172,7 +175,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
-            }
+        }
 
     # ITemplateHelpers
 

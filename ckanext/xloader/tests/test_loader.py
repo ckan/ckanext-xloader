@@ -7,7 +7,7 @@ import sqlalchemy.orm as orm
 import datetime
 from decimal import Decimal
 
-from ckan.tests import helpers, factories
+from ckan.tests import factories
 from ckanext.xloader import loader
 from ckanext.xloader.loader import get_write_engine
 from ckanext.xloader.job_exceptions import LoaderError
@@ -624,7 +624,7 @@ class TestLoadCsv(TestLoadBase):
                 mimetype="CSV",
                 logger=PrintLogger(),
             )
-        except (LoaderError, UnicodeDecodeError) as e:
+        except (LoaderError, UnicodeDecodeError):
             pass
         else:
             assert 0, "There should have been an exception"
@@ -805,7 +805,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
         filepath = get_sample_filepath("polling_locations.shapefile.zip")
         resource_id = "test1"
         factories.Resource(id=resource_id)
-        with pytest.raises(LoaderError) as exception:
+        with pytest.raises(LoaderError):
             loader.load_csv(
                 filepath,
                 resource_id=resource_id,
