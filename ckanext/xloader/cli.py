@@ -193,8 +193,7 @@ class xloaderCommand(cli.CkanCommand):
             print(' ' * indent
                   + 'Skipping resource {r[id]} because url_type "{r[url_type]}" '
                   'means resource.url points to the datastore '
-                  'already, so loading would be circular.'.format(
-                      r=resource))
+                  'already, so loading would be circular.'.format(r=resource))
             return
         dataset_ref = resource.get('package_name', resource['package_id'])
         print('{indent}Submitting /dataset/{dataset}/resource/{r[id]}\n'

@@ -593,15 +593,17 @@ class TestxloaderDataIntoDatastore(object):
                 'resource_id': self.resource_id
             }
         }
-        job_id = 'test{}'.format(random.randint(0, 1e5))
+        job_id = "test{}".format(random.randint(0, 1e5))
 
         with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag'):
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
-            with mock.patch('ckanext.xloader.jobs.get_current_job',
-                            return_value=mock.Mock(id=job_id)):
+            with mock.patch(
+                "ckanext.xloader.jobs.get_current_job",
+                return_value=mock.Mock(id=job_id),
+            ):
                 result = jobs.xloader_data_into_datastore(data)
-        assert result is None, jobs_db.get_job(job_id)['error']['message']
+        assert result is None, jobs_db.get_job(job_id)["error"]["message"]
 
         # Check it said it was successful
         assert responses.calls[-1].request.url == \
