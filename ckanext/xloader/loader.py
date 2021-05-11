@@ -313,10 +313,11 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         # override with types user requested
         if existing_info:
-            types = [{
-                'text': messytables.StringType(),
-                'numeric': messytables.DecimalType(),
-                'timestamp': messytables.DateUtilType(),
+            types = [
+                {
+                    'text': messytables.StringType(),
+                    'numeric': messytables.DecimalType(),
+                    'timestamp': messytables.DateUtilType(),
                 }.get(existing_info.get(h, {}).get('type_override'), t)
                 for t, h in zip(types, headers)]
 

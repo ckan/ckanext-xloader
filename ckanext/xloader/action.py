@@ -295,8 +295,8 @@ def xloader_hook(context, data_dict):
                 pass
         # Check if the URL of the file has been modified in the meantime
         elif (resource_dict.get('url')
-              and metadata.get('original_url')
-              and resource_dict['url'] != metadata['original_url']):
+                and metadata.get('original_url')
+                and resource_dict['url'] != metadata['original_url']):
             log.debug('URLs are different: {0} != {1}'.format(
                 resource_dict['url'], metadata['original_url']))
             resubmit = True
@@ -342,14 +342,13 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        # timestamp is a date, so not sure why this code was there
+        # Attach time zone data to logs if needed
+        # job_detail['logs']  TypeError: 'NoneType' object has no attribute '__getitem__'
         # for log in job_detail['logs']:
         #     if 'timestamp' in log:
-        #         date = time.strptime(
-        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-        #         date = datetime.datetime.utcfromtimestamp(
-        #             time.mktime(date))
-        #         log['timestamp'] = date
+        #         date = log['timestamp']
+        #         if not date.tzinfo:
+        #             log['timestamp'] = h.get_display_timezone().localize(date)
     try:
         error = json.loads(task['error'])
     except ValueError:

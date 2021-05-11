@@ -12,6 +12,7 @@ format = pylint
 show_source = True
 
 max-complexity = 10
+max-line-length = 127
 
 # List ignore rules one per line.
 ignore =

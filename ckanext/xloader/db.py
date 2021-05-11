@@ -198,7 +198,7 @@ def add_pending_job(job_id, job_type, api_key,
             job_id=job_id,
             job_type=job_type,
             status='pending',
-            requested_timestamp=datetime.datetime.now(),
+            requested_timestamp=datetime.datetime.utcnow(),
             sent_data=data,
             result_url=result_url,
             api_key=api_key))
@@ -325,7 +325,7 @@ def mark_job_as_completed(job_id, data=None):
     update_dict = {
         "status": "complete",
         "data": json.dumps(data),
-        "finished_timestamp": datetime.datetime.now(),
+        "finished_timestamp": datetime.datetime.utcnow(),
     }
     _update_job(job_id, update_dict)
 
@@ -340,7 +340,7 @@ def mark_job_as_missed(job_id):
     update_dict = {
         "status": "error",
         "error": "Job delayed too long, service full",
-        "finished_timestamp": datetime.datetime.now(),
+        "finished_timestamp": datetime.datetime.utcnow(),
     }
     _update_job(job_id, update_dict)
 
@@ -359,7 +359,7 @@ def mark_job_as_errored(job_id, error_object):
     update_dict = {
         "status": "error",
         "error": error_object,
-        "finished_timestamp": datetime.datetime.now(),
+        "finished_timestamp": datetime.datetime.utcnow(),
     }
     _update_job(job_id, update_dict)
 

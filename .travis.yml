@@ -28,22 +28,11 @@ jobs:
         - flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics --exclude ckan
         # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
         - flake8 . --count --max-line-length=127 --statistics --exclude ckan --exit-zero
-  
-  
+
+
     - stage: Tests
       python: "3.6"
-      env: CKANVERSION=2.9
-      addons:
-        postgresql: '12'
-        apt:
-          sources:
-            - sourceline: 'deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main'
-          packages:
-            - postgresql-12 
-  
-  
-    - python: "2.7"
-      env: CKANVERSION=2.9
+      env: CKAN_GIT_REPO=ckan CKANVERSION=2.9
       addons:
         postgresql: '12'
         apt:
@@ -51,9 +40,20 @@ jobs:
             - sourceline: 'deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main'
           packages:
             - postgresql-12
-  
+
+
     - python: "2.7"
-      env: CKANVERSION=2.8
+      env: CKAN_GIT_REPO=ckan CKANVERSION=2.9
+      addons:
+        postgresql: '12'
+        apt:
+          sources:
+            - sourceline: 'deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main'
+          packages:
+            - postgresql-12
+
+    - python: "2.7"
+      env: CKAN_GIT_REPO=qld-gov-au CKANVERSION=2.8
       addons:
         postgresql: '11'
         apt:
@@ -61,7 +61,7 @@ jobs:
             - sourceline: 'deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main'
           packages:
             - postgresql-11
-  
+
     - python: "2.7"
       env: CKANVERSION=2.7
       addons:
@@ -71,7 +71,7 @@ jobs:
             - sourceline: 'deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main'
           packages:
             - postgresql-9.6
-  
+
 cache:
   directories:
     - $HOME/.cache/pip

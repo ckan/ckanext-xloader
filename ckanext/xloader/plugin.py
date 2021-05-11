@@ -110,8 +110,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def notify(self, entity, operation=None):
         if isinstance(entity, model.Resource):
-            if (operation == model.domain_object.DomainObjectOperation.new
-                    or not operation):
+            if (not operation
+                    or operation == model.domain_object.DomainObjectOperation.new):
                 # if operation is None, resource URL has been changed, as
                 # the notify function in IResourceUrlChange only takes
                 # 1 parameter
@@ -130,13 +130,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
                               'would be circular.'.format(r=entity))
                     return
 
-                try:
-                    task = p.toolkit.get_action('task_status_show')(
-                        context, {
-                            'entity_id': entity.id,
-                            'task_type': 'xloader',
-                            'key': 'xloader'}
-                    )
+                # try:
+                #     task = p.toolkit.get_action('task_status_show')(
+                #         context, {
+                #             'entity_id': entity.id,
+                #             'task_type': 'xloader',
+                #             'key': 'xloader'}
+                #     )
                 #     if task.get('state') == 'pending':
                 #         # There already is a pending DataPusher submission,
                 #         # skip this one ...
@@ -144,8 +144,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 #             'Skipping DataPusher submission for '
                 #             'resource {0}'.format(entity.id))
                 #         return
-                except p.toolkit.ObjectNotFound:
-                    pass
+                # except p.toolkit.ObjectNotFound:
+                #     pass
 
                 try:
                     log.debug('Submitting resource {0} to be xloadered'

@@ -12,7 +12,6 @@ __location__ = os.path.realpath(
 
 try:
     from ckan.tests.pytest_ckan.fixtures import *
-
 except ImportError:
     import pytest
 

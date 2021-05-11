@@ -13,7 +13,7 @@ fi
 export PYTHON_MAJOR_VERSION=${TRAVIS_PYTHON_VERSION%.*}
 
 echo "Installing CKAN and its Python dependencies..."
-git clone https://github.com/ckan/ckan
+git clone --depth=50 https://github.com/$CKAN_GIT_REPO/ckan
 cd ckan
 if [ $CKANVERSION == 'master' ]
 then
@@ -29,8 +29,6 @@ if [ -f requirement-setuptools.txt ]
 then
     pip install -r requirement-setuptools.txt
 fi
-
-python setup.py develop
 
 if (( $CKAN_MINOR_VERSION >= 9 )) && (( $PYTHON_MAJOR_VERSION == 2 ))
 then
@@ -90,9 +88,6 @@ cd -
 
 echo "Installing ckanext-xloader and its requirements..."
 pip install -r pip-requirements.txt
-pip install -r requirements.txt
-pip install -r dev-requirements.txt
-
 python setup.py develop
 
 echo "Moving test.ini into a subdir... (because the core ini file is referenced as ../ckan/test-core.ini)"

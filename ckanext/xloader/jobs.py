@@ -208,7 +208,7 @@ def xloader_data_into_datastore_(input, job_dict):
     # Load it
     logger.info('Loading CSV')
     just_load_with_messytables = asbool(config.get(
-        'ckanext.xloader.just_load_with_messytables', False))
+        'ckanext.xloader.just_load_with_messytables', config.get('ckanext.xloader.compatibility_mode', False)))
     logger.info("'Just load with messytables' mode is: {}".format(
         just_load_with_messytables))
     try:
@@ -333,13 +333,12 @@ def _download_resource_data(resource, data, api_key, logger):
 
 def get_response(url, headers):
     def get_url():
-        return requests.get(
-            url,
-            headers=headers,
-            timeout=DOWNLOAD_TIMEOUT,
-            verify=SSL_VERIFY,
-            stream=True,  # just gets the headers for now
-        )
+        kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
+                  'verify': SSL_VERIFY, 'stream': True}  # just gets the headers for now
+        if 'ckan.download_proxy' in config:
+            proxy = config.get('ckan.download_proxy')
+            kwargs['proxies'] = {'http': proxy, 'https': proxy}
+        return requests.get(url, **kwargs)
     response = get_url()
     if response.status_code == 202:
         # Seen: https://data-cdfw.opendata.arcgis.com/datasets
@@ -567,7 +566,7 @@ class StoringHandler(logging.Handler):
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
-                timestamp=datetime.datetime.now(),
+                timestamp=datetime.datetime.utcnow(),
                 message=message,
                 level=level,
                 module=module,
