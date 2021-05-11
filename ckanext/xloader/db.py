@@ -410,7 +410,7 @@ def _init_jobs_table():
         sqlalchemy.Column('result_url', sqlalchemy.UnicodeText),
         # CKAN API key:
         sqlalchemy.Column('api_key', sqlalchemy.UnicodeText),
-        )
+    )
     return _jobs_table
 
 
@@ -424,7 +424,7 @@ def _init_metadata_table():
         sqlalchemy.Column('key', sqlalchemy.UnicodeText, primary_key=True),
         sqlalchemy.Column('value', sqlalchemy.UnicodeText, index=True),
         sqlalchemy.Column('type', sqlalchemy.UnicodeText),
-        )
+    )
     return _metadata_table
 
 
@@ -441,7 +441,7 @@ def _init_logs_table():
         sqlalchemy.Column('module', sqlalchemy.UnicodeText),
         sqlalchemy.Column('funcName', sqlalchemy.UnicodeText),
         sqlalchemy.Column('lineno', sqlalchemy.Integer)
-        )
+    )
     return _logs_table
 
 

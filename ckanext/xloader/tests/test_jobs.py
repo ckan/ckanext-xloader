@@ -95,7 +95,7 @@ class TestxloaderDataIntoDatastore(object):
         self.host = "www.ckan.org"
         self.api_key = "my-fake-key"
         self.resource_id = "foo-bar-42"
-        res = factories.Resource(id=self.resource_id)
+        factories.Resource(id=self.resource_id)
         jobs_db.init(config, echo=False)
         # drop test table
         engine, conn = self.get_datastore_engine_and_connection()
@@ -290,7 +290,7 @@ class TestxloaderDataIntoDatastore(object):
 
         job = jobs_db.get_job(job_id)
         assert job["status"] == u"complete"
-        assert job["error"] == None
+        assert job["error"] is None
 
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
@@ -368,7 +368,7 @@ class TestxloaderDataIntoDatastore(object):
 
         job = jobs_db.get_job(job_id)
         assert job["status"] == u"complete"
-        assert job["error"] == None
+        assert job["error"] is None
 
         # Check ANALYZE was run
         last_analyze = self.get_time_of_last_analyze()
@@ -455,7 +455,7 @@ class TestxloaderDataIntoDatastore(object):
                 return_value=mock.Mock(id=job_id),
             ):
                 result = jobs.xloader_data_into_datastore(data)
-        assert result == None
+        assert result is None
 
         # Check it said it was successful
         assert (
@@ -514,7 +514,7 @@ class TestxloaderDataIntoDatastore(object):
         assert copy_error_index, "Missing COPY error"
 
         # check messytable portion of the logs
-        logs = Logs(logs[copy_error_index + 1 :])
+        logs = Logs(logs[copy_error_index + 1:])
         assert logs[0] == (u"INFO", u"Trying again with messytables")
         logs.assert_no_errors()
 
@@ -573,7 +573,7 @@ class TestxloaderDataIntoDatastore(object):
 
         job = jobs_db.get_job(job_id)
         assert job["status"] == u"complete"
-        assert job["error"] == None
+        assert job["error"] is None
 
     @mock_actions
     @responses.activate
@@ -595,8 +595,7 @@ class TestxloaderDataIntoDatastore(object):
         }
         job_id = 'test{}'.format(random.randint(0, 1e5))
 
-        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag') \
-                as mocked_set_datastore_active_flag:
+        with mock.patch('ckanext.xloader.jobs.set_datastore_active_flag'):
             # in tests we call jobs directly, rather than use rq, so mock
             # get_current_job()
             with mock.patch('ckanext.xloader.jobs.get_current_job',
@@ -605,21 +604,21 @@ class TestxloaderDataIntoDatastore(object):
         assert result is None, jobs_db.get_job(job_id)['error']['message']
 
         # Check it said it was successful
-        eq_(responses.calls[-1].request.url,
-            'http://www.ckan.org/api/3/action/xloader_hook')
+        assert responses.calls[-1].request.url == \
+            'http://www.ckan.org/api/3/action/xloader_hook'
         job_dict = json.loads(responses.calls[-1].request.body)
         assert job_dict['status'] == u'complete', job_dict
-        eq_(job_dict,
+        assert job_dict == \
             {u'metadata': {u'ckan_url': u'http://www.ckan.org/',
                            u'resource_id': u'foo-bar-42'},
-             u'status': u'complete'})
+             u'status': u'complete'}
 
         logs = self.get_load_logs(job_id)
         logs.assert_no_errors()
 
         job = jobs_db.get_job(job_id)
-        eq_(job['status'], u'complete')
-        eq_(job['error'], None)
+        assert job['status'] == u'complete'
+        assert job['error'] is None
 
     @mock_actions
     @responses.activate
