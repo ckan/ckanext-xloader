@@ -1,13 +1,12 @@
+from __future__ import print_function
 import sys
 import logging
 
 import ckan.lib.cli as cli
 import ckan.plugins as p
-try:
-    # as it was called up to ckan 2.7
-    import ckanext.datastore.db as datastore_backend
-except ImportError:
-    import ckanext.datastore as datastore_backend
+import ckan.model as model
+
+import ckanext.datastore.helpers as h
 
 
 class xloaderCommand(cli.CkanCommand):
@@ -30,7 +29,7 @@ class xloaderCommand(cli.CkanCommand):
 
                 all-existing - Re-submits all the resources already in the
                     DataStore. (Ignores any resources that have not been stored
-                    in DataStore, for any reason.)
+                    in DataStore, e.g. because they are not tabular)
 
             options:
 
@@ -49,6 +48,7 @@ class xloaderCommand(cli.CkanCommand):
 
     def __init__(self, name):
         super(xloaderCommand, self).__init__(name)
+        self.error_occured = False
 
         self.parser.add_option('-y', dest='yes',
                                action='store_true', default=False,
@@ -63,7 +63,7 @@ class xloaderCommand(cli.CkanCommand):
 
     def command(self):
         if not self.args:
-            print self.usage
+            print(self.usage)
             sys.exit(1)
         if self.args[0] == 'submit':
             if len(self.args) < 2:
@@ -82,11 +82,17 @@ class xloaderCommand(cli.CkanCommand):
                 self._load_config()
                 self._setup_xloader_logger()
                 self._submit_package(pkg_name_or_id)
+            self._handle_command_status()
         elif self.args[0] == 'status':
             self._load_config()
             self._print_status()
         else:
             self.parser.error('Unrecognized command')
+
+    def _handle_command_status(self):
+        if self.error_occured:
+            print('Finished but saw errors - see above for details')
+            sys.exit(1)
 
     def _setup_xloader_logger(self):
         # whilst the deveopment.ini's loggers are setup now, because this is
@@ -110,7 +116,7 @@ class xloaderCommand(cli.CkanCommand):
         )
         answer = cli.query_yes_no(question, default=None)
         if not answer == 'yes':
-            print "Aborting..."
+            print("Aborting...")
             sys.exit(0)
 
     def _submit_all_existing(self):
@@ -162,8 +168,15 @@ class xloaderCommand(cli.CkanCommand):
         print(' ' * indent + 'Processing dataset {} with {} resources'.format(
               pkg['name'], len(pkg['resources'])))
         for resource in pkg['resources']:
-            resource['package_name'] = pkg['name']  # for debug output
-            self._submit_resource(resource, user, indent=indent + 2)
+            try:
+                resource['package_name'] = pkg['name']  # for debug output
+                self._submit_resource(resource, user, indent=indent + 2)
+            except Exception as e:
+                self.error_occured = True
+                print(e)
+                print(' ' * indent + 'ERROR submitting resource "{}" '.format(
+                    resource['id']))
+                continue
 
     def _submit_resource(self, resource, user, indent=0):
         '''resource: resource dictionary
@@ -200,6 +213,7 @@ class xloaderCommand(cli.CkanCommand):
             print(' ' * indent + '...ok')
         else:
             print(' ' * indent + 'ERROR submitting resource')
+            self.error_occured = True
 
     def _print_status(self):
         try:
@@ -213,10 +227,118 @@ class xloaderCommand(cli.CkanCommand):
             job_params = eval(job.description.replace(
                 'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
             job_metadata = job_params['metadata']
-            print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} ' \
+            print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
                   'url={url}'.format(
                       id=job._id,
                       enqueued=job.enqueued_at,
                       res_id=job_metadata['resource_id'],
                       url=job_metadata['original_url'],
                       ))
+
+
+class MigrateTypesCommand(cli.CkanCommand):
+    '''Migrate command
+
+    Turn existing resource field types into Data Dictionary overrides.
+    This is intended to simplify migration from DataPusher to XLoader,
+    by allowing you to reuse the types that DataPusher has guessed.
+
+    Usage:
+
+        migrate_types [options] [resource-spec]
+            Add the given resources' field types to the Data Dictionary.
+
+            where resource-spec is one of:
+
+                <resource-id> - Migrate a particular resource
+
+                all - Migrate all resources (this is the default)
+
+    '''
+    summary = __doc__.split('\n')[0]
+    usage = __doc__
+    min_args = 0
+
+    def __init__(self, name):
+        super(MigrateTypesCommand, self).__init__(name)
+        self.error_occured = False
+
+        self.parser.add_option('-t', '--include-text',
+                               action='store_true', default=False,
+                               help='Add Data Dictionary overrides even for text fields')
+
+        self.parser.add_option('--force',
+                               action='store_true', default=False,
+                               help='Overwrite existing data dictionary if it exists')
+
+    def command(self):
+        self._load_config()
+        if not self.args or len(self.args) == 0 or self.args[0] == 'all':
+            self._migrate_all()
+        else:
+            self._migrate_resource(self.args[0])
+        self._handle_command_status()
+
+    def _migrate_all(self):
+        session = model.Session
+        resource_count = session.query(model.Resource).filter_by(state='active').count()
+        print("Updating {} resource(s)".format(resource_count))
+        resources_done = 0
+        for resource in session.query(model.Resource).filter_by(state='active'):
+            resources_done += 1
+            self._migrate_resource(resource.id,
+                                   prefix='[{}/{}]: '.format(resources_done,
+                                                             resource_count))
+            if resources_done % 100 == 0:
+                print("[{}/{}] done".format(resources_done, resource_count))
+        print("[{}/{}] done".format(resources_done, resource_count))
+
+    def _migrate_resource(self, resource_id, prefix=''):
+        data_dict = h.datastore_dictionary(resource_id)
+
+        def print_status(status):
+            if self.options.verbose:
+                print("{}{}: {}".format(prefix, resource_id, status))
+
+        if not data_dict:
+            print_status("not found")
+            return
+
+        fields = []
+        for field in data_dict:
+            if field['type'] == 'text' and not self.options.include_text:
+                type_override = ''
+            else:
+                type_override = field['type']
+
+            if 'info' not in field:
+                field.update({'info': {'notes': '',
+                                       'type_override': type_override,
+                                       'label': ''}})
+            elif self.options.force:
+                field['info'].update({'type_override': type_override})
+            else:
+                print_status("skipped")
+                return
+
+            fields.append({
+                'id': field['id'],
+                'type': field['type'],
+                'info': field['info']
+            })
+
+        try:
+            p.toolkit.get_action('datastore_create')(None, {
+                'resource_id': resource_id,
+                'force': True,
+                'fields': fields
+            })
+            print_status("updated")
+        except Exception as e:
+            self.error_occured = True
+            print("{}: failed, {}".format(resource_id, e))
+
+    def _handle_command_status(self):
+        if self.error_occured:
+            print('Finished but saw errors - see above for details')
+            sys.exit(1)

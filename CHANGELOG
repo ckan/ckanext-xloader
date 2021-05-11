@@ -1,3 +1,75 @@
+0.7.0 2020-11-23
+================
+
+Features:
+* Python 3 support #113
+* CKAN 2.9 support #113
+
+Fixes:
+* Update resource hash after load to datastore #116
+
+
+0.6.1 2020-05-03
+================
+
+Features:
+* Add 'just_load_with_messytables' option #96
+
+Fixes:
+* When getting the resource from CKAN, it now copes with the edge case that CKAN hasn't quite added the resource yet - now it successfully retries #94
+
+
+0.6.0 2020-04-27
+================
+
+Release withdrawn
+
+
+0.5.0 2019-12-04
+================
+
+Features:
+* migrate_types CLI command added for freezing/migrating data dictionaries created with datapusher #85
+
+Fixes:
+* DataStore tab missing from resource manage page, due to templates missing from PyPI package #74
+
+
+0.4.1 2019-11-13
+================
+
+Fixes:
+* populate_full_text_trigger error when doing 'datastore set-permissions' #72
+* '%' in column name causes TypeError("'dict' object does not support indexing") #65
+* numpy >= 1.16 causes 'RuntimeError: implement_array_function' on CKAN startup #79
+* CKAN 2.9 compatibility - fix error about 'resource_revision_table' #81
+
+
+v0.4.0 2019-06-21
+=================
+
+Features:
+* 'ignore_hash' config option added to bypass the hash check which can skip loads #34
+* File size is logged #35
+* Retries are no done when downloading CSV #39
+* xloader_status action now available to GET (not just POST) #46
+* ANALYZE run after load, needed for CKAN 2.9 resource preview speed-up #47
+* CLI load of multiple datasets now resumes following an error with a resource #57
+* Added 'max_excerpt_lines' config to load an excerpt of files larger than max_content_length #63
+
+Fixes:
+* Unicode characters in CSV headers caused error #28
+* Column headers longer than 63 characters caused error #14
+* Floats in CSV headers caused error #49
+* Integers in xlsx header caused error #53
+* Extraneous commas in combination with non-ascii chars caused error #51
+* CSV with no rows caused error #38
+* Template compatibility with CKAN 2.9 #40
+* CLI submitted resources with non-xloader formats #43
+* ckanext.xloader.max_content_length wasn't working #62
+* KeyError: 'resource_id' when xloading a resource #68
+
+
 v0.3.1 2018-01-22
 =================
 

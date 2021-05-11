@@ -2,13 +2,18 @@
 set -e
 
 echo "This is travis-build.bash..."
+echo "Targetting CKAN $CKANVERSION on Python $TRAVIS_PYTHON_VERSION"
+if [ $CKANVERSION == 'master' ]
+then
+    export CKAN_MINOR_VERSION=100
+else
+    export CKAN_MINOR_VERSION=${CKANVERSION##*.}
+fi
 
-echo "Installing the packages that CKAN requires..."
-sudo apt-get update -qq
-sudo apt-get install solr-jetty libcommons-fileupload-java
+export PYTHON_MAJOR_VERSION=${TRAVIS_PYTHON_VERSION%.*}
 
 echo "Installing CKAN and its Python dependencies..."
-git clone https://github.com/ckan/ckan
+git clone --depth=50 https://github.com/$CKAN_GIT_REPO/ckan
 cd ckan
 if [ $CKANVERSION == 'master' ]
 then
@@ -18,41 +23,75 @@ else
     git checkout $CKAN_TAG
     echo "CKAN version: ${CKAN_TAG#ckan-}"
 fi
-python setup.py develop
-pip install -r requirements.txt
+
+echo "Installing the recommended setuptools requirement"
+if [ -f requirement-setuptools.txt ]
+then
+    pip install -r requirement-setuptools.txt
+fi
+
+if (( $CKAN_MINOR_VERSION >= 9 )) && (( $PYTHON_MAJOR_VERSION == 2 ))
+then
+    pip install -r requirements-py2.txt
+else
+    pip install -r requirements.txt
+fi
+
 pip install -r dev-requirements.txt
 cd -
 
 echo "Setting up Solr..."
-printf "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_PORT=8983\nJAVA_HOME=$JAVA_HOME" | sudo tee /etc/default/jetty
-sudo cp ckan/ckan/config/solr/schema.xml /etc/solr/conf/schema.xml
-sudo service jetty restart
+docker run --name ckan-solr -p 8983:8983 -d openknowledge/ckan-solr-dev:$CKANVERSION
 
-echo "Creating the PostgreSQL users and databases..."
-sudo -u postgres psql -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
-sudo -u postgres psql -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
-sudo -u postgres psql -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
-sudo -u postgres psql -c 'CREATE DATABASE datastore_test WITH OWNER datastore_default;'
+echo "Setting up Postgres..."
+export PG_VERSION="$(pg_lsclusters | grep online | awk '{print $1}')"
+export PG_PORT="$(pg_lsclusters | grep online | awk '{print $3}')"
+echo "Using Postgres $PGVERSION on port $PG_PORT"
+if [ $PG_PORT != "5432" ]
+then
+	echo "Using non-standard Postgres port, updating configuration..."
+	sed -i -e "s/postgresql:\/\/ckan_default:pass@localhost\/ckan_test/postgresql:\/\/ckan_default:pass@localhost:$PG_PORT\/ckan_test/" ckan/test-core.ini
+	sed -i -e "s/postgresql:\/\/ckan_default:pass@localhost\/datastore_test/postgresql:\/\/ckan_default:pass@localhost:$PG_PORT\/datastore_test/" ckan/test-core.ini
+	sed -i -e "s/postgresql:\/\/datastore_default:pass@localhost\/datastore_test/postgresql:\/\/datastore_default:pass@localhost:$PG_PORT\/datastore_test/" ckan/test-core.ini
+fi
+
+
+echo "Creating the PostgreSQL user and database..."
+sudo -u postgres psql -p $PG_PORT -c "CREATE USER ckan_default WITH PASSWORD 'pass';"
+sudo -u postgres psql -p $PG_PORT -c "CREATE USER datastore_default WITH PASSWORD 'pass';"
+sudo -u postgres psql -p $PG_PORT -c 'CREATE DATABASE ckan_test WITH OWNER ckan_default;'
+sudo -u postgres psql -p $PG_PORT -c 'CREATE DATABASE datastore_test WITH OWNER ckan_default;'
+
+
 
 echo "Create full text function..."
 cp full_text_function.sql /tmp
 cd /tmp
-sudo -u postgres psql datastore_test -f full_text_function.sql
+echo "Just BEFORE running full text function..."
+echo "checking out sockets on /var/run/postgresql/..."
+ls -la /var/run/postgresql/
+sudo -u postgres psql -p $PG_PORT datastore_test -f full_text_function.sql
+echo "Just AFTER running full text function...."
 cd -
 
 echo "Initialising the database..."
 cd ckan
-paster db init -c test-core.ini
-paster datastore set-permissions -c test-core.ini | sudo -u postgres psql 
+if (( $CKAN_MINOR_VERSION >= 9 ))
+then
+    ckan -c test-core.ini db init
+    ckan -c test-core.ini datastore set-permissions | sudo -u postgres psql -p $PG_PORT
+else
+    paster db init -c test-core.ini
+    paster datastore set-permissions -c test-core.ini | sudo -u postgres psql -p $PG_PORT
+fi
 cd -
 
 echo "Installing ckanext-xloader and its requirements..."
+pip install -r pip-requirements.txt
 python setup.py develop
-pip install -r requirements.txt
-pip install -r dev-requirements.txt
 
-echo "Moving test.ini into a subdir..."
+echo "Moving test.ini into a subdir... (because the core ini file is referenced as ../ckan/test-core.ini)"
 mkdir subdir
 mv test.ini subdir
 
-echo "travis-build.bash is done."
+echo "The travis-build.bash is done."

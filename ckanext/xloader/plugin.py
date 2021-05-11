@@ -1,5 +1,6 @@
 from ckan import model
 import ckan.plugins as plugins
+import ckan.plugins.toolkit as toolkit
 from ckan.common import config
 
 from ckanext.xloader import action, auth
@@ -18,6 +19,7 @@ DEFAULT_FORMATS = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'ods', 'application/vnd.oasis.opendocument.spreadsheet',
 ]
+
 
 class XLoaderFormats(object):
     formats = None
@@ -41,8 +43,31 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
-    plugins.implements(plugins.IRoutes, inherit=True)
     plugins.implements(plugins.ITemplateHelpers)
+    plugins.implements(plugins.IResourceController, inherit=True)
+
+    if toolkit.check_ckan_version('2.9'):
+        plugins.implements(plugins.IBlueprint)
+        # IBlueprint
+        def get_blueprint(self):
+            from ckanext.xloader.views import get_blueprints
+            return get_blueprints()
+    else:
+        plugins.implements(plugins.IRoutes, inherit=True)
+        # IRoutes
+        def before_map(self, m):
+            m.connect(
+                'xloader.resource_data', '/dataset/{id}/resource_data/{resource_id}',
+                controller='ckanext.xloader.controllers:ResourceDataController',
+                action='resource_data', ckan_icon='cloud-upload')
+            return m
+
+    # IResourceController
+
+    def before_show(self, resource_dict):
+        resource_dict[
+            'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
+            resource_dict.get('datastore_contains_all_records_of_source_file'))
 
     # IConfigurer
 
@@ -65,10 +90,17 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     'Config option `{0}` must be set to use ckanext-xloader.'
                     .format(config_option))
 
-        connection = get_write_engine().connect()
-        if not fulltext_function_exists(connection):
-            raise Exception('populate_full_text_trigger is not defined. See '
-                            'ckanext-xloader\'s README.rst for more details.')
+        if p.toolkit.check_ckan_version(max_version='2.7.99'):
+            # populate_full_text_trigger() needs to be defined, and this was
+            # introduced in CKAN 2.8 when you installed datastore e.g.:
+            #     paster datastore set-permissions
+            # However before CKAN 2.8 we need to check the user has defined
+            # this function manually.
+            connection = get_write_engine().connect()
+            if not fulltext_function_exists(connection):
+                raise Exception('populate_full_text_trigger is not defined. '
+                                'See ckanext-xloader\'s README.rst for more '
+                                'details.')
 
     # IDomainObjectModification
     # IResourceUrlChange
@@ -95,13 +127,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
                               'would be circular.'.format(r=entity))
                     return
 
-                # try:
-                #     task = p.toolkit.get_action('task_status_show')(
-                #         context, {
-                #             'entity_id': entity.id,
-                #             'task_type': 'datapusher',
-                #             'key': 'datapusher'}
-                #     )
+                try:
+                    task = p.toolkit.get_action('task_status_show')(
+                        context, {
+                            'entity_id': entity.id,
+                            'task_type': 'xloader',
+                            'key': 'xloader'}
+                    )
                 #     if task.get('state') == 'pending':
                 #         # There already is a pending DataPusher submission,
                 #         # skip this one ...
@@ -109,17 +141,17 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 #             'Skipping DataPusher submission for '
                 #             'resource {0}'.format(entity.id))
                 #         return
-                # except p.toolkit.ObjectNotFound:
-                #     pass
+                except p.toolkit.ObjectNotFound:
+                    pass
 
                 try:
                     log.debug('Submitting resource {0} to be xloadered'
-                                .format(entity.id))
+                              .format(entity.id))
                     p.toolkit.get_action('xloader_submit')(context, {
                         'resource_id': entity.id,
                         'ignore_hash': self.ignore_hash,
                     })
-                except p.toolkit.ValidationError, e:
+                except p.toolkit.ValidationError as e:
                     # If xloader is offline, we want to catch error instead
                     # of raising otherwise resource save will fail with 500
                     log.critical(e)
@@ -141,15 +173,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
             }
-
-    # IRoutes
-
-    def before_map(self, m):
-        m.connect(
-            'resource_data_xloader', '/dataset/{id}/resource_data/{resource_id}',
-            controller='ckanext.xloader.controllers:ResourceDataController',
-            action='resource_data', ckan_icon='cloud-upload')
-        return m
 
     # ITemplateHelpers
 

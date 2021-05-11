@@ -1,20 +1,23 @@
 # encoding: utf-8
 
+from __future__ import absolute_import
 import logging
 import json
 import datetime
+import six
 
 from dateutil.parser import parse as parse_date
 
+import ckan.model as model
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
 from ckan.logic import side_effect_free
 
 import ckanext.xloader.schema
-import interfaces as xloader_interfaces
-import jobs
-import db
+from . import interfaces as xloader_interfaces
+from . import jobs
+from . import db
 try:
     enqueue_job = p.toolkit.enqueue_job
 except AttributeError:
@@ -88,7 +91,7 @@ def xloader_submit(context, data_dict):
         'entity_id': res_id,
         'entity_type': 'resource',
         'task_type': 'xloader',
-        'last_updated': str(datetime.datetime.utcnow()),
+        'last_updated': six.text_type(datetime.datetime.utcnow()),
         'state': 'submitting',
         'key': 'xloader',
         'value': '{}',
@@ -108,10 +111,10 @@ def xloader_submit(context, data_dict):
         if existing_task.get('state') == 'pending':
             import re  # here because it takes a moment to load
             queued_res_ids = [
-                re.search(r"'resource_id': u'([^']+)'",
+                re.search(r"'resource_id': u?'([^']+)'",
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
-                if 'xloader_to_datastore' in str(job)  # filter out test_job etc
+                if 'xloader_to_datastore' in six.text_type(job)  # filter out test_job etc
                 ]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -143,6 +146,10 @@ def xloader_submit(context, data_dict):
 
     context['ignore_auth'] = True
     context['user'] = ''  # benign - needed for ckan 2.5
+
+    model = context['model']
+    original_session = model.Session
+    model.Session = model.meta.create_local_session()
     p.toolkit.get_action('task_status_update')(context, task)
 
     data = {
@@ -168,6 +175,7 @@ def xloader_submit(context, data_dict):
             job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
+        model.Session = original_session
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
 
@@ -175,8 +183,9 @@ def xloader_submit(context, data_dict):
 
     task['value'] = value
     task['state'] = 'pending'
-    task['last_updated'] = str(datetime.datetime.utcnow()),
+    task['last_updated'] = six.text_type(datetime.datetime.utcnow()),
     p.toolkit.get_action('task_status_update')(context, task)
+    model.Session = original_session
 
     return True
 
@@ -247,7 +256,7 @@ def xloader_hook(context, data_dict):
     })
 
     task['state'] = status
-    task['last_updated'] = str(datetime.datetime.utcnow())
+    task['last_updated'] = six.text_type(datetime.datetime.utcnow())
     task['error'] = data_dict.get('error')
 
     resubmit = False
@@ -334,14 +343,13 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        # timestamp is a date, so not sure why this code was there
+        # Attach time zone data to logs if needed
+        # job_detail['logs']  TypeError: 'NoneType' object has no attribute '__getitem__'
         # for log in job_detail['logs']:
         #     if 'timestamp' in log:
-        #         date = time.strptime(
-        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-        #         date = datetime.datetime.utcfromtimestamp(
-        #             time.mktime(date))
-        #         log['timestamp'] = date
+        #         date = log['timestamp']
+        #         if not date.tzinfo:
+        #             log['timestamp'] = h.get_display_timezone().localize(date)
     try:
         error = json.loads(task['error'])
     except ValueError:
