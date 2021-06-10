@@ -28,10 +28,7 @@ from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
-if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
-    SSL_VERIFY = False
-else:
-    SSL_VERIFY = True
+SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
