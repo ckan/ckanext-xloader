@@ -51,7 +51,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         plugins.implements(plugins.IBlueprint)
         # IClick
         def get_commands(self):
-            from ckanext.xloader.click import get_commands
+            from ckanext.xloader.cli import get_commands
             return get_commands()
         # IBlueprint
         def get_blueprint(self):
