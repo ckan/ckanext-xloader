@@ -69,7 +69,7 @@ DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
 XLoader - job queue is done by RQ, which is simpler, is backed by Redis, allows
-access to the CKAN model and is CKAN's default queue technology (sinc CKAN
+access to the CKAN model and is CKAN's default queue technology (since CKAN
 2.7). You can also debug jobs easily using pdb. Job results are stored in
 Sqlite by default, and for production simply specify CKAN's database in the
 config and it's held there - easy.
@@ -126,7 +126,7 @@ CKAN version    Compatibility
 2.6             yes, but no longer tested and you must install ckanext-rq
 2.7             yes
 2.8             yes
-2.9             not yet - see https://github.com/ckan/ckanext-xloader/issues/104
+2.9             yes (both Python2 and Python3)
 =============== =============
 
 ------------
@@ -260,6 +260,11 @@ Configuration:
     # not be loaded into the datastore.
     ckanext.xloader.max_excerpt_lines = 100
 
+    # Requests verifies SSL certificates for HTTPS requests. Setting verify to
+    # False should only be enabled during local development or testing. Default
+    # to True.
+    ckanext.xloader.ssl_verify = True
+
 ------------------------
 Developer installation
 ------------------------
@@ -284,7 +289,7 @@ To upgrade from DataPusher to XLoader:
 
 2. (Optional) For existing datasets that have been datapushed to datastore, freeze the column types (in the data dictionaries), so that XLoader doesn't change them back to string on next xload::
 
-       paster --plugin=ckanext-xloader migrate_types -c /etc/ckan/default/ckan.ini
+       ckan -c /etc/ckan/default/ckan.ini migrate_types
 
 3. If you've not already, change the enabled plugin in your config - on the
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
@@ -311,29 +316,35 @@ command-line interface.
 
 e.g. ::
 
-    paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
 
 For debugging you can try xloading it synchronously (which does the load
 directly, rather than asking the worker to do it) with the ``-s`` option::
 
-    paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
 
 See the status of jobs::
 
-    paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader status
+    [pre-2.9] paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
 
 Submit all datasets' resources to the DataStore::
 
-    paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini submit all
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
 
 Re-submit all the resources already in the DataStore (Ignores any resources
 that have not been stored in DataStore e.g. because they are not tabular)::
 
-    paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
+    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
 
 **Full list of XLoader CLI commands**::
 
-    paster --plugin=ckanext-xloader xloader --help
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader --help
+    [pre-2.9] paster --plugin=ckanext-xloader xloader --help
 
 Jobs and workers
 ----------------
@@ -346,7 +357,8 @@ Useful commands:
 
 Clear (delete) all outstanding jobs::
 
-    paster --plugin=ckan jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+    CKAN 2.9, Python 3 ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
+    CKAN <2.9, Python 2 paster --plugin=ckanext-xloader xloader jobs clear [QUEUES] -c /etc/ckan/default/development.ini
 
 If having trouble with the worker process, restarting it can help::
 
