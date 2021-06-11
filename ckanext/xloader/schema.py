@@ -12,7 +12,11 @@ empty = get_validator('empty')
 boolean_validator = get_validator('boolean_validator')
 int_validator = get_validator('int_validator')
 OneOf = get_validator('OneOf')
-unicode_safe = get_validator('unicode_safe')
+
+if p.toolkit.check_ckan_version('2.9'):
+    unicode_safe = get_validator('unicode_safe')
+else:
+    unicode_safe = str
 
 
 def xloader_submit_schema():
