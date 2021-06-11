@@ -8,7 +8,6 @@ import datetime
 
 from dateutil.parser import parse as parse_date
 
-import ckan.model as model
 import ckan.lib.navl.dictization_functions
 import ckan.logic as logic
 import ckan.plugins as p
