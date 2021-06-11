@@ -23,6 +23,7 @@ DEFAULT_FORMATS = [
 
 class XLoaderFormats(object):
     formats = None
+
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:

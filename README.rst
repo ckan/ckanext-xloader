@@ -260,6 +260,11 @@ Configuration:
     # not be loaded into the datastore.
     ckanext.xloader.max_excerpt_lines = 100
 
+    # If set to True allows unicode characters in header names.
+    # If set to False (default), characters are encoded to ascii
+    # using the unidecode library.
+    ckanext.xloader.unicode_headers = False
+
     # Requests verifies SSL certificates for HTTPS requests. Setting verify to
     # False should only be enabled during local development or testing. Default
     # to True.

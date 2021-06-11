@@ -202,6 +202,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
         #    the superuser issue. <-- picked
 
+        if config.get('ckanext.xloader.unicode_headers'):
+            column_names = ', '.join(['"{}"'.format(h.encode('UTF8')) for h in headers])
+        else:
+            column_names = ', '.join(['"{}"'.format(h) for h in headers])
         raw_connection = engine.raw_connection()
         try:
             cur = raw_connection.cursor()
@@ -217,8 +221,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                             "      ENCODING '{encoding}');"
                             .format(
                                 resource_id=resource_id,
-                                column_names=', '.join(['"{}"'.format(h)
-                                                        for h in headers]),
+                                column_names=column_names,
                                 delimiter=delimiter,
                                 encoding='UTF8',
                                 ),
@@ -242,7 +245,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('...copying done')
 
     logger.info('Creating search index...')
-    _populate_fulltext(connection, resource_id, fields=fields)
+
+    if config.get('ckanext.xloader.unicode_headers'):
+        encoded_fields = [{'type': x['type'], 'id': x['id'].encode('UTF8')} for x in fields]
+    else:
+        encoded_fields = fields
+
+    _populate_fulltext(connection, resource_id, fields=encoded_fields)
     logger.info('...search index created')
 
     return fields
@@ -407,12 +416,16 @@ def get_types():
 
 
 def encode_headers(headers):
+    if config.get('ckanext.xloader.unicode_headers'):
+        decode_func = unicode
+    else:
+        decode_func = unidecode
     encoded_headers = []
     for header in headers:
         try:
-            encoded_headers.append(unidecode(header))
+            encoded_headers.append(decode_func(header))
         except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+            encoded_headers.append(decode_func(str(header)))
 
     return encoded_headers
 
@@ -520,7 +533,7 @@ def _populate_fulltext(connection, resource_id, fields):
             (text/numeric/timestamp)
     '''
     sql = \
-        u'''
+        '''
         UPDATE {table}
         SET _full_text = to_tsvector({cols});
         '''.format(
@@ -566,8 +579,8 @@ def _create_fulltext_trigger(connection, resource_id):
 def identifier(s):
     # "%" needs to be escaped, otherwise connection.execute thinks it is for
     # substituting a bind parameter
-    return u'"' + s.replace(u'"', u'""').replace(u'\0', '').replace('%', '%%')\
-        + u'"'
+    return '"' + s.replace('"', '""').replace('\0', '').replace('%', '%%')\
+        + '"'
 
 
 def literal_string(s):

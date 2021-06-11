@@ -52,11 +52,11 @@ class TestLoadBase(object):
             )
         else:
             cols = "*"
-        sql = 'SELECT {cols} FROM "{table_name}"'.format(
+        sql = u'SELECT {cols} FROM "{table_name}"'.format(
             cols=cols, table_name=table_name
         )
         if limit is not None:
-            sql += " LIMIT {}".format(limit)
+            sql += u" LIMIT {}".format(limit)
         results = c.execute(sql)
         return results.fetchall()
 
@@ -765,6 +765,37 @@ class TestLoadCsv(TestLoadBase):
             u"Galway",
         )
 
+    @pytest.mark.ckan_config('ckanext.xloader.unicode_headers', 'True')
+    def test_unicode_column_names(self):
+        csv_filepath = get_sample_filepath('hebrew_sample.csv')
+        resource_id = 'test_hebrew'
+        factories.Resource(id=resource_id)
+        loader.load_csv(csv_filepath, resource_id=resource_id,
+                        mimetype='text/csv', logger=PrintLogger())
+        records = self._get_records('test_hebrew')
+        assert_equal(
+            records[0],
+            (1, u'229312', u'פ בית העמק עמקה 3', u'360', u'פרטי', u'Cl', u'תקן ישראלי מותר', u'400', u'20/09/2018',
+             u'44.85', u'11.20')
+        )
+        assert_equal(
+            self._get_column_names('test_hebrew'),
+            [
+                u'_id',
+                u'_full_text',
+                u'זיהוי',
+                u'שם',
+                u'תא דיווח',
+                u'שימוש',
+                u'פרמטר',
+                u'סוג תקן מי שתייה',
+                u'ערך תקן',
+                u'תאריך דיגום אחרון',
+                u'ריכוז אחרון',
+                u'אחוז מתקן מי השתיה'
+            ]
+        )
+
 
 class TestLoadUnhandledTypes(TestLoadBase):
     def test_kml(self):
@@ -1121,3 +1152,36 @@ class TestLoadMessytables(TestLoadBase):
                 mimetype="csv",
                 logger=PrintLogger(),
             )
+
+    @pytest.mark.ckan_config('ckanext.xloader.unicode_headers', 'True')
+    def test_hebrew_unicode_headers(self):
+        xlsx_filepath = get_sample_filepath('hebrew_sample.xlsx')
+        resource_id = 'hebrew_sample_xlsx'
+        factories.Resource(id=resource_id)
+        loader.load_table(xlsx_filepath, resource_id=resource_id,
+                          mimetype='xlsx', logger=PrintLogger())
+        records = self._get_records('hebrew_sample_xlsx')
+        assert_equal(
+            records[0],
+            (1, Decimal('229312'), u'פ בית העמק עמקה 3', Decimal('360'), u'פרטי', u'Cl', u'תקן ישראלי מותר',
+             Decimal('400'), datetime.datetime(2018, 9, 20, 0, 0),
+             Decimal('44.85000000000000142108547152020037174224853515625'),
+             Decimal('11.199999999999999289457264239899814128875732421875'))
+        )
+        assert_equal(
+            self._get_column_names('hebrew_sample_xlsx'),
+            [
+                u'_id',
+                u'_full_text',
+                u'זיהוי',
+                u'שם',
+                u'תא דיווח',
+                u'שימוש',
+                u'פרמטר',
+                u'סוג תקן מי שתייה',
+                u'ערך תקן',
+                u'תאריך דיגום אחרון',
+                u'ריכוז אחרון',
+                u'אחוז מתקן מי השתיה'
+            ]
+        )
