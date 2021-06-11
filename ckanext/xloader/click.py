@@ -7,7 +7,7 @@ from ckanext.xloader.command import XloaderCmd
 # Click commands for CKAN 2.9 and above
 
 
-@click.group()
+@click.group(short_help='Perform XLoader related actions')
 def xloader():
     """xloader commands
     """
@@ -24,8 +24,8 @@ def status():
 
 @xloader.command()
 @click.argument(u'dataset-spec')
-@click.option('-y', default=False, help='Always answer yes to questions')
-@click.option('--dry-run', default=False, help='Don\'t actually submit any resources')
+@click.option('-y', is_flag=True, default=False, help='Always answer yes to questions')
+@click.option('--dry-run', is_flag=True, default=False, help='Don\'t actually submit any resources')
 def submit(dataset_spec, y, dry_run):
     """
         xloader submit [options] <dataset-spec>
