@@ -1,3 +1,15 @@
+0.8.0 2021-06-11
+================
+
+Features:
+* Click CLI for CKAN >= 2.9 #128
+
+Fixes:
+* Submit private datasets when using the `submit all` command #121
+* Send user context to the resource patch function #134
+* Add documentation for ssl_verify #135
+
+
 0.7.0 2020-11-23
 ================
 
