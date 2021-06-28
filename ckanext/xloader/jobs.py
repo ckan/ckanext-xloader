@@ -28,10 +28,7 @@ from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
-if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
-    SSL_VERIFY = False
-else:
-    SSL_VERIFY = True
+SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
@@ -479,7 +476,9 @@ def update_resource(resource, patch_only=False):
     """
     action = 'resource_update' if not patch_only else 'resource_patch'
     from ckan import model
-    context = {'model': model, 'session': model.Session, 'ignore_auth': True}
+    user = get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
+    context = {'model': model, 'session': model.Session, 'ignore_auth': True,
+               'user': user['name'], 'auth_user_obj': None}
     get_action(action)(context, resource)
 
 

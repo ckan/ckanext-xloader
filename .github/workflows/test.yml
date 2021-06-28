@@ -5,7 +5,7 @@ name: Tests
 on: [push]
 jobs:
   lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -14,7 +14,9 @@ jobs:
       - name: Install requirements
         run: pip install flake8 pycodestyle
       - name: Check syntax
-        run: flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics --exclude ckan
+        run: flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics --extend-exclude ckan
+      #- name: Run flake8
+      #  run: flake8 . --count --max-line-length=127 --statistics --exclude ckan
 
   test:
     needs: lint
@@ -24,7 +26,7 @@ jobs:
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }}
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     container:
       image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
     services:
@@ -48,30 +50,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Install requirements
       run: |
         pip install -r dev-requirements.txt
         pip install -r pip-requirements.txt
         pip install -e .
+        pip install -U requests[security]
+        pip install future
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
         #sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test_subclass.ini
-    - name: Install Full Text Search
-      run: |
-        echo "Create full text function..."
-        export PGPASSWORD=pass
-        psql "postgresql://datastore_write:pass@postgres/datastore_test"  -f full_text_function.sql
 
     - name: Setup extension (CKAN >= 2.9)
       if: ${{ matrix.ckan-version != '2.7' && matrix.ckan-version != '2.8' }}
       run: |
         ckan -c test.ini db init
-#        ckan -c test.ini datastore set-permissions | sudo -u postgres psql -p $PG_PORT
-    - name: Setup extension (CKAN < 2.9)
-      if: ${{ matrix.ckan-version == '2.7' || matrix.ckan-version == '2.8' }}
+    - name: Setup extension (CKAN 2.8)
+      if: ${{ matrix.ckan-version == '2.8' }}
       run: |
         paster --plugin=ckan db init -c test.ini
-#        paster datastore set-permissions -c test-core.ini | sudo -u postgres psql -p $PG_PORT
-    - name: Run all tests
-      run: pytest --ckan-ini=test.ini --cov=ckanext.xloader ckanext/xloader/tests
+    - name: Setup extension (CKAN 2.7)
+      if: ${{ matrix.ckan-version == '2.7' }}
+      run: |
+        psql -d "postgresql://datastore_write:pass@postgres/datastore_test" -f full_text_function.sql
+        paster --plugin=ckan db init -c test.ini
 
+    - name: Run tests
+      run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests

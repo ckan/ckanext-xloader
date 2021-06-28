@@ -15,7 +15,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # http://packaging.python.org/en/latest/tutorial.html#version
-    version='0.7.0',
+    version='0.8.0',
 
     description='Express Loader - quickly load data into CKAN DataStore''',
     long_description=long_description,
@@ -86,8 +86,8 @@ setup(
         ckan = ckan.lib.extract:extract_ckan
 
         [paste.paster_command]
-        xloader = ckanext.xloader.cli:xloaderCommand
-        migrate_types = ckanext.xloader.cli:MigrateTypesCommand
+        xloader = ckanext.xloader.paster:xloaderCommand
+        migrate_types = ckanext.xloader.paster:MigrateTypesCommand
 
     ''',
 
