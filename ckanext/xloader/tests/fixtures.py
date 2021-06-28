@@ -161,7 +161,6 @@ except ImportError:
         with test_request_context():
             yield
 
-
 def reset_datastore_db():
     engine = get_write_engine()
     Session = orm.scoped_session(orm.sessionmaker(bind=engine))
@@ -180,9 +179,10 @@ def add_full_text_trigger_function():
     Session.commit()
     Session.remove()
 
-
 @pytest.fixture()
 def full_reset(reset_db):
     reset_db()
     reset_datastore_db()
     add_full_text_trigger_function()
+
+
