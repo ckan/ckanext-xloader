@@ -1,7 +1,6 @@
 import pytest
 import mock
 
-import ckan.plugins as p
 from ckan.tests import helpers, factories
 
 

@@ -2,7 +2,7 @@
 #based on https://raw.githubusercontent.com/ckan/ckanext-scheming/master/.github/workflows/test.yml
 # alternative https://github.com/ckan/ckan/blob/master/contrib/cookiecutter/ckan_extension/%7B%7Bcookiecutter.project%7D%7D/.github/workflows/test.yml
 name: Tests
-on: [push, pull_request]
+on: [push]
 jobs:
   lint:
     runs-on: ubuntu-18.04

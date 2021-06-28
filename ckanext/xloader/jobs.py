@@ -17,7 +17,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, c
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -136,12 +136,11 @@ def xloader_data_into_datastore_(input, job_dict):
 
     data = input['metadata']
 
-    ckan_url = data['ckan_url']
     resource_id = data['resource_id']
     api_key = input.get('api_key')
     try:
         resource, dataset = get_resource_and_dataset(resource_id, api_key)
-    except (JobError, ObjectNotFound) as e:
+    except (JobError, ObjectNotFound):
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
         resource, dataset = get_resource_and_dataset(resource_id, api_key)
@@ -335,7 +334,7 @@ def _download_resource_data(resource, data, api_key, logger):
 def get_response(url, headers):
     def get_url():
         kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
-                  'verify': SSL_VERIFY, 'stream': True} # just gets the headers for now
+                  'verify': SSL_VERIFY, 'stream': True}  # just gets the headers for now
         if 'ckan.download_proxy' in config:
             proxy = config.get('ckan.download_proxy')
             kwargs['proxies'] = {'http': proxy, 'https': proxy}
