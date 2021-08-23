@@ -295,7 +295,7 @@ def _download_resource_data(resource, data, api_key, logger):
         line_count = 0
         m = hashlib.md5()
         for line in response.iter_lines(CHUNK_SIZE):
-            tmp_file.write(line + '\n')
+            tmp_file.write(line + b'\n')
             m.update(line)
             length += len(line)
             line_count += 1
