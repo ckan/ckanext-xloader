@@ -267,6 +267,7 @@ def _download_resource_data(resource, data, api_key, logger):
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
+            response.close()
             raise DataTooBigError()
 
         # download the file to a tempfile on disk
@@ -276,6 +277,7 @@ def _download_resource_data(resource, data, api_key, logger):
                 raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
+        response.close()
         data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
@@ -301,6 +303,7 @@ def _download_resource_data(resource, data, api_key, logger):
             line_count += 1
             if length > MAX_CONTENT_LENGTH or line_count >= MAX_EXCERPT_LINES:
                 break
+        response.close()
         data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
         # status code error
