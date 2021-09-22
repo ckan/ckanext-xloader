@@ -83,7 +83,7 @@ class TestAction(object):
 
     def test_status(self):
 
-        # Triggere an xloader job
+        # Trigger an xloader job
         res = factories.Resource(format="CSV")
 
         status = helpers.call_action(
@@ -91,4 +91,4 @@ class TestAction(object):
             resource_id=res["id"],
         )
 
-        assert status['state'] == 'submitting'
+        assert status['status'] == 'submitting'
