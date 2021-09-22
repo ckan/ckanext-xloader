@@ -91,4 +91,4 @@ class TestAction(object):
             resource_id=res["id"],
         )
 
-        assert status['status'] == 'submitting'
+        assert status['status'] == 'pending'
