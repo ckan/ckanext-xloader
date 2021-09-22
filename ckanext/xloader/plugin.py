@@ -23,6 +23,7 @@ DEFAULT_FORMATS = [
 
 class XLoaderFormats(object):
     formats = None
+
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:
@@ -49,6 +50,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     if toolkit.check_ckan_version('2.9'):
         plugins.implements(plugins.IClick)
         plugins.implements(plugins.IBlueprint)
+
         # IClick
         def get_commands(self):
             from ckanext.xloader.cli import get_commands
@@ -59,6 +61,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             return get_blueprints()
     else:
         plugins.implements(plugins.IRoutes, inherit=True)
+
         # IRoutes
         def before_map(self, m):
             m.connect(
@@ -169,7 +172,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             'xloader_submit': action.xloader_submit,
             'xloader_hook': action.xloader_hook,
             'xloader_status': action.xloader_status,
-            }
+        }
 
     # IAuthFunctions
 
@@ -177,7 +180,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             'xloader_submit': auth.xloader_submit,
             'xloader_status': auth.xloader_status,
-            }
+        }
 
     # ITemplateHelpers
 
