@@ -342,14 +342,9 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        # timestamp is a date, so not sure why this code was there
-        # for log in job_detail['logs']:
-        #     if 'timestamp' in log:
-        #         date = time.strptime(
-        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-        #         date = datetime.datetime.utcfromtimestamp(
-        #             time.mktime(date))
-        #         log['timestamp'] = date
+        for log in job_detail['logs']:
+            if 'timestamp' in log and isinstance(log['timestamp'], datetime.datetime):
+                log['timestamp'] = log['timestamp'].isoformat()
     try:
         error = json.loads(task['error'])
     except ValueError:
