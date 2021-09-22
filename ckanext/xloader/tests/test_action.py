@@ -80,3 +80,15 @@ class TestAction(object):
             key="xloader",
         )
         assert task_status["state"] == "complete"
+
+    def test_status(self):
+
+        # Triggere an xloader job
+        res = factories.Resource(format="CSV")
+
+        status = helpers.call_action(
+            "xloader_status",
+            resource_id=res["id"],
+        )
+
+        assert status['state'] == 'submitting'
