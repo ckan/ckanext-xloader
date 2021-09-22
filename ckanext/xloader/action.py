@@ -342,9 +342,10 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        for log in job_detail['logs']:
-            if 'timestamp' in log and isinstance(log['timestamp'], datetime.datetime):
-                log['timestamp'] = log['timestamp'].isoformat()
+        if job_detail.get('logs'):
+            for log in job_detail['logs']:
+                if 'timestamp' in log and isinstance(log['timestamp'], datetime.datetime):
+                    log['timestamp'] = log['timestamp'].isoformat()
     try:
         error = json.loads(task['error'])
     except ValueError:
