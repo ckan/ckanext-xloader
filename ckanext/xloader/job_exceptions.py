@@ -1,3 +1,6 @@
+import six
+
+
 class DataTooBigError(Exception):
     pass
 
@@ -33,14 +36,15 @@ class HTTPError(JobError):
 
         """
         super(HTTPError, self).__init__(message)
+        self.message = message
         self.status_code = status_code
         self.request_url = request_url
         self.response = response
 
     def __str__(self):
-        return u'{} status={} url={} response={}'.format(
-            self.message, self.status_code, self.request_url, self.response) \
-            .encode('ascii', 'replace')
+        return six.text_type('{} status={} url={} response={}'.format(
+            self.message, self.status_code, self.request_url, self.response)
+            .encode('ascii', 'replace'))
 
 
 class LoaderError(JobError):
