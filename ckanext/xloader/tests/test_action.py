@@ -1,7 +1,6 @@
 import pytest
 import mock
 
-import ckan.plugins as p
 from ckan.tests import helpers, factories
 
 
@@ -80,3 +79,15 @@ class TestAction(object):
             key="xloader",
         )
         assert task_status["state"] == "complete"
+
+    def test_status(self):
+
+        # Trigger an xloader job
+        res = factories.Resource(format="CSV")
+
+        status = helpers.call_action(
+            "xloader_status",
+            resource_id=res["id"],
+        )
+
+        assert status['status'] == 'pending'
