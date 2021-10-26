@@ -273,10 +273,10 @@ def _download_resource_data(resource, data, api_key, logger):
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
             if length > MAX_CONTENT_LENGTH:
-                response.close()
                 raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
+        response.close()
         data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
