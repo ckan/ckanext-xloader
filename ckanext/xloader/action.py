@@ -343,12 +343,10 @@ def xloader_status(context, data_dict):
         job_detail = db.get_job(job_id)
 
         # Attach time zone data to logs if needed
-        # job_detail['logs']  TypeError: 'NoneType' object has no attribute '__getitem__'
-        # for log in job_detail['logs']:
-        #     if 'timestamp' in log:
-        #         date = log['timestamp']
-        #         if not date.tzinfo:
-        #             log['timestamp'] = h.get_display_timezone().localize(date)
+        if job_detail and job_detail.get('logs'):
+            for log in job_detail['logs']:
+                if 'timestamp' in log and isinstance(log['timestamp'], datetime.datetime):
+                    log['timestamp'] = log['timestamp'].isoformat()
     try:
         error = json.loads(task['error'])
     except ValueError:

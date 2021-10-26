@@ -394,6 +394,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         result = requests.post(
             result_url,
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
+            verify=SSL_VERIFY,
             headers=headers)
     except requests.ConnectionError:
         return False

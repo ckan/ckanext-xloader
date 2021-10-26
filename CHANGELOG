@@ -1,3 +1,26 @@
+0.9.0 2021-10-01
+================
+
+Fixes:
+
+* Fix SQLAlchemy session exception on CKAN 2.9 #140
+* Fix xloader status timestamps #141
+* Fix to correctly report exceptions in stdout #141
+
+
+0.8.1 2021-08-30
+================
+
+Features:
+
+* Add ssl_verify option to callback_xloader_hook #136
+
+Fixes:
+
+* Fix bytes / str concat #138
+* Stream request needs to be explicited closed #139
+
+
 0.8.0 2021-06-11
 ================
 
