@@ -9,7 +9,7 @@ import six
 from dateutil.parser import parse as parse_date
 
 import ckan.lib.navl.dictization_functions
-import ckan.logic as logic
+from ckan import logic
 import ckan.plugins as p
 from ckan.logic import side_effect_free
 
@@ -288,25 +288,25 @@ def xloader_hook(context, data_dict):
                     resource_dict['last_modified'])
                 task_created_datetime = parse_date(metadata['task_created'])
                 if last_modified_datetime > task_created_datetime:
-                    log.debug('Uploaded file more recent: {0} > {1}'.format(
-                        last_modified_datetime, task_created_datetime))
+                    log.debug('Uploaded file more recent: %s > %s',
+                              last_modified_datetime, task_created_datetime)
                     resubmit = True
             except ValueError:
                 pass
         # Check if the URL of the file has been modified in the meantime
         elif (resource_dict.get('url')
-                and metadata.get('original_url')
-                and resource_dict['url'] != metadata['original_url']):
-            log.debug('URLs are different: {0} != {1}'.format(
-                resource_dict['url'], metadata['original_url']))
+              and metadata.get('original_url')
+              and resource_dict['url'] != metadata['original_url']):
+            log.debug('URLs are different: %s != %s',
+                      resource_dict['url'], metadata['original_url'])
             resubmit = True
 
     context['ignore_auth'] = True
     p.toolkit.get_action('task_status_update')(context, task)
 
     if resubmit:
-        log.debug('Resource {0} has been modified, '
-                  'resubmitting to DataPusher'.format(res_id))
+        log.debug('Resource %s has been modified, '
+                  'resubmitting to DataPusher', res_id)
         p.toolkit.get_action('xloader_submit')(
             context, {'resource_id': res_id})
 

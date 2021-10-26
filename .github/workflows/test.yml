@@ -1,8 +1,6 @@
 ---
-#based on https://raw.githubusercontent.com/ckan/ckanext-scheming/master/.github/workflows/test.yml
-# alternative https://github.com/ckan/ckan/blob/master/contrib/cookiecutter/ckan_extension/%7B%7Bcookiecutter.project%7D%7D/.github/workflows/test.yml
 name: Tests
-on: [push]
+on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -38,6 +36,8 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
           image: redis:3
@@ -53,8 +53,9 @@ jobs:
 
     - name: Install requirements
       run: |
-        pip install -r dev-requirements.txt
+        pip install -r requirements.txt
         pip install -r pip-requirements.txt
+        pip install -r dev-requirements.txt
         pip install -e .
         pip install -U requests[security]
         pip install future
