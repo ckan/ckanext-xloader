@@ -13,10 +13,15 @@ boolean_validator = get_validator('boolean_validator')
 int_validator = get_validator('int_validator')
 OneOf = get_validator('OneOf')
 
+if p.toolkit.check_ckan_version('2.9'):
+    unicode_safe = get_validator('unicode_safe')
+else:
+    unicode_safe = str
+
 
 def xloader_submit_schema():
     schema = {
-        'resource_id': [not_missing, not_empty, str],
+        'resource_id': [not_missing, not_empty, unicode_safe],
         'id': [ignore_missing],
         'set_url_type': [ignore_missing, boolean_validator],
         'ignore_hash': [ignore_missing, boolean_validator],

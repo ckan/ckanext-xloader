@@ -145,7 +145,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
 
-        logger.info('Fields: {}'.format(fields))
+        logger.info('Fields: %s', fields)
 
         # Create table
         from ckan import model
