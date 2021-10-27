@@ -5,6 +5,7 @@ import os
 import pytest
 import sqlalchemy.orm as orm
 import datetime
+import six
 from decimal import Decimal
 
 from ckan.tests import factories
@@ -779,10 +780,10 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 mimetype="text/csv",
                 logger=PrintLogger(),
             )
-        assert "Error with field definition" in str(exception.value)
+        assert "Error with field definition" in six.text_type(exception.value)
         assert (
             '"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name'
-            in str(exception.value)
+            in six.text_type(exception.value)
         )
 
     def test_geojson(self):
@@ -796,10 +797,10 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 mimetype="text/csv",
                 logger=PrintLogger(),
             )
-        assert "Error with field definition" in str(exception.value)
+        assert "Error with field definition" in six.text_type(exception.value)
         assert (
             '"{"type":"FeatureCollection"" is not a valid field name'
-            in str(exception.value)
+            in six.text_type(exception.value)
         )
 
     def test_shapefile_zip(self):
