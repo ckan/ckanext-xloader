@@ -38,6 +38,7 @@ def Session():
     Session.close()
 
 
+@pytest.mark.skip
 @pytest.mark.usefixtures("full_reset", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestLoadBase(object):
