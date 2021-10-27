@@ -147,9 +147,11 @@ def xloader_submit(context, data_dict):
     context['user'] = ''  # benign - needed for ckan 2.5
 
     model = context['model']
-    original_session = model.Session
-    model.Session = model.meta.create_local_session()
-    p.toolkit.get_action('task_status_update')(context, task)
+
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session()},
+        task
+        )
 
     data = {
         'api_key': site_user['apikey'],
@@ -174,7 +176,6 @@ def xloader_submit(context, data_dict):
             job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
-        model.Session = original_session
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
 
@@ -183,8 +184,11 @@ def xloader_submit(context, data_dict):
     task['value'] = value
     task['state'] = 'pending'
     task['last_updated'] = str(datetime.datetime.utcnow()),
-    p.toolkit.get_action('task_status_update')(context, task)
-    model.Session = original_session
+
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session()},
+        task
+        )
 
     return True
 
