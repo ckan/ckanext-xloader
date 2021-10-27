@@ -143,13 +143,12 @@ def xloader_submit(context, data_dict):
     except logic.NotFound:
         pass
 
-    context['ignore_auth'] = True
-    context['user'] = ''  # benign - needed for ckan 2.5
-
     model = context['model']
 
-    p.toolkit.get_action('task_status_update')(
-        {'session': model.meta.create_local_session()},
+    p.toolkit.get_action('task_status_update')({
+        'session': model.meta.create_local_session(),
+        'ignore_auth': True
+        },
         task
         )
 
@@ -185,8 +184,10 @@ def xloader_submit(context, data_dict):
     task['state'] = 'pending'
     task['last_updated'] = str(datetime.datetime.utcnow()),
 
-    p.toolkit.get_action('task_status_update')(
-        {'session': model.meta.create_local_session()},
+    p.toolkit.get_action('task_status_update')({
+        'session': model.meta.create_local_session(),
+        'ignore_auth': True
+        },
         task
         )
 
