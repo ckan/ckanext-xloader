@@ -12,26 +12,19 @@ import ckan.lib.navl.dictization_functions
 from ckan import logic
 import ckan.plugins as p
 from ckan.logic import side_effect_free
+import ckan.lib.jobs as rq_jobs
 
 import ckanext.xloader.schema
 from . import interfaces as xloader_interfaces
 from . import jobs
 from . import db
-try:
-    enqueue_job = p.toolkit.enqueue_job
-except AttributeError:
-    from ckanext.rq.jobs import enqueue as enqueue_job
-try:
-    import ckan.lib.jobs as rq_jobs
-except ImportError:
-    import ckanext.rq.jobs as rq_jobs
+
+enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-try:
-    config = p.toolkit.config
-except AttributeError:
-    from pylons import config
+config = p.toolkit.config
+
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
