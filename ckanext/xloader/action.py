@@ -175,7 +175,7 @@ def xloader_submit(context, data_dict):
 
     task['value'] = value
     task['state'] = 'pending'
-    task['last_updated'] = str(datetime.datetime.utcnow()),
+    task['last_updated'] = str(datetime.datetime.utcnow())
 
     p.toolkit.get_action('task_status_update')({
         'session': model.meta.create_local_session(),
