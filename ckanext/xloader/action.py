@@ -12,26 +12,19 @@ import ckan.lib.navl.dictization_functions
 from ckan import logic
 import ckan.plugins as p
 from ckan.logic import side_effect_free
+import ckan.lib.jobs as rq_jobs
 
 import ckanext.xloader.schema
 from . import interfaces as xloader_interfaces
 from . import jobs
 from . import db
-try:
-    enqueue_job = p.toolkit.enqueue_job
-except AttributeError:
-    from ckanext.rq.jobs import enqueue as enqueue_job
-try:
-    import ckan.lib.jobs as rq_jobs
-except ImportError:
-    import ckanext.rq.jobs as rq_jobs
+
+enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-try:
-    config = p.toolkit.config
-except AttributeError:
-    from pylons import config
+config = p.toolkit.config
+
 _get_or_bust = logic.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
@@ -143,13 +136,14 @@ def xloader_submit(context, data_dict):
     except logic.NotFound:
         pass
 
-    context['ignore_auth'] = True
-    context['user'] = ''  # benign - needed for ckan 2.5
-
     model = context['model']
-    original_session = model.Session
-    model.Session = model.meta.create_local_session()
-    p.toolkit.get_action('task_status_update')(context, task)
+
+    p.toolkit.get_action('task_status_update')({
+        'session': model.meta.create_local_session(),
+        'ignore_auth': True
+        },
+        task
+        )
 
     data = {
         'api_key': site_user['apikey'],
@@ -174,7 +168,6 @@ def xloader_submit(context, data_dict):
             job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
-        model.Session = original_session
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
 
@@ -182,9 +175,14 @@ def xloader_submit(context, data_dict):
 
     task['value'] = value
     task['state'] = 'pending'
-    task['last_updated'] = str(datetime.datetime.utcnow()),
-    p.toolkit.get_action('task_status_update')(context, task)
-    model.Session = original_session
+    task['last_updated'] = str(datetime.datetime.utcnow())
+
+    p.toolkit.get_action('task_status_update')({
+        'session': model.meta.create_local_session(),
+        'ignore_auth': True
+        },
+        task
+        )
 
     return True
 
