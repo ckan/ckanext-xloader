@@ -77,9 +77,9 @@ def xloader_data_into_datastore(input):
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
     except JobError as e:
-        db.mark_job_as_errored(job_id, str(e))
+        db.mark_job_as_errored(job_id, six.text_type(e))
         job_dict['status'] = 'error'
-        job_dict['error'] = str(e)
+        job_dict['error'] = six.text_type(e)
         log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
@@ -87,7 +87,7 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
-        job_dict['error'] = str(e)
+        job_dict['error'] = six.text_type(e)
         log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
@@ -317,9 +317,9 @@ def _download_resource_data(resource, data, api_key, logger):
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
         try:
-            err_message = str(e.reason)
+            err_message = six.text_type(e.reason)
         except AttributeError:
-            err_message = str(e)
+            err_message = six.text_type(e)
         logger.warning('URL error: %s', err_message)
         raise HTTPError(
             message=err_message, status_code=None,
