@@ -245,6 +245,7 @@ def _download_resource_data(resource, data, api_key, logger):
     # check scheme
     url = resource.get('url')
 
+    # replace hostname in url
     if config.get('ckanext.xloader.ckan_host'):
         ckan_host = config.get('ckanext.xloader.ckan_host')
         url_parse_reseult = urlparse(url)
