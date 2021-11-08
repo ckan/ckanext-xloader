@@ -10,6 +10,7 @@ import datetime
 import traceback
 import sys
 import six
+from urllib.parse import urlparse, urlunparse
 
 from six.moves.urllib.parse import urlsplit
 import requests
@@ -243,6 +244,12 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
+
+    if config.get('ckanext.xloader.ckan_host'):
+        ckan_host = config.get('ckanext.xloader.ckan_host')
+        url_parse_reseult = urlparse(url)
+        url = urlunparse(url_parse_reseult._replace(netloc=ckan_host))
+
     scheme = urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
