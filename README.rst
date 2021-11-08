@@ -265,6 +265,11 @@ Configuration:
     # to True.
     ckanext.xloader.ssl_verify = True
 
+    # The hostname of a CKAN server. The value should have the hostname.
+    # And you can add the port number on demand.
+    # You cannot put any protocols (http://, https://, etc) ahead of this value.
+    ckanext.xloader.ckan_host = ckan:5000
+
 ------------------------
 Developer installation
 ------------------------
