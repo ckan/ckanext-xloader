@@ -10,9 +10,8 @@ import datetime
 import traceback
 import sys
 import six
-from urllib.parse import urlparse, urlunparse
 
-from six.moves.urllib.parse import urlsplit
+from six.moves.urllib.parse import urlsplit, urlparse, urlunparse
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
