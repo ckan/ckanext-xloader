@@ -332,7 +332,7 @@ See the status of jobs::
 
 Submit all datasets' resources to the DataStore::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini submit all
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all
     [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
 
 Re-submit all the resources already in the DataStore (Ignores any resources
