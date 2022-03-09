@@ -61,17 +61,14 @@ jobs:
     - name: Setup extension (CKAN >= 2.9)
       if: ${{ matrix.ckan-version != '2.7' && matrix.ckan-version != '2.8' }}
       run: |
-        pip install future
         ckan -c test.ini db init
     - name: Setup extension (CKAN 2.8)
       if: ${{ matrix.ckan-version == '2.8' }}
       run: |
-        pip install future
         paster --plugin=ckan db init -c test.ini
     - name: Setup extension (CKAN 2.7)
       if: ${{ matrix.ckan-version == '2.7' }}
       run: | 
-        pip install future
         psql -d postgresql://datastore_write:pass@postgres/datastore_test -f full_text_function.sql
         paster --plugin=ckan db init -c test.ini
     - name: Run tests

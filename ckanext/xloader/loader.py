@@ -1,7 +1,6 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
-from builtins import zip
-from builtins import str
+from six import text_type as str
 import os
 import os.path
 import tempfile
