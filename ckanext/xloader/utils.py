@@ -6,7 +6,10 @@ def resource_data(id, resource_id):
     if p.toolkit.request.method == "POST":
         try:
             p.toolkit.c.pkg_dict = p.toolkit.get_action("xloader_submit")(
-                None, {"resource_id": resource_id}
+                None, {
+                    "resource_id": resource_id,
+                    "ignore_hash": True,  # user clicked the reload button
+                }
             )
         except p.toolkit.ValidationError:
             pass
