@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 from __future__ import absolute_import
-from builtins import str
+from six import text_type as str
 import logging
 import json
 import datetime
