@@ -169,26 +169,7 @@ def reset_datastore_db():
     datastore_helpers.clear_db(Session)
 
 
-def add_full_text_trigger_function():
-    """Add full text trigger to the database
-
-    TODO: Remove when dropping support for 2.7
-    """
-    engine = get_write_engine()
-    Session = orm.scoped_session(orm.sessionmaker(bind=engine))
-    c = Session.connection()
-    with open(
-        os.path.join(__location__, "..", "..", "..", "full_text_function.sql"),
-        "r",
-    ) as full_text_sql:
-        c.execute(sqlalchemy.text(full_text_sql.read()))
-    Session.commit()
-    Session.remove()
-
-
 @pytest.fixture()
 def full_reset(reset_db):
     reset_db()
     reset_datastore_db()
-    if toolkit.check_ckan_version(max_version='2.7.99'):
-        add_full_text_trigger_function()

@@ -31,6 +31,9 @@ def Session():
     Session.close()
 
 
+@pytest.mark.skipif(
+    p.toolkit.check_ckan_version(max_version='2.7.99'),
+    reason="fixtures do not have permission populate full_text_trigger")
 @pytest.mark.usefixtures("full_reset", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestLoadBase(object):
