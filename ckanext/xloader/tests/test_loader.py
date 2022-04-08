@@ -5,6 +5,8 @@ import os
 import pytest
 import sqlalchemy.orm as orm
 import datetime
+import logging
+
 from decimal import Decimal
 
 from ckan.tests import factories
@@ -14,21 +16,12 @@ from ckanext.xloader.job_exceptions import LoaderError
 
 import ckan.plugins as p
 
+logger = logging.getLogger(__name__)
 
 def get_sample_filepath(filename):
     return os.path.abspath(
         os.path.join(os.path.dirname(__file__), "samples", filename)
     )
-
-
-class PrintLogger(object):
-    def __getattr__(self, log_level):
-        def print_func(msg):
-            time = datetime.datetime.now().strftime("%H:%M:%S")
-            print("{} {}: {}".format(time, log_level.capitalize(), msg))
-
-        return print_func
-
 
 @pytest.fixture()
 def Session():
@@ -91,7 +84,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         assert self._get_records(
@@ -136,10 +129,10 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         loader.create_column_indexes(
-            fields=fields, resource_id=resource_id, logger=PrintLogger()
+            fields=fields, resource_id=resource_id, logger=logger
         )
 
         assert (
@@ -169,7 +162,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         print("Load: {}s".format(time.time() - t0))
 
@@ -193,7 +186,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         print("Load: {}s".format(time.time() - t0))
 
@@ -205,7 +198,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         records = self._get_records(Session, "test1")
@@ -356,7 +349,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         records = self._get_records(Session, "test1")
@@ -573,7 +566,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         records = self._get_records(Session, "test_german")
@@ -622,7 +615,7 @@ class TestLoadCsv(TestLoadBase):
                 csv_filepath,
                 resource_id=resource_id,
                 mimetype="CSV",
-                logger=PrintLogger(),
+                logger=logger,
             )
         except (LoaderError, UnicodeDecodeError):
             pass
@@ -637,7 +630,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         # Load it again unchanged
@@ -645,7 +638,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         assert len(self._get_records(Session, "test1")) == 6
@@ -676,7 +669,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         # Change types, as it would be done by Data Dictionary
         rec = p.toolkit.get_action("datastore_search")(
@@ -695,10 +688,10 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         loader.create_column_indexes(
-            fields=fields, resource_id=resource_id, logger=PrintLogger()
+            fields=fields, resource_id=resource_id, logger=logger
         )
 
         assert len(self._get_records(Session, "test1")) == 6
@@ -750,7 +743,7 @@ class TestLoadCsv(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         assert self._get_column_names(Session, "test1")[2:] == [
@@ -776,7 +769,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 filepath,
                 resource_id=resource_id,
                 mimetype="text/csv",
-                logger=PrintLogger(),
+                logger=logger,
             )
         assert "Error with field definition" in str(exception.value)
         assert (
@@ -793,7 +786,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 filepath,
                 resource_id=resource_id,
                 mimetype="text/csv",
-                logger=PrintLogger(),
+                logger=logger,
             )
         assert "Error with field definition" in str(exception.value)
         assert (
@@ -810,7 +803,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 filepath,
                 resource_id=resource_id,
                 mimetype="text/csv",
-                logger=PrintLogger(),
+                logger=logger,
             )
 
 
@@ -823,7 +816,7 @@ class TestLoadMessytables(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="xls",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         assert (
@@ -900,7 +893,7 @@ class TestLoadMessytables(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         print("Load: {}s".format(time.time() - t0))
 
@@ -924,7 +917,7 @@ class TestLoadMessytables(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
         print("Load: {}s".format(time.time() - t0))
 
@@ -936,7 +929,7 @@ class TestLoadMessytables(TestLoadBase):
             csv_filepath,
             resource_id=resource_id,
             mimetype="csv",
-            logger=PrintLogger(),
+            logger=logger,
         )
 
         records = self._get_records(Session, "test1")
@@ -1119,5 +1112,5 @@ class TestLoadMessytables(TestLoadBase):
                 csv_filepath,
                 resource_id=resource_id,
                 mimetype="csv",
-                logger=PrintLogger(),
+                logger=logger,
             )
