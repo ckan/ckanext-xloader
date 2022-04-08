@@ -80,7 +80,7 @@ def mock_actions(func):
 
     return make_decorator(func)(wrapper)
 
-
+@pytest.mark.skip
 @pytest.mark.usefixtures("with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestxloaderDataIntoDatastore(object):
