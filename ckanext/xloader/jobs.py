@@ -17,11 +17,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    from pylons import config
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 import ckan.lib.search as search
 
 from . import loader
