@@ -81,7 +81,7 @@ def mock_actions(func):
     return make_decorator(func)(wrapper)
 
 
-@pytest.mark.usefixtures("full_reset", "with_plugins")
+@pytest.mark.usefixtures("with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestxloaderDataIntoDatastore(object):
 
@@ -164,7 +164,7 @@ class TestxloaderDataIntoDatastore(object):
 
     def get_datastore_table(self):
         engine, conn = self.get_datastore_engine_and_connection()
-        meta = MetaData(bind=engine, reflect=True)
+        meta = MetaData(bind=engine)
         table = Table(
             self.resource_id, meta, autoload=True, autoload_with=engine
         )
