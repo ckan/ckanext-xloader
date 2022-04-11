@@ -17,11 +17,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    from pylons import config
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 import ckan.lib.search as search
 
 from . import loader
@@ -418,18 +414,16 @@ def set_resource_metadata(update_dict):
         update_dict.get('datastore_contains_all_records_of_source_file', True)
     })
 
-    # get extras(for entity update) and package_id(for search index update)
-    res_query = model.Session.query(
-        model.resource_table.c.extras,
-        model.resource_table.c.package_id
-    ).filter(
-        model.Resource.id == update_dict['resource_id']
-    )
-    extras, package_id = res_query.one()
+    q = model.Session.query(model.Resource). \
+        filter(model.Resource.id == update_dict['resource_id'])
+    resource = q.one()
 
-    # update extras in database for record and its revision
+    # update extras in database for record
+    extras = resource.extras
     extras.update(update_dict)
-    res_query.update({'extras': extras}, synchronize_session=False)
+    q.update({'extras': extras}, synchronize_session=False)
+
+    # TODO: Remove resource_revision_table when dropping support for 2.8
     if hasattr(model, 'resource_revision_table'):
         model.Session.query(model.resource_revision_table).filter(
             model.ResourceRevision.id == update_dict['resource_id'],
@@ -442,7 +436,7 @@ def set_resource_metadata(update_dict):
     psi = search.PackageSearchIndex()
     solr_query = search.PackageSearchQuery()
     q = {
-        'q': 'id:"{0}"'.format(package_id),
+        'q': 'id:"{0}"'.format(resource.package_id),
         'fl': 'data_dict',
         'wt': 'json',
         'fq': 'site_id:"%s"' % config.get('ckan.site_id'),

@@ -19,7 +19,7 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        ckan-version: [2.9, 2.9-py2, 2.8, 2.7]
+        ckan-version: ["2.10", 2.9, 2.9-py2, 2.8, 2.7]
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }}
@@ -28,7 +28,7 @@ jobs:
       image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
     services:
       solr:
-        image: ckan/ckan-solr-dev:${{ matrix.ckan-version }}
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}
       postgres:
         image: ckan/ckan-postgres-dev:${{ matrix.ckan-version }}
         env:
@@ -36,7 +36,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
-          - 5432:5432  
+          - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
           image: redis:3
@@ -68,7 +68,7 @@ jobs:
         paster --plugin=ckan db init -c test.ini
     - name: Setup extension (CKAN 2.7)
       if: ${{ matrix.ckan-version == '2.7' }}
-      run: | 
+      run: |
         psql -d postgresql://datastore_write:pass@postgres/datastore_test -f full_text_function.sql
         paster --plugin=ckan db init -c test.ini
     - name: Run tests

@@ -69,13 +69,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 action='resource_data', ckan_icon='cloud-upload')
             return m
 
-    # IResourceController
-
-    def before_show(self, resource_dict):
-        resource_dict[
-            'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
-            resource_dict.get('datastore_contains_all_records_of_source_file'))
-
     # IConfigurer
 
     def update_config(self, config):
@@ -123,11 +116,23 @@ class xloaderPlugin(plugins.SingletonPlugin):
         )
         self._submit_to_xloader(resource_dict)
 
-    # IResourceController                
+    # IResourceController
+    if toolkit.check_ckan_version('2.10'):
+        def after_resource_create(self, context, resource_dict):
+            self._submit_to_xloader(resource_dict)
 
-    def after_create(self, context, resource_dict):
+        def before_resource_show(self, resource_dict):
+            resource_dict[
+            'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
+            resource_dict.get('datastore_contains_all_records_of_source_file'))
+    else:
+        def after_create(self, context, resource_dict):
+            self._submit_to_xloader(resource_dict)
 
-        self._submit_to_xloader(resource_dict)
+        def before_show(self, resource_dict):
+            resource_dict[
+            'datastore_contains_all_records_of_source_file'] = toolkit.asbool(
+            resource_dict.get('datastore_contains_all_records_of_source_file'))
 
     def _submit_to_xloader(self, resource_dict):
         context = {'model': model, 'ignore_auth': True,
