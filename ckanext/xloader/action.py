@@ -66,7 +66,12 @@ def xloader_submit(context, data_dict):
         return False
 
     site_url = config['ckan.site_url']
-    callback_url = site_url + '/api/3/action/xloader_hook'
+    callback_url = p.toolkit.url_for(
+        "api.action",
+        ver=3,
+        logic_function="xloader_hook",
+        qualified=True
+    )
 
     site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
 
