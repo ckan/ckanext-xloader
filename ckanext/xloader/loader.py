@@ -82,8 +82,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
-    #                  for field in zip(headers, types)]
 
     # TODO worry about csv header name problems
     # e.g. duplicate names
@@ -100,8 +98,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 f_write.write(line)
             f_write.close()   # ensures the last line is written
             csv_filepath = f_write.name
-
-        # check tables exists
 
         # datastore db connection
         engine = get_write_engine()
@@ -172,10 +168,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
         # datstore_active is switched on by datastore_create - TODO temporarily
         # disable it until the load is complete
-
-        # logger.info('Disabling row index trigger')
         _disable_fulltext_trigger(connection, resource_id)
-        # logger.info('Dropping indexes')
         _drop_indexes(context, data_dict, False)
 
         logger.info('Copying to database...')
@@ -356,10 +349,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.info('Determined headers and types: {headers}'.format(
             headers=headers_dicts))
 
-        # Commented - this is only for tests
-        # if dry_run:
-        #     return headers_dicts, result
-
         logger.info('Copying to database...')
         count = 0
         for i, records in enumerate(chunky(result, 250)):
@@ -375,10 +364,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             # no datastore table is created
             raise LoaderError('No entries found - nothing to load')
 
-        # Commented - this is done by the caller in jobs.py
-        # if data.get('set_url_type', False):
-        #     update_resource(resource, api_key, ckan_url)
-
 
 _TYPE_MAPPING = {
     'String': 'text',
@@ -393,8 +378,6 @@ _TYPE_MAPPING = {
 def get_types():
     _TYPES = [messytables.StringType, messytables.DecimalType,
               messytables.IntegerType, messytables.DateUtilType]
-    # TODO make this configurable
-    # TYPES = web.app.config.get('TYPES', _TYPES)
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
