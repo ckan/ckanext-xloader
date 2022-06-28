@@ -60,7 +60,7 @@ def xloader_submit(context, data_dict):
         resource_dict = p.toolkit.get_action('resource_show')(context, {
             'id': res_id,
         })
-    except p.toolkit.NotFound:
+    except p.toolkit.ObjectNotFound:
         return False
 
     for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
@@ -126,7 +126,7 @@ def xloader_submit(context, data_dict):
                 return False
 
         task['id'] = existing_task['id']
-    except p.toolkit.NotFound:
+    except p.toolkit.ObjectNotFound:
         pass
 
     model = context['model']
