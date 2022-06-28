@@ -5,7 +5,6 @@ import datetime
 import json
 import logging
 
-from ckan import logic
 import ckan.lib.jobs as rq_jobs
 import ckan.lib.navl.dictization_functions
 from ckan.logic import side_effect_free
@@ -25,7 +24,7 @@ get_queue = rq_jobs.get_queue
 log = logging.getLogger(__name__)
 config = p.toolkit.config
 
-_get_or_bust = logic.get_or_bust
+_get_or_bust = p.toolkit.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
 
@@ -62,7 +61,7 @@ def xloader_submit(context, data_dict):
         resource_dict = p.toolkit.get_action('resource_show')(context, {
             'id': res_id,
         })
-    except logic.NotFound:
+    except p.toolkit.NotFound:
         return False
 
     site_url = config['ckan.site_url']
@@ -138,7 +137,7 @@ def xloader_submit(context, data_dict):
                 return False
 
         task['id'] = existing_task['id']
-    except logic.NotFound:
+    except p.toolkit.NotFound:
         pass
 
     model = context['model']
@@ -275,7 +274,7 @@ def xloader_hook(context, data_dict):
         for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
             plugin.after_upload(context, resource_dict, dataset_dict)
 
-        logic.get_action('resource_create_default_resource_views')(
+        p.toolkit.get_action('resource_create_default_resource_views')(
             context,
             {
                 'resource': resource_dict,
