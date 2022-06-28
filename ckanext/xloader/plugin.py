@@ -1,13 +1,15 @@
+import logging
+
 from ckan import model
+from ckan.common import config
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-from ckan.common import config
 
 from ckanext.xloader import action, auth
 import ckanext.xloader.helpers as xloader_helpers
 from ckanext.xloader.loader import fulltext_function_exists, get_write_engine
 
-log = __import__('logging').getLogger(__name__)
+log = logging.getLogger(__name__)
 p = plugins
 
 
