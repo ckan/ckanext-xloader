@@ -131,12 +131,10 @@ def xloader_submit(context, data_dict):
 
     model = context['model']
 
-    p.toolkit.get_action('task_status_update')({
-        'session': model.meta.create_local_session(),
-        'ignore_auth': True
-        },
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
         task
-        )
+    )
 
     site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
     callback_url = p.toolkit.url_for(
@@ -174,12 +172,10 @@ def xloader_submit(context, data_dict):
     task['state'] = 'pending'
     task['last_updated'] = str(datetime.datetime.utcnow())
 
-    p.toolkit.get_action('task_status_update')({
-        'session': model.meta.create_local_session(),
-        'ignore_auth': True
-        },
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
         task
-        )
+    )
 
     return True
 
