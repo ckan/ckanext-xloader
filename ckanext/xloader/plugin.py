@@ -151,23 +151,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             return
 
         try:
-            task = p.toolkit.get_action('task_status_show')(
-                context, {
-                    'entity_id': resource_dict["id"],
-                    'task_type': 'xloader',
-                    'key': 'xloader'}
-            )
-        #     if task.get('state') == 'pending':
-        #         # There already is a pending DataPusher submission,
-        #         # skip this one ...
-        #         log.debug(
-        #             'Skipping DataPusher submission for '
-        #             'resource {0}'.format(entity.id))
-        #         return
-        except p.toolkit.ObjectNotFound:
-            pass
-
-        try:
             log.debug('Submitting resource {0} to be xloadered'
                         .format(resource_dict["id"]))
             p.toolkit.get_action('xloader_submit')(context, {
