@@ -5,7 +5,7 @@ def resource_data(id, resource_id):
 
     if p.toolkit.request.method == "POST":
         try:
-            p.toolkit.c.pkg_dict = p.toolkit.get_action("xloader_submit")(
+            p.toolkit.get_action("xloader_submit")(
                 None, {
                     "resource_id": resource_id,
                     "ignore_hash": True,  # user clicked the reload button
@@ -19,8 +19,8 @@ def resource_data(id, resource_id):
         )
 
     try:
-        p.toolkit.c.pkg_dict = p.toolkit.get_action("package_show")(None, {"id": id})
-        p.toolkit.c.resource = p.toolkit.get_action("resource_show")(
+        pkg_dict = p.toolkit.get_action("package_show")(None, {"id": id})
+        resource = p.toolkit.get_action("resource_show")(
             None, {"id": resource_id}
         )
     except (p.toolkit.ObjectNotFound, p.toolkit.NotAuthorized):
@@ -39,7 +39,7 @@ def resource_data(id, resource_id):
         "xloader/resource_data.html",
         extra_vars={
             "status": xloader_status,
-            "resource": p.toolkit.c.resource,
-            "pkg_dict": p.toolkit.c.pkg_dict,
+            "resource": resource,
+            "pkg_dict": pkg_dict,
         },
     )
