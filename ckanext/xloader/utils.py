@@ -6,10 +6,11 @@ def resource_data(id, resource_id):
     if p.toolkit.request.method == "POST":
         try:
             p.toolkit.get_action("xloader_submit")(
-                None, {
+                None,
+                {
                     "resource_id": resource_id,
                     "ignore_hash": True,  # user clicked the reload button
-                }
+                },
             )
         except p.toolkit.ValidationError:
             pass
@@ -20,9 +21,7 @@ def resource_data(id, resource_id):
 
     try:
         pkg_dict = p.toolkit.get_action("package_show")(None, {"id": id})
-        resource = p.toolkit.get_action("resource_show")(
-            None, {"id": resource_id}
-        )
+        resource = p.toolkit.get_action("resource_show")(None, {"id": resource_id})
     except (p.toolkit.ObjectNotFound, p.toolkit.NotAuthorized):
         return p.toolkit.abort(404, p.toolkit._("Resource not found"))
 
