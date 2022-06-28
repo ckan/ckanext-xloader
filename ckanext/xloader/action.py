@@ -53,26 +53,15 @@ def xloader_submit(context, data_dict):
     if errors:
         raise p.toolkit.ValidationError(errors)
 
-    res_id = data_dict['resource_id']
-
     p.toolkit.check_access('xloader_submit', context, data_dict)
 
+    res_id = data_dict['resource_id']
     try:
         resource_dict = p.toolkit.get_action('resource_show')(context, {
             'id': res_id,
         })
     except p.toolkit.NotFound:
         return False
-
-    site_url = config['ckan.site_url']
-    callback_url = p.toolkit.url_for(
-        "api.action",
-        ver=3,
-        logic_function="xloader_hook",
-        qualified=True
-    )
-
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
 
     for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
         upload = plugin.can_upload(res_id)
@@ -149,13 +138,20 @@ def xloader_submit(context, data_dict):
         task
         )
 
+    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
+    callback_url = p.toolkit.url_for(
+        "api.action",
+        ver=3,
+        logic_function="xloader_hook",
+        qualified=True
+    )
     data = {
         'api_key': site_user['apikey'],
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
             'ignore_hash': data_dict.get('ignore_hash', False),
-            'ckan_url': site_url,
+            'ckan_url': config['ckan.site_url'],
             'resource_id': res_id,
             'set_url_type': data_dict.get('set_url_type', False),
             'task_created': task['last_updated'],
