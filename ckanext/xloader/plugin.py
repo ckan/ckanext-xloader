@@ -10,7 +10,6 @@ import ckanext.xloader.helpers as xloader_helpers
 from ckanext.xloader.loader import fulltext_function_exists, get_write_engine
 
 log = logging.getLogger(__name__)
-p = plugins
 
 
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
@@ -76,7 +75,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     def update_config(self, config):
         templates_base = config.get('ckan.base_templates_folder',
                                     'templates-bs2')  # for ckan < 2.8
-        p.toolkit.add_template_directory(config, templates_base)
+        toolkit.add_template_directory(config, templates_base)
 
     # IConfigurable
 
@@ -92,7 +91,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     'Config option `{0}` must be set to use ckanext-xloader.'
                     .format(config_option))
 
-        if p.toolkit.check_ckan_version(max_version='2.7.99'):
+        if toolkit.check_ckan_version(max_version='2.7.99'):
             # populate_full_text_trigger() needs to be defined, and this was
             # introduced in CKAN 2.8 when you installed datastore e.g.:
             #     paster datastore set-permissions
@@ -155,11 +154,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
         try:
             log.debug('Submitting resource {0} to be xloadered'
                         .format(resource_dict["id"]))
-            p.toolkit.get_action('xloader_submit')(context, {
+            toolkit.get_action('xloader_submit')(context, {
                 'resource_id': resource_dict["id"],
                 'ignore_hash': self.ignore_hash,
             })
-        except p.toolkit.ValidationError as e:
+        except toolkit.ValidationError as e:
             # If xloader is offline, we want to catch error instead
             # of raising otherwise resource save will fail with 500
             log.critical(e)
