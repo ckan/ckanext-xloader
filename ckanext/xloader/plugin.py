@@ -1,6 +1,5 @@
 import logging
 
-from ckan import model
 from ckan.common import config
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -123,7 +122,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def notify(self, resource):
         context = {
-            "model": model,
             "ignore_auth": True,
         }
         resource_dict = toolkit.get_action("resource_show")(
@@ -160,7 +158,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             )
 
     def _submit_to_xloader(self, resource_dict):
-        context = {"model": model, "ignore_auth": True, "defer_commit": True}
+        context = {"ignore_auth": True, "defer_commit": True}
         if not XLoaderFormats.is_it_an_xloader_format(resource_dict["format"]):
             log.debug(
                 "Skipping xloading resource {id} because "
