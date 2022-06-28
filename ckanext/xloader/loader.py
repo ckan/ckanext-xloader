@@ -50,13 +50,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             table_set = messytables.any_tableset(f, mimetype=mimetype,
                                                  extension=extension)
         except messytables.ReadError as e:
-            # # try again with format
-            # f.seek(0)
-            # try:
-            #     format = resource.get('format')
-            #     table_set = messytables.any_tableset(f, mimetype=format,
-            #                                          extension=format)
-            # except Exception:
             raise LoaderError('Messytables error: {}'.format(e))
         except Exception as e:
             raise FileCouldNotBeLoadedError(e)
