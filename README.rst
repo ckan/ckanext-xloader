@@ -265,6 +265,11 @@ Configuration:
     # to True.
     ckanext.xloader.ssl_verify = True
 
+    # Uses a specific API token for the xloader_submit action instead of the
+    # apikey of the site_user
+    ckanext.xloader.api_token = ckan-provided-api-token
+
+
 ------------------------
 Developer installation
 ------------------------
