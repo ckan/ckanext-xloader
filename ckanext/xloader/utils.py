@@ -42,3 +42,18 @@ def resource_data(id, resource_id):
             "pkg_dict": pkg_dict,
         },
     )
+
+
+def get_xloader_user_apitoken():
+    """ Returns the API Token for authentication.
+
+    xloader actions require an authenticated user to perform the actions. This
+    method returns the api_token set in the config file and defaults to the
+    site_user.
+    """
+    api_token = p.toolkit.config.get('ckanext.xloader.api_token', None)
+    if api_token:
+        return api_token
+
+    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
+    return site_user["apikey"]

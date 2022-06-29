@@ -17,6 +17,7 @@ import ckanext.xloader.schema
 from . import interfaces as xloader_interfaces
 from . import jobs
 from . import db
+from . import utils
 
 enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
@@ -136,7 +137,6 @@ def xloader_submit(context, data_dict):
         task
     )
 
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
     callback_url = p.toolkit.url_for(
         "api.action",
         ver=3,
@@ -144,7 +144,7 @@ def xloader_submit(context, data_dict):
         qualified=True
     )
     data = {
-        'api_key': site_user['apikey'],
+        'api_key': utils.get_xloader_user_apitoken(),
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
