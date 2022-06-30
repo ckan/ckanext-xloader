@@ -161,6 +161,11 @@ def xloader_submit(context, data_dict):
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=timeout)
         )
+    except TypeError:
+        # This except provides support for 2.7.
+        job = enqueue_job(
+            jobs.xloader_data_into_datastore, [data], timeout=timeout
+        )
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
         return False
