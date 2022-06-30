@@ -1,8 +1,0 @@
-ckantoolkit
-pika>=1.1.0
-pyOpenSSL==18.0.0
-redis
-requests>=2.11.1
-six>=1.12.0
-messytables==0.15.2
-Unidecode==1.0.22
