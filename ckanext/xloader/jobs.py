@@ -17,8 +17,9 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
 import ckan.lib.search as search
+from ckan.lib.api_token import get_user_from_token
 
 from . import loader
 from . import db
@@ -480,16 +481,45 @@ def update_resource(resource, patch_only=False):
     get_action(action)(context, resource)
 
 
+def _get_user_from_key(api_key_or_token):
+    """ Gets the user using the API Token or API Key.
+
+    This method provides backwards compatibility for CKAN 2.9 that
+    supported both methods and previous CKAN versions supporting
+    only API Keys.
+    """
+    user = None
+
+    if check_ckan_version(min_version="2.10"):
+        user = get_user_from_token(api_key_or_token)
+        return user
+
+    if check_ckan_version(min_version="2.9"):
+        user = get_user_from_token(api_key_or_token)
+        if not user:
+            user = model.Session.query(model.User).filter_by(
+                apikey=api_key_or_token
+            ).first()
+        return user
+
+    if check_ckan_version(min_version="2.7"):
+        user = model.Session.query(model.User).filter_by(
+            apikey=api_key_or_token
+        ).first()
+        return user
+
+    return user
+
+
 def get_resource_and_dataset(resource_id, api_key):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    user = model.Session.query(model.User).filter_by(
-        apikey=api_key).first()
+    context = None
+    user = _get_user_from_key(api_key)
     if user is not None:
         context = {'user': user.name}
-    else:
-        context = None
+
     res_dict = get_action('resource_show')(context, {'id': resource_id})
     pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
