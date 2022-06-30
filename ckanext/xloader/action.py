@@ -163,7 +163,7 @@ def xloader_submit(context, data_dict):
         )
     except TypeError:
         # This except provides support for 2.7.
-        job = enqueue_job(
+        job = _enqueue(
             jobs.xloader_data_into_datastore, [data], timeout=timeout
         )
     except Exception:
@@ -183,6 +183,29 @@ def xloader_submit(context, data_dict):
     )
 
     return True
+
+
+def _enqueue(fn, args=None, kwargs=None, title=None, queue='default',
+             timeout=180):
+    '''Same as latest ckan.lib.jobs.enqueue - earlier CKAN versions dont have
+    the timeout param
+
+    This function can be removed when dropping support for 2.7
+    '''
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+    job = get_queue(queue).enqueue_call(func=fn, args=args, kwargs=kwargs,
+                                        timeout=timeout)
+    job.meta[u'title'] = title
+    job.save()
+    msg = u'Added background job {}'.format(job.id)
+    if title:
+        msg = u'{} ("{}")'.format(msg, title)
+    msg = u'{} to queue "{}"'.format(msg, queue)
+    log.info(msg)
+    return job
 
 
 def xloader_hook(context, data_dict):
