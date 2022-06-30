@@ -474,10 +474,12 @@ def update_resource(resource, patch_only=False):
     or patch the given CKAN resource for file hash
     """
     action = 'resource_update' if not patch_only else 'resource_patch'
-    from ckan import model
-    user = get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
-    context = {'model': model, 'session': model.Session, 'ignore_auth': True,
-               'user': user['name'], 'auth_user_obj': None}
+    user = get_action('get_site_user')({'ignore_auth': True}, {})
+    context = {
+        'ignore_auth': True,
+        'user': user['name'],
+        'auth_user_obj': None
+    }
     get_action(action)(context, resource)
 
 
