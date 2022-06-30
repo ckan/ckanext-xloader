@@ -19,7 +19,6 @@ import sqlalchemy as sa
 import ckan.model as model
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
 import ckan.lib.search as search
-from ckan.lib.api_token import get_user_from_token
 
 from . import loader
 from . import db
@@ -493,10 +492,12 @@ def _get_user_from_key(api_key_or_token):
     user = None
 
     if check_ckan_version(min_version="2.10"):
+        from ckan.lib.api_token import get_user_from_token
         user = get_user_from_token(api_key_or_token)
         return user
 
     if check_ckan_version(min_version="2.9"):
+        from ckan.lib.api_token import get_user_from_token
         user = get_user_from_token(api_key_or_token)
         if not user:
             user = model.Session.query(model.User).filter_by(
