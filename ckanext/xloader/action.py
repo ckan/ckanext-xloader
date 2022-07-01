@@ -1,23 +1,23 @@
 # encoding: utf-8
 
 from __future__ import absolute_import
-from six import text_type as str
-import logging
-import json
 import datetime
+import json
+import logging
 
-from dateutil.parser import parse as parse_date
-
-import ckan.lib.navl.dictization_functions
-from ckan import logic
-import ckan.plugins as p
-from ckan.logic import side_effect_free
 import ckan.lib.jobs as rq_jobs
+import ckan.lib.navl.dictization_functions
+from ckan.logic import side_effect_free
+import ckan.plugins as p
+from dateutil.parser import parse as parse_date
+from six import text_type as str
 
 import ckanext.xloader.schema
+
 from . import interfaces as xloader_interfaces
 from . import jobs
 from . import db
+from . import utils
 
 enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
@@ -25,7 +25,7 @@ get_queue = rq_jobs.get_queue
 log = logging.getLogger(__name__)
 config = p.toolkit.config
 
-_get_or_bust = logic.get_or_bust
+_get_or_bust = p.toolkit.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
 
@@ -54,26 +54,15 @@ def xloader_submit(context, data_dict):
     if errors:
         raise p.toolkit.ValidationError(errors)
 
-    res_id = data_dict['resource_id']
-
     p.toolkit.check_access('xloader_submit', context, data_dict)
 
+    res_id = data_dict['resource_id']
     try:
         resource_dict = p.toolkit.get_action('resource_show')(context, {
             'id': res_id,
         })
-    except logic.NotFound:
+    except p.toolkit.ObjectNotFound:
         return False
-
-    site_url = config['ckan.site_url']
-    callback_url = p.toolkit.url_for(
-        "api.action",
-        ver=3,
-        logic_function="xloader_hook",
-        qualified=True
-    )
-
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
 
     for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
         upload = plugin.can_upload(res_id)
@@ -138,25 +127,29 @@ def xloader_submit(context, data_dict):
                 return False
 
         task['id'] = existing_task['id']
-    except logic.NotFound:
+    except p.toolkit.ObjectNotFound:
         pass
 
     model = context['model']
 
-    p.toolkit.get_action('task_status_update')({
-        'session': model.meta.create_local_session(),
-        'ignore_auth': True
-        },
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
         task
-        )
+    )
 
+    callback_url = p.toolkit.url_for(
+        "api.action",
+        ver=3,
+        logic_function="xloader_hook",
+        qualified=True
+    )
     data = {
-        'api_key': site_user['apikey'],
+        'api_key': utils.get_xloader_user_apitoken(),
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
             'ignore_hash': data_dict.get('ignore_hash', False),
-            'ckan_url': site_url,
+            'ckan_url': config['ckan.site_url'],
             'resource_id': res_id,
             'set_url_type': data_dict.get('set_url_type', False),
             'task_created': task['last_updated'],
@@ -165,12 +158,14 @@ def xloader_submit(context, data_dict):
     }
     timeout = config.get('ckanext.xloader.job_timeout', '3600')
     try:
-        try:
-            job = enqueue_job(jobs.xloader_data_into_datastore, [data],
-                              timeout=timeout)
-        except TypeError:
-            # older ckans didn't allow the timeout keyword
-            job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
+        job = enqueue_job(
+            jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=timeout)
+        )
+    except TypeError:
+        # This except provides support for 2.7.
+        job = _enqueue(
+            jobs.xloader_data_into_datastore, [data], timeout=timeout
+        )
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
         return False
@@ -182,12 +177,10 @@ def xloader_submit(context, data_dict):
     task['state'] = 'pending'
     task['last_updated'] = str(datetime.datetime.utcnow())
 
-    p.toolkit.get_action('task_status_update')({
-        'session': model.meta.create_local_session(),
-        'ignore_auth': True
-        },
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
         task
-        )
+    )
 
     return True
 
@@ -195,7 +188,10 @@ def xloader_submit(context, data_dict):
 def _enqueue(fn, args=None, kwargs=None, title=None, queue='default',
              timeout=180):
     '''Same as latest ckan.lib.jobs.enqueue - earlier CKAN versions dont have
-    the timeout param'''
+    the timeout param
+
+    This function can be removed when dropping support for 2.7
+    '''
     if args is None:
         args = []
     if kwargs is None:
@@ -275,7 +271,7 @@ def xloader_hook(context, data_dict):
         for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
             plugin.after_upload(context, resource_dict, dataset_dict)
 
-        logic.get_action('resource_create_default_resource_views')(
+        p.toolkit.get_action('resource_create_default_resource_views')(
             context,
             {
                 'resource': resource_dict,
@@ -325,8 +321,6 @@ def xloader_status(context, data_dict):
 
     p.toolkit.check_access('xloader_status', context, data_dict)
 
-    if 'id' in data_dict:
-        data_dict['resource_id'] = data_dict['id']
     res_id = _get_or_bust(data_dict, 'resource_id')
 
     task = p.toolkit.get_action('task_status_show')(context, {

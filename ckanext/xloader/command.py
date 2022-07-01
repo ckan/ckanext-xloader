@@ -23,17 +23,16 @@ class XloaderCmd:
         logger.propagate = False  # in case the config
 
     def _submit_all_existing(self):
-        import ckan.model as model
         from ckanext.datastore.backend \
             import get_all_resources_ids_in_datastore
         resource_ids = get_all_resources_ids_in_datastore()
         print('Processing %d resources' % len(resource_ids))
         user = tk.get_action('get_site_user')(
-            {'model': model, 'ignore_auth': True}, {})
+            {'ignore_auth': True}, {})
         for resource_id in resource_ids:
             try:
                 resource_dict = tk.get_action('resource_show')(
-                    {'model': model, 'ignore_auth': True}, {'id': resource_id})
+                    {'ignore_auth': True}, {'id': resource_id})
             except tk.ObjectNotFound:
                 print('  Skipping resource {} found in datastore but not in '
                       'metadata'.format(resource_id))
@@ -44,25 +43,23 @@ class XloaderCmd:
         # submit every package
         # for each package in the package list,
         #   submit each resource w/ _submit_package
-        import ckan.model as model
         package_list = tk.get_action('package_search')(
-            {'model': model, 'ignore_auth': True}, {'include_private': True, 'rows': 1000})
+            {'ignore_auth': True}, {'include_private': True, 'rows': 1000})
         package_list = [pkg['id'] for pkg in package_list['results']]
         print('Processing %d datasets' % len(package_list))
         user = tk.get_action('get_site_user')(
-            {'model': model, 'ignore_auth': True}, {})
+            {'ignore_auth': True}, {})
         for p_id in package_list:
             self._submit_package(p_id, user, indent=2)
 
     def _submit_package(self, pkg_id, user=None, indent=0):
-        import ckan.model as model
         if not user:
             user = tk.get_action('get_site_user')(
-                {'model': model, 'ignore_auth': True}, {})
+                {'ignore_auth': True}, {})
 
         try:
             pkg = tk.get_action('package_show')(
-                {'model': model, 'ignore_auth': True},
+                {'ignore_auth': True},
                 {'id': pkg_id.strip()})
         except Exception as e:
             print(e)
