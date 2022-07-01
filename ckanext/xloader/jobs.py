@@ -24,6 +24,11 @@ from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
+try:
+    from ckan.lib.api_token import get_user_from_token
+except ImportError:
+    get_user_from_token = None
+
 SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
@@ -490,27 +495,12 @@ def _get_user_from_key(api_key_or_token):
     only API Keys.
     """
     user = None
-
-    if check_ckan_version(min_version="2.10"):
-        from ckan.lib.api_token import get_user_from_token
+    if get_user_from_token:
         user = get_user_from_token(api_key_or_token)
-        return user
-
-    if check_ckan_version(min_version="2.9"):
-        from ckan.lib.api_token import get_user_from_token
-        user = get_user_from_token(api_key_or_token)
-        if not user:
-            user = model.Session.query(model.User).filter_by(
-                apikey=api_key_or_token
-            ).first()
-        return user
-
-    if check_ckan_version(min_version="2.7"):
+    if not user:
         user = model.Session.query(model.User).filter_by(
             apikey=api_key_or_token
         ).first()
-        return user
-
     return user
 
 
