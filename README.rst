@@ -111,19 +111,15 @@ offers to contribute this are welcomed.
 Requirements
 ------------
 
-Works with CKAN 2.7.x and later.
-
-Works with CKAN 2.3.x - 2.6.x if you install ckanext-rq.
-
 Compatibility with core CKAN versions:
 
 =============== =============
 CKAN version    Compatibility
 =============== =============
-2.3             yes, but no longer tested and you must install ckanext-rq
-2.4             yes, but no longer tested and you must install ckanext-rq
-2.5             yes, but no longer tested and you must install ckanext-rq
-2.6             yes, but no longer tested and you must install ckanext-rq
+2.3             no longer tested and you must install ckanext-rq
+2.4             no longer tested and you must install ckanext-rq
+2.5             no longer tested and you must install ckanext-rq
+2.6             no longer tested and you must install ckanext-rq
 2.7             yes
 2.8             yes
 2.9             yes (both Python2 and Python3)
@@ -174,7 +170,12 @@ To install XLoader:
 
    Ensure ``datastore`` is also listed, to enable CKAN DataStore.
 
-6. If it is a production server, you'll want to store jobs info in a more
+6. Starting CKAN 2.10 you will need to set an API Token to be able to
+   execute jobs against the server::
+
+     ckanext.xloader.api_token = <your-CKAN-generated-API-Token>
+
+7. If it is a production server, you'll want to store jobs info in a more
    robust database than the default sqlite file. It can happily use the main
    CKAN postgres db by adding this line to the config, but with the same value
    as you have for ``sqlalchemy.url``::
@@ -183,11 +184,11 @@ To install XLoader:
 
    (This step can be skipped when just developing or testing.)
 
-7. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
+8. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
 
      sudo service apache2 reload
 
-8. Run the worker. First test it on the command-line::
+9. Run the worker. First test it on the command-line::
 
      paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
 
@@ -265,6 +266,11 @@ Configuration:
     # to True.
     ckanext.xloader.ssl_verify = True
 
+    # Uses a specific API token for the xloader_submit action instead of the
+    # apikey of the site_user
+    ckanext.xloader.api_token = ckan-provided-api-token
+
+
 ------------------------
 Developer installation
 ------------------------
@@ -332,7 +338,7 @@ See the status of jobs::
 
 Submit all datasets' resources to the DataStore::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini submit all
+    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all
     [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
 
 Re-submit all the resources already in the DataStore (Ignores any resources

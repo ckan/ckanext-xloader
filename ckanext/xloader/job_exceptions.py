@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import six
+from six import text_type as str
 
 
 class DataTooBigError(Exception):
@@ -44,7 +44,7 @@ class HTTPError(JobError):
         self.response = response
 
     def __str__(self):
-        return six.text_type('{} status={} url={} response={}'.format(
+        return str('{} status={} url={} response={}'.format(
             self.message, self.status_code, self.request_url, self.response)
             .encode('ascii', 'replace'))
 

@@ -9,7 +9,7 @@ import json
 import datetime
 import traceback
 import sys
-import six
+from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests
@@ -17,16 +17,17 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 import ckan.model as model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    from pylons import config
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
 import ckan.lib.search as search
 
 from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+
+try:
+    from ckan.lib.api_token import get_user_from_token
+except ImportError:
+    get_user_from_token = None
 
 SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
@@ -77,9 +78,9 @@ def xloader_data_into_datastore(input):
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
     except JobError as e:
-        db.mark_job_as_errored(job_id, six.text_type(e))
+        db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
-        job_dict['error'] = six.text_type(e)
+        job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
@@ -87,7 +88,7 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
-        job_dict['error'] = six.text_type(e)
+        job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
@@ -317,9 +318,9 @@ def _download_resource_data(resource, data, api_key, logger):
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
         try:
-            err_message = six.text_type(e.reason)
+            err_message = str(e.reason)
         except AttributeError:
-            err_message = six.text_type(e)
+            err_message = str(e)
         logger.warning('URL error: %s', err_message)
         raise HTTPError(
             message=err_message, status_code=None,
@@ -418,18 +419,16 @@ def set_resource_metadata(update_dict):
         update_dict.get('datastore_contains_all_records_of_source_file', True)
     })
 
-    # get extras(for entity update) and package_id(for search index update)
-    res_query = model.Session.query(
-        model.resource_table.c.extras,
-        model.resource_table.c.package_id
-    ).filter(
-        model.Resource.id == update_dict['resource_id']
-    )
-    extras, package_id = res_query.one()
+    q = model.Session.query(model.Resource). \
+        filter(model.Resource.id == update_dict['resource_id'])
+    resource = q.one()
 
-    # update extras in database for record and its revision
+    # update extras in database for record
+    extras = resource.extras
     extras.update(update_dict)
-    res_query.update({'extras': extras}, synchronize_session=False)
+    q.update({'extras': extras}, synchronize_session=False)
+
+    # TODO: Remove resource_revision_table when dropping support for 2.8
     if hasattr(model, 'resource_revision_table'):
         model.Session.query(model.resource_revision_table).filter(
             model.ResourceRevision.id == update_dict['resource_id'],
@@ -442,7 +441,7 @@ def set_resource_metadata(update_dict):
     psi = search.PackageSearchIndex()
     solr_query = search.PackageSearchQuery()
     q = {
-        'q': 'id:"{0}"'.format(package_id),
+        'q': 'id:"{0}"'.format(resource.package_id),
         'fl': 'data_dict',
         'wt': 'json',
         'fq': 'site_id:"%s"' % config.get('ckan.site_id'),
@@ -479,23 +478,41 @@ def update_resource(resource, patch_only=False):
     or patch the given CKAN resource for file hash
     """
     action = 'resource_update' if not patch_only else 'resource_patch'
-    from ckan import model
-    user = get_action('get_site_user')({'model': model, 'ignore_auth': True}, {})
-    context = {'model': model, 'session': model.Session, 'ignore_auth': True,
-               'user': user['name'], 'auth_user_obj': None}
+    user = get_action('get_site_user')({'ignore_auth': True}, {})
+    context = {
+        'ignore_auth': True,
+        'user': user['name'],
+        'auth_user_obj': None
+    }
     get_action(action)(context, resource)
+
+
+def _get_user_from_key(api_key_or_token):
+    """ Gets the user using the API Token or API Key.
+
+    This method provides backwards compatibility for CKAN 2.9 that
+    supported both methods and previous CKAN versions supporting
+    only API Keys.
+    """
+    user = None
+    if get_user_from_token:
+        user = get_user_from_token(api_key_or_token)
+    if not user:
+        user = model.Session.query(model.User).filter_by(
+            apikey=api_key_or_token
+        ).first()
+    return user
 
 
 def get_resource_and_dataset(resource_id, api_key):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    user = model.Session.query(model.User).filter_by(
-        apikey=api_key).first()
+    context = None
+    user = _get_user_from_key(api_key)
     if user is not None:
         context = {'user': user.name}
-    else:
-        context = None
+
     res_dict = get_action('resource_show')(context, {'id': resource_id})
     pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
@@ -562,10 +579,10 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = six.text_type(record.getMessage())
-            level = six.text_type(record.levelname)
-            module = six.text_type(record.module)
-            funcName = six.text_type(record.funcName)
+            message = str(record.getMessage())
+            level = str(record.levelname)
+            module = str(record.module)
+            funcName = str(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
