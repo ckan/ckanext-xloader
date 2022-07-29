@@ -5,7 +5,11 @@ import random
 import datetime
 import time
 import six
-from collections import OrderedDict  # from python 2.7
+
+try:
+    from collections import OrderedDict  # from python 2.7
+except ImportError:
+    from sqlalchemy.util import OrderedDict
 import pytest
 
 from nose.tools import make_decorator
