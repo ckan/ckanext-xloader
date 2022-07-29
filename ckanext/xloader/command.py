@@ -53,6 +53,7 @@ class XloaderCmd:
             self._submit_package(p_id, user, indent=2)
 
     def _submit_package(self, pkg_id, user=None, indent=0):
+        indentation = ' ' * indent
         if not user:
             user = tk.get_action('get_site_user')(
                 {'ignore_auth': True}, {})
@@ -63,10 +64,10 @@ class XloaderCmd:
                 {'id': pkg_id.strip()})
         except Exception as e:
             print(e)
-            print(' ' * indent + 'Dataset "{}" was not found'.format(pkg_id))
+            print(indentation + 'Dataset "{}" was not found'.format(pkg_id))
             sys.exit(1)
 
-        print(' ' * indent + 'Processing dataset {} with {} resources'.format(
+        print(indentation + 'Processing dataset {} with {} resources'.format(
               pkg['name'], len(pkg['resources'])))
         for resource in pkg['resources']:
             try:
@@ -75,45 +76,46 @@ class XloaderCmd:
             except Exception as e:
                 self.error_occured = True
                 print(e)
-                print(' ' * indent + 'ERROR submitting resource "{}" '.format(
+                print(indentation + 'ERROR submitting resource "{}" '.format(
                     resource['id']))
                 continue
 
     def _submit_resource(self, resource, user, indent=0):
         '''resource: resource dictionary
         '''
+        indentation = ' ' * indent
         # import here, so that that loggers are setup
         from ckanext.xloader.plugin import XLoaderFormats
 
         if not XLoaderFormats.is_it_an_xloader_format(resource['format']):
-            print(' ' * indent +
-                  'Skipping resource {r[id]} because format "{r[format]}" is '
+            print(indentation
+                  + 'Skipping resource {r[id]} because format "{r[format]}" is '
                   'not configured to be xloadered'.format(r=resource))
             return
         if resource['url_type'] in ('datapusher', 'xloader'):
-            print(' ' * indent +
-                  'Skipping resource {r[id]} because url_type "{r[url_type]}" '
+            print(indentation
+                  + 'Skipping resource {r[id]} because url_type "{r[url_type]}" '
                   'means resource.url points to the datastore '
                   'already, so loading would be circular.'.format(
-                    r=resource))
+                      r=resource))
             return
         dataset_ref = resource.get('package_name', resource['package_id'])
         print('{indent}Submitting /dataset/{dataset}/resource/{r[id]}\n'
               '{indent}           url={r[url]}\n'
               '{indent}           format={r[format]}'
-              .format(dataset=dataset_ref, r=resource, indent=' ' * indent))
+              .format(dataset=dataset_ref, r=resource, indent=indentation))
         data_dict = {
             'resource_id': resource['id'],
             'ignore_hash': True,
         }
         if self.dry_run:
-            print(' ' * indent + '(not submitted - dry-run)')
+            print(indentation + '(not submitted - dry-run)')
             return
         success = tk.get_action('xloader_submit')({'user': user['name']}, data_dict)
         if success:
-            print(' ' * indent + '...ok')
+            print(indentation + '...ok')
         else:
-            print(' ' * indent + 'ERROR submitting resource')
+            print(indentation + 'ERROR submitting resource')
             self.error_occured = True
 
     def print_status(self):
@@ -130,8 +132,8 @@ class XloaderCmd:
             job_metadata = job_params['metadata']
             print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
                   'url={url}'.format(
-                    id=job._id,
-                    enqueued=job.enqueued_at,
-                    res_id=job_metadata['resource_id'],
-                    url=job_metadata['original_url'],
+                      id=job._id,
+                      enqueued=job.enqueued_at,
+                      res_id=job_metadata['resource_id'],
+                      url=job_metadata['original_url'],
                   ))
