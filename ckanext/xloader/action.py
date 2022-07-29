@@ -318,6 +318,8 @@ def xloader_status(context, data_dict):
 
     p.toolkit.check_access('xloader_status', context, data_dict)
 
+    if 'id' in data_dict:
+        data_dict['resource_id'] = data_dict['id']
     res_id = _get_or_bust(data_dict, 'resource_id')
 
     task = p.toolkit.get_action('task_status_show')(context, {
