@@ -313,7 +313,7 @@ def _download_resource_data(resource, data, api_key, logger):
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
-        logger.warning('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        logger.warning('URL time out after %ss', DOWNLOAD_TIMEOUT)
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:

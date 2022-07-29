@@ -14,10 +14,7 @@ from six import text_type as str
 
 import ckanext.xloader.schema
 
-from . import interfaces as xloader_interfaces
-from . import jobs
-from . import db
-from . import utils
+from . import interfaces as xloader_interfaces, jobs, db, utils
 
 enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
@@ -287,8 +284,8 @@ def xloader_hook(context, data_dict):
                     resource_dict['last_modified'])
                 task_created_datetime = parse_date(metadata['task_created'])
                 if last_modified_datetime > task_created_datetime:
-                    log.debug('Uploaded file more recent: {0} > {1}'.format(
-                        last_modified_datetime, task_created_datetime))
+                    log.debug('Uploaded file more recent: %s > %s',
+                              last_modified_datetime, task_created_datetime)
                     resubmit = True
             except ValueError:
                 pass
