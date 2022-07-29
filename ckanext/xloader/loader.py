@@ -8,6 +8,7 @@ import itertools
 import csv
 
 import six
+from six.moves import zip
 import psycopg2
 import messytables
 from unidecode import unidecode

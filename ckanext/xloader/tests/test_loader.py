@@ -6,6 +6,7 @@ import pytest
 import sqlalchemy.orm as orm
 import datetime
 import logging
+from six import text_type as str
 
 from decimal import Decimal
 

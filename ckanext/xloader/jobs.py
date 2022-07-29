@@ -9,7 +9,7 @@ import json
 import datetime
 import traceback
 import sys
-import six
+from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests
@@ -579,10 +579,10 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = six.text_type(record.getMessage())
-            level = six.text_type(record.levelname)
-            module = six.text_type(record.module)
-            funcName = six.text_type(record.funcName)
+            message = str(record.getMessage())
+            level = str(record.levelname)
+            module = str(record.module)
+            funcName = str(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,

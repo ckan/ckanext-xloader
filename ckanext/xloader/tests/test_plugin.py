@@ -1,6 +1,9 @@
+# encoding: utf-8
+
 import datetime
 import pytest
 import mock
+from six import text_type as str
 from ckan.tests import helpers, factories
 from ckan.logic import _actions
 
