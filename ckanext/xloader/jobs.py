@@ -9,7 +9,7 @@ import json
 import datetime
 import traceback
 import sys
-import six
+from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests
@@ -313,7 +313,7 @@ def _download_resource_data(resource, data, api_key, logger):
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
-        logger.warning('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        logger.warning('URL time out after %ss', DOWNLOAD_TIMEOUT)
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
@@ -335,7 +335,7 @@ def _download_resource_data(resource, data, api_key, logger):
 def get_response(url, headers):
     def get_url():
         kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
-                  'verify': SSL_VERIFY, 'stream': True} # just gets the headers for now
+                  'verify': SSL_VERIFY, 'stream': True}  # just gets the headers for now
         if 'ckan.download_proxy' in config:
             proxy = config.get('ckan.download_proxy')
             kwargs['proxies'] = {'http': proxy, 'https': proxy}
@@ -579,14 +579,14 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = six.text_type(record.getMessage())
-            level = six.text_type(record.levelname)
-            module = six.text_type(record.module)
-            funcName = six.text_type(record.funcName)
+            message = str(record.getMessage())
+            level = str(record.levelname)
+            module = str(record.module)
+            funcName = str(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
-                timestamp=datetime.datetime.now(),
+                timestamp=datetime.datetime.utcnow(),
                 message=message,
                 level=level,
                 module=module,

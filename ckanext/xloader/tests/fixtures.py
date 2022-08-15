@@ -3,7 +3,6 @@ import sqlalchemy
 import sqlalchemy.orm as orm
 import os
 
-from ckan.plugins import toolkit
 from ckanext.datastore.tests import helpers as datastore_helpers
 from ckanext.xloader.loader import get_write_engine
 
@@ -13,7 +12,6 @@ __location__ = os.path.realpath(
 
 try:
     from ckan.tests.pytest_ckan.fixtures import *
-
 except ImportError:
     import pytest
 

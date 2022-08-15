@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 import logging
 
 from ckan.plugins.toolkit import config
@@ -177,7 +179,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
         try:
             log.debug(
-                "Submitting resource {0} to be xloadered".format(resource_dict["id"])
+                "Submitting resource %s to be xloadered", resource_dict["id"]
             )
             toolkit.get_action("xloader_submit")(
                 context,

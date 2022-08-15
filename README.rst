@@ -171,7 +171,7 @@ To install XLoader:
    Ensure ``datastore`` is also listed, to enable CKAN DataStore.
 
 6. Starting CKAN 2.10 you will need to set an API Token to be able to
-   exeute jobs against the server::
+   execute jobs against the server::
 
      ckanext.xloader.api_token = <your-CKAN-generated-API-Token>
 
