@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import six
+from six import text_type as str
 
 import ckan.plugins as p
 import ckanext.datastore.logic.schema as dsschema
@@ -20,7 +20,7 @@ OneOf = get_validator('OneOf')
 if p.toolkit.check_ckan_version('2.9'):
     unicode_safe = get_validator('unicode_safe')
 else:
-    unicode_safe = six.text_type
+    unicode_safe = str
 
 
 def xloader_submit_schema():

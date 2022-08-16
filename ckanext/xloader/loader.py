@@ -1,5 +1,6 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
+from six import text_type as str
 import os
 import os.path
 import tempfile
@@ -50,13 +51,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             table_set = messytables.any_tableset(f, mimetype=mimetype,
                                                  extension=extension)
         except messytables.ReadError as e:
-            # # try again with format
-            # f.seek(0)
-            # try:
-            #     format = resource.get('format')
-            #     table_set = messytables.any_tableset(f, mimetype=format,
-            #                                          extension=format)
-            # except Exception:
             raise LoaderError('Messytables error: {}'.format(e))
         except Exception as e:
             raise FileCouldNotBeLoadedError(e)
@@ -80,6 +74,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     except csv.Error:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
+    except UnicodeDecodeError:
+        raise LoaderError('Could not detect delimiter in this file')
 
     # Setup the converters that run when you iterate over the row_set.
     # With pgloader only the headers will be iterated over.
@@ -89,8 +85,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    # headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
-    #                  for field in zip(headers, types)]
 
     # TODO worry about csv header name problems
     # e.g. duplicate names
@@ -107,8 +101,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 f_write.write(line)
             f_write.close()   # ensures the last line is written
             csv_filepath = f_write.name
-
-        # check tables exists
 
         # datastore db connection
         engine = get_write_engine()
@@ -168,7 +160,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             else:
                 raise LoaderError(
                     'Validation error when creating the database table: {}'
-                    .format(six.text_type(e)))
+                    .format(str(e)))
         except Exception as e:
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
@@ -179,10 +171,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
         # datstore_active is switched on by datastore_create - TODO temporarily
         # disable it until the load is complete
-
-        # logger.info('Disabling row index trigger')
         _disable_fulltext_trigger(connection, resource_id)
-        # logger.info('Dropping indexes')
         _drop_indexes(context, data_dict, False)
 
         logger.info('Copying to database...')
@@ -226,7 +215,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                         # e is a str but with foreign chars e.g.
                         # 'extra data: "paul,pa\xc3\xbcl"\n'
                         # but logging and exceptions need a normal (7 bit) str
-                        error_str = six.text_type(e)
+                        error_str = str(e)
                         logger.warning(error_str)
                         raise LoaderError('Error during the load into PostgreSQL:'
                                           ' {}'.format(error_str))
@@ -347,7 +336,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 res_id=resource_id))
             delete_datastore_resource(resource_id)
 
-        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[six.text_type(field[1])])
+        headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
                          for field in zip(headers, types)]
 
         # Maintain data dictionaries from matching column names
@@ -362,10 +351,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Determined headers and types: {headers}'.format(
             headers=headers_dicts))
-
-        # Commented - this is only for tests
-        # if dry_run:
-        #     return headers_dicts, result
 
         logger.info('Copying to database...')
         count = 0
@@ -382,10 +367,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             # no datastore table is created
             raise LoaderError('No entries found - nothing to load')
 
-        # Commented - this is done by the caller in jobs.py
-        # if data.get('set_url_type', False):
-        #     update_resource(resource, api_key, ckan_url)
-
 
 _TYPE_MAPPING = {
     'String': 'text',
@@ -400,8 +381,6 @@ _TYPE_MAPPING = {
 def get_types():
     _TYPES = [messytables.StringType, messytables.DecimalType,
               messytables.IntegerType, messytables.DateUtilType]
-    # TODO make this configurable
-    # TYPES = web.app.config.get('TYPES', _TYPES)
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
@@ -412,7 +391,7 @@ def encode_headers(headers):
         try:
             encoded_headers.append(unidecode(header))
         except AttributeError:
-            encoded_headers.append(unidecode(six.text_type(header)))
+            encoded_headers.append(unidecode(str(header)))
 
     return encoded_headers
 
@@ -446,7 +425,7 @@ def send_resource_to_datastore(resource_id, headers, records):
         p.toolkit.get_action('datastore_create')(context, request)
     except p.toolkit.ValidationError as e:
         raise LoaderError('Validation error writing rows to db: {}'
-                          .format(six.text_type(e)))
+                          .format(str(e)))
 
 
 def datastore_resource_exists(resource_id):

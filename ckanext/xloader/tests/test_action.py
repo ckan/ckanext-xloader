@@ -3,6 +3,8 @@ import mock
 
 from ckan.tests import helpers, factories
 
+from ckanext.xloader.utils import get_xloader_user_apitoken
+
 
 @pytest.mark.usefixtures("clean_db", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
@@ -90,4 +92,15 @@ class TestAction(object):
             resource_id=res["id"],
         )
 
-        assert status['status'] == 'pending'
+        assert status["status"] == "pending"
+
+    def test_xloader_user_api_token_defaults_to_site_user_apikey(self):
+        api_token = get_xloader_user_apitoken()
+        site_user = helpers.call_action("get_site_user")
+        assert api_token == site_user["apikey"]
+
+    @pytest.mark.ckan_config("ckanext.xloader.api_token", "random-api-token")
+    def test_xloader_user_api_token(self):
+        api_token = get_xloader_user_apitoken()
+
+        assert api_token == "random-api-token"

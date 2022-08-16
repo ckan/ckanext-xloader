@@ -13,3 +13,4 @@ AS $body$
         RETURN NEW;
     END;
 $body$ LANGUAGE plpgsql;
+ALTER FUNCTION populate_full_text_trigger() OWNER TO ckan_default;

@@ -3,7 +3,7 @@
 import datetime
 import pytest
 import mock
-import six
+from six import text_type as str
 from ckan.tests import helpers, factories
 from ckan.logic import _actions
 
@@ -60,7 +60,7 @@ class TestNotify(object):
             "entity_id": resource_id,
             "entity_type": "resource",
             "task_type": "xloader",
-            "last_updated": six.text_type(datetime.datetime.utcnow()),
+            "last_updated": str(datetime.datetime.utcnow()),
             "state": "pending",
             "key": "xloader",
             "value": "{}",
