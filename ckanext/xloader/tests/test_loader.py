@@ -19,10 +19,12 @@ import ckan.plugins as p
 
 logger = logging.getLogger(__name__)
 
+
 def get_sample_filepath(filename):
     return os.path.abspath(
         os.path.join(os.path.dirname(__file__), "samples", filename)
     )
+
 
 @pytest.fixture()
 def Session():
