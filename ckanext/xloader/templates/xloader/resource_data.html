@@ -7,11 +7,13 @@
   {% set action = h.url_for('xloader.resource_data', id=pkg.name, resource_id=res.id) %}
   {% set show_table = true %}
 
-  <form method="post" action="{{ action }}" class="datapusher-form">
-    <button class="btn btn-primary" name="save" type="submit">
-      <i class="fa fa-cloud-upload"></i> {{ _('Upload to DataStore') }}
-    </button>
-  </form>
+  {% block upload_ds_button %}
+    <form method="post" action="{{ action }}" class="datapusher-form">
+      <button class="btn btn-primary" name="save" type="submit">
+        <i class="fa fa-cloud-upload"></i> {{ _('Upload to DataStore') }}
+      </button>
+    </form>
+  {% endblock %}
 
   {% if status.error and status.error.message %}
     {% set show_table = false %}
