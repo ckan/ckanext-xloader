@@ -155,6 +155,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
             if toolkit.get_action('datastore_info')(
                     context=context, data_dict={'id': resource_dict['id']}):
                 datastore_exists = True
+            else:
+                datastore_exists = False
         except toolkit.ObjectNotFound:
             datastore_exists = False
 

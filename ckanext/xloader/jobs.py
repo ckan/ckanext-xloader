@@ -269,7 +269,7 @@ def _download_resource_data(resource, data, api_key, logger):
             # changed, or something went wrong and we want a clean start.
             # Either way, we don't want a cached file.
             download_url = url_parts._replace(
-                query=url_parts.query + '&nonce=' + time.time()
+                query='{}&nonce={}'.format(url_parts.query, time.time())
             ).geturl()
         else:
             download_url = url
