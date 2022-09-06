@@ -244,7 +244,8 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
-    scheme = urlsplit(url).scheme
+    url_parts = urlsplit(url)
+    scheme = url_parts.scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -263,7 +264,17 @@ def _download_resource_data(resource, data, api_key, logger):
             # otherwise we won't get file from private resources
             headers['Authorization'] = api_key
 
-        response = get_response(url, headers)
+            # Add a constantly changing parameter to bypass URL caching.
+            # If we're running XLoader, then either the resource has
+            # changed, or something went wrong and we want a clean start.
+            # Either way, we don't want a cached file.
+            download_url = url_parts._replace(
+                query=url_parts.query + '&nonce=' + time.time()
+            ).geturl()
+        else:
+            download_url = url
+
+        response = get_response(download_url, headers)
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
