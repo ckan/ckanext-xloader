@@ -206,7 +206,7 @@ def xloader_data_into_datastore_(input, job_dict):
     # Load it
     logger.info('Loading CSV')
     just_load_with_messytables = asbool(config.get(
-        'ckanext.xloader.just_load_with_messytables', config.get('ckanext.xloader.compatibility_mode', False)))
+        'ckanext.xloader.just_load_with_messytables', False))
     logger.info("'Just load with messytables' mode is: %s",
                 just_load_with_messytables)
     try:
