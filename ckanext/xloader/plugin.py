@@ -2,13 +2,11 @@
 
 import logging
 
-from ckan.plugins.toolkit import config
-import ckan.plugins as plugins
-import ckan.plugins.toolkit as toolkit
+from ckan import plugins
+from ckan.plugins import toolkit
 
-from ckanext.xloader import action, auth
-import ckanext.xloader.helpers as xloader_helpers
-from ckanext.xloader.loader import fulltext_function_exists, get_write_engine
+from . import action, auth, helpers as xloader_helpers, utils
+from .loader import fulltext_function_exists, get_write_engine
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +31,7 @@ class XLoaderFormats(object):
     @classmethod
     def is_it_an_xloader_format(cls, format_):
         if cls.formats is None:
-            cls._formats = config.get("ckanext.xloader.formats")
+            cls._formats = toolkit.config.get("ckanext.xloader.formats")
             if cls._formats is not None:
                 cls._formats = cls._formats.lower().split()
             else:
@@ -135,29 +133,49 @@ class xloaderPlugin(plugins.SingletonPlugin):
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
-    if toolkit.check_ckan_version("2.10"):
 
-        def after_resource_create(self, context, resource_dict):
-            self._submit_to_xloader(resource_dict)
+    def after_resource_create(self, context, resource_dict):
+        self._submit_to_xloader(resource_dict)
 
-        def before_resource_show(self, resource_dict):
-            resource_dict[
-                "datastore_contains_all_records_of_source_file"
-            ] = toolkit.asbool(
-                resource_dict.get("datastore_contains_all_records_of_source_file")
-            )
+    def before_resource_show(self, resource_dict):
+        resource_dict[
+            "datastore_contains_all_records_of_source_file"
+        ] = toolkit.asbool(
+            resource_dict.get("datastore_contains_all_records_of_source_file")
+        )
 
-    else:
+    def after_resource_update(self, context, resource_dict):
+        """ Check whether the datastore is out of sync with the
+        'datastore_active' flag. This can occur due to race conditions
+        like https://github.com/ckan/ckan/issues/4663
+        """
+        datastore_active = resource_dict.get('datastore_active', False)
+        try:
+            context = {'ignore_auth': True}
+            if toolkit.get_action('datastore_info')(
+                    context=context, data_dict={'id': resource_dict['id']}):
+                datastore_exists = True
+            else:
+                datastore_exists = False
+        except toolkit.ObjectNotFound:
+            datastore_exists = False
+
+        if datastore_active != datastore_exists:
+            # datastore does exist; update flag
+            utils.set_resource_metadata(
+                {'resource_id': resource_dict['id'],
+                 'datastore_active': datastore_exists})
+
+    if not toolkit.check_ckan_version("2.10"):
 
         def after_create(self, context, resource_dict):
-            self._submit_to_xloader(resource_dict)
+            self.after_resource_create(context, resource_dict)
 
         def before_show(self, resource_dict):
-            resource_dict[
-                "datastore_contains_all_records_of_source_file"
-            ] = toolkit.asbool(
-                resource_dict.get("datastore_contains_all_records_of_source_file")
-            )
+            self.before_resource_show(resource_dict)
+
+        def after_update(self, context, resource_dict):
+            self.after_resource_update(context, resource_dict)
 
     def _submit_to_xloader(self, resource_dict):
         context = {"ignore_auth": True, "defer_commit": True}

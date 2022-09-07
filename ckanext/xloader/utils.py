@@ -1,3 +1,9 @@
+# encoding: utf-8
+
+import json
+
+from ckan import model
+from ckan.lib import search
 import ckan.plugins as p
 
 
@@ -57,3 +63,50 @@ def get_xloader_user_apitoken():
 
     site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
     return site_user["apikey"]
+
+
+def set_resource_metadata(update_dict):
+    '''
+    Set appropriate datastore_active flag on CKAN resource.
+
+    Called after creation or deletion of DataStore table.
+    '''
+    # We're modifying the resource extra directly here to avoid a
+    # race condition, see issue #3245 for details and plan for a
+    # better fix
+
+    q = model.Session.query(model.Resource). \
+        filter(model.Resource.id == update_dict['resource_id'])
+    resource = q.one()
+
+    # update extras in database for record
+    extras = resource.extras
+    extras.update(update_dict)
+    q.update({'extras': extras}, synchronize_session=False)
+
+    # TODO: Remove resource_revision_table when dropping support for 2.8
+    if hasattr(model, 'resource_revision_table'):
+        model.Session.query(model.resource_revision_table).filter(
+            model.ResourceRevision.id == update_dict['resource_id'],
+            model.ResourceRevision.current is True
+        ).update({'extras': extras}, synchronize_session=False)
+    model.Session.commit()
+
+    # get package with updated resource from solr
+    # find changed resource, patch it and reindex package
+    psi = search.PackageSearchIndex()
+    solr_query = search.PackageSearchQuery()
+    q = {
+        'q': 'id:"{0}"'.format(resource.package_id),
+        'fl': 'data_dict',
+        'wt': 'json',
+        'fq': 'site_id:"%s"' % p.toolkit.config.get('ckan.site_id'),
+        'rows': 1
+    }
+    for record in solr_query.run(q)['results']:
+        solr_data_dict = json.loads(record['data_dict'])
+        for resource in solr_data_dict['resources']:
+            if resource['id'] == update_dict['resource_id']:
+                resource.update(update_dict)
+                psi.index_package(solr_data_dict)
+                break
