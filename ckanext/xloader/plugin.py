@@ -161,7 +161,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             datastore_exists = False
 
         if datastore_active != datastore_exists:
-            # datastore does exist; update flag
+            # flag is out of sync with datastore; update it
             utils.set_resource_metadata(
                 {'resource_id': resource_dict['id'],
                  'datastore_active': datastore_exists})
