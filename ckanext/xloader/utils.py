@@ -70,7 +70,7 @@ def column_count_modal(rows):
     """
     counts = defaultdict(int)
     for row in rows:
-        length = len([c for c in row if not c.empty])
+        length = len([c for c in row if c != ''])
         if length > 1:
             counts[length] += 1
     if not len(counts):
@@ -91,10 +91,10 @@ def headers_guess(rows, tolerance=1):
     rows = list(rows)
     modal = column_count_modal(rows)
     for i, row in enumerate(rows):
-        length = len([c for c in row if not c.empty])
+        length = len([c for c in row if c != ''])
         if length >= modal - tolerance:
             # TODO: use type guessing to check that this row has
             # strings and does not conform to the type schema of
             # the table.
-            return i, [c.value for c in row]
+            return i, row
     return 0, []
