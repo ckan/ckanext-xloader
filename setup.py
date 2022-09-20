@@ -15,13 +15,14 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # http://packaging.python.org/en/latest/tutorial.html#version
-    version='0.3.1',
+    version='0.11.0',
 
     description='Express Loader - quickly load data into CKAN DataStore''',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
 
     # The project's main homepage.
-    url='https://github.com/davidread/ckanext-xloader',
+    url='https://github.com/ckan/ckanext-xloader',
 
     # Author details
     author='''David Read''',
@@ -32,11 +33,7 @@ setup(
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        # How mature is this project? Common values are
-        # 3 - Alpha
-        # 4 - Beta
-        # 5 - Production/Stable
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
@@ -44,6 +41,9 @@ setup(
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
 
 
@@ -56,10 +56,10 @@ setup(
     namespace_packages=['ckanext'],
 
     install_requires=[
-      # CKAN extensions should not list dependencies here, but in a separate
-      # ``requirements.txt`` file.
-      #
-      # http://docs.ckan.org/en/latest/extensions/best-practices.html#add-third-party-libraries-to-requirements-txt
+        # CKAN extensions should not list dependencies here, but in a separate
+        # ``requirements.txt`` file.
+        #
+        # http://docs.ckan.org/en/latest/extensions/best-practices.html#add-third-party-libraries-to-requirements-txt
     ],
 
     # If there are data files included in your packages that need to be
@@ -86,7 +86,8 @@ setup(
         ckan = ckan.lib.extract:extract_ckan
 
         [paste.paster_command]
-        xloader = ckanext.xloader.cli:xloaderCommand
+        xloader = ckanext.xloader.paster:xloaderCommand
+        migrate_types = ckanext.xloader.paster:MigrateTypesCommand
 
     ''',
 

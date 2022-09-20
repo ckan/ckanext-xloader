@@ -1,33 +1,35 @@
+from __future__ import division
+from __future__ import absolute_import
 import math
 import logging
 import hashlib
 import time
 import tempfile
 import json
-import urlparse
 import datetime
 import traceback
 import sys
+from six import text_type as str
 
+from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-from ckan.plugins.toolkit import get_action
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    from pylons import config
+import ckan.model as model
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
 import ckan.lib.search as search
 
-import loader
-import db
-from job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+from . import loader
+from . import db
+from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 
-if config.get('ckanext.xloader.ssl_verify') in ['False', 'FALSE', '0', False, 0]:
-    SSL_VERIFY = False
-else:
-    SSL_VERIFY = True
+try:
+    from ckan.lib.api_token import get_user_from_token
+except ImportError:
+    get_user_from_token = None
+
+SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
@@ -37,8 +39,9 @@ CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
 
+# input = {
 # 'api_key': user['apikey'],
-# 'job_type': 'push_to_datastore',
+# 'job_type': 'xloader_to_datastore',
 # 'result_url': callback_url,
 # 'metadata': {
 #     'ignore_hash': data_dict.get('ignore_hash', False),
@@ -48,10 +51,11 @@ DOWNLOAD_TIMEOUT = 30
 #     'task_created': task['last_updated'],
 #     'original_url': resource_dict.get('url'),
 #     }
+# }
 
 def xloader_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
-    xloader_data_into_datastore, and makes sure it finishes by calling
+    xloader_data_into_datastore_, and makes sure it finishes by calling
     xloader_hook to update the task_status with the result.
 
     Errors are stored in task_status and job log and this method returns
@@ -82,7 +86,7 @@ def xloader_data_into_datastore(input):
         errored = True
     except Exception as e:
         db.mark_job_as_errored(
-            job_id, traceback.format_tb(sys.exc_traceback)[-1] + repr(e))
+            job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
         log = logging.getLogger(__name__)
@@ -130,19 +134,17 @@ def xloader_data_into_datastore_(input, job_dict):
 
     data = input['metadata']
 
-    ckan_url = data['ckan_url']
     resource_id = data['resource_id']
     api_key = input.get('api_key')
-
     try:
-        resource, dataset = get_resource_and_dataset(resource_id)
-    except JobError, e:
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
+    except (JobError, ObjectNotFound):
         # try again in 5 seconds just in case CKAN is slow at adding resource
         time.sleep(5)
-        resource, dataset = get_resource_and_dataset(resource_id)
+        resource, dataset = get_resource_and_dataset(resource_id, api_key)
     resource_ckan_url = '/dataset/{}/resource/{}' \
         .format(dataset['name'], resource['id'])
-    logger.info('Express Load starting: {}'.format(resource_ckan_url))
+    logger.info('Express Load starting: %s', resource_ckan_url)
 
     # check if the resource url_type is a datastore
     if resource.get('url_type') == 'datastore':
@@ -150,9 +152,99 @@ def xloader_data_into_datastore_(input, job_dict):
                     'managed with the Datastore API')
         return
 
+    # download resource
+    tmp_file, file_hash = _download_resource_data(resource, data, api_key,
+                                                  logger)
+
+    if (resource.get('hash') == file_hash
+            and not data.get('ignore_hash')):
+        logger.info('Ignoring resource - the file hash hasn\'t changed: '
+                    '{hash}.'.format(hash=file_hash))
+        return
+    logger.info('File hash: %s', file_hash)
+    resource['hash'] = file_hash
+
+    def direct_load():
+        fields = loader.load_csv(
+            tmp_file.name,
+            resource_id=resource['id'],
+            mimetype=resource.get('format'),
+            logger=logger)
+        loader.calculate_record_count(
+            resource_id=resource['id'], logger=logger)
+        set_datastore_active(data, resource, logger)
+        job_dict['status'] = 'running_but_viewable'
+        callback_xloader_hook(result_url=input['result_url'],
+                              api_key=api_key,
+                              job_dict=job_dict)
+        logger.info('Data now available to users: %s', resource_ckan_url)
+        loader.create_column_indexes(
+            fields=fields,
+            resource_id=resource['id'],
+            logger=logger)
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
+        logger.info('File Hash updated for resource: %s', resource['hash'])
+
+    def messytables_load():
+        try:
+            loader.load_table(tmp_file.name,
+                              resource_id=resource['id'],
+                              mimetype=resource.get('format'),
+                              logger=logger)
+        except JobError as e:
+            logger.error('Error during messytables load: %s', e)
+            raise
+        loader.calculate_record_count(
+            resource_id=resource['id'], logger=logger)
+        set_datastore_active(data, resource, logger)
+        logger.info('Finished loading with messytables')
+        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                        patch_only=True)
+        logger.info('File Hash updated for resource: %s', resource['hash'])
+
+    # Load it
+    logger.info('Loading CSV')
+    just_load_with_messytables = asbool(config.get(
+        'ckanext.xloader.just_load_with_messytables', False))
+    logger.info("'Just load with messytables' mode is: %s",
+                just_load_with_messytables)
+    try:
+        if just_load_with_messytables:
+            messytables_load()
+        else:
+            try:
+                direct_load()
+            except JobError as e:
+                logger.warning('Load using COPY failed: %s', e)
+                logger.info('Trying again with messytables')
+                messytables_load()
+    except FileCouldNotBeLoadedError as e:
+        logger.warning('Loading excerpt for this format not supported.')
+        logger.error('Loading file raised an error: %s', e)
+        raise JobError('Loading file raised an error: {}'.format(e))
+
+    tmp_file.close()
+
+    logger.info('Express Load completed')
+
+
+def _download_resource_data(resource, data, api_key, logger):
+    '''Downloads the resource['url'] as a tempfile.
+
+    :param resource: resource (i.e. metadata) dict (from the job dict)
+    :param data: job dict - may be written to during this function
+    :param api_key: CKAN api key - needed to obtain resources that are private
+    :param logger:
+
+    If the download is bigger than MAX_CONTENT_LENGTH then it just downloads a
+    excerpt (of MAX_EXCERPT_LINES) for preview, and flags it by setting
+    data['datastore_contains_all_records_of_source_file'] = False
+    which will be saved to the resource later on.
+    '''
     # check scheme
     url = resource.get('url')
-    scheme = urlparse.urlsplit(url).scheme
+    scheme = urlsplit(url).scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -175,6 +267,7 @@ def xloader_data_into_datastore_(input, job_dict):
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
+            response.close()
             raise DataTooBigError()
 
         # download the file to a tempfile on disk
@@ -184,13 +277,14 @@ def xloader_data_into_datastore_(input, job_dict):
                 raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
+        response.close()
         data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
         tmp_file.close()
         message = 'Data too large to load into Datastore: ' \
-                    '{cl} bytes > max {max_cl} bytes.' \
-                    .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
+            '{cl} bytes > max {max_cl} bytes.' \
+            .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
         logger.warning(message)
         if MAX_EXCERPT_LINES <= 0:
             raise JobError(message)
@@ -203,22 +297,23 @@ def xloader_data_into_datastore_(input, job_dict):
         line_count = 0
         m = hashlib.md5()
         for line in response.iter_lines(CHUNK_SIZE):
-            tmp_file.write(line + '\n')
+            tmp_file.write(line + b'\n')
             m.update(line)
             length += len(line)
             line_count += 1
             if length > MAX_CONTENT_LENGTH or line_count >= MAX_EXCERPT_LINES:
                 break
+        response.close()
         data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
         # status code error
-        logger.debug('HTTP error: {}'.format(error))
+        logger.debug('HTTP error: %s', error)
         raise HTTPError(
             "Xloader received a bad HTTP response when trying to download "
             "the data file", status_code=error.response.status_code,
             request_url=url, response=error)
     except requests.exceptions.Timeout:
-        logger.warning('URL time out after {0}s'.format(DOWNLOAD_TIMEOUT))
+        logger.warning('URL time out after %ss', DOWNLOAD_TIMEOUT)
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
@@ -226,7 +321,7 @@ def xloader_data_into_datastore_(input, job_dict):
             err_message = str(e.reason)
         except AttributeError:
             err_message = str(e)
-        logger.warning('URL error: {}'.format(err_message))
+        logger.warning('URL error: %s', err_message)
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
@@ -234,70 +329,17 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Downloaded ok - %s', printable_file_size(length))
     file_hash = m.hexdigest()
     tmp_file.seek(0)
-
-    # hash isn't actually stored, so this is a bit worthless at the moment
-    if (resource.get('hash') == file_hash
-            and not data.get('ignore_hash')):
-        logger.info('Ignoring resource - the file hash hasn\'t changed: '
-                    '{hash}.'.format(hash=file_hash))
-        return
-    logger.info('File hash: {}'.format(file_hash))
-    resource['hash'] = file_hash  # TODO write this back to the actual resource
-
-    # Load it
-    logger.info('Loading CSV')
-    try:
-        fields = loader.load_csv(
-            tmp_file.name,
-            resource_id=resource['id'],
-            mimetype=resource.get('format'),
-            logger=logger)
-        loader.calculate_record_count(
-            resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, api_key, ckan_url, logger)
-        job_dict['status'] = 'running_but_viewable'
-        callback_xloader_hook(result_url=input['result_url'],
-                              api_key=input['api_key'],
-                              job_dict=job_dict)
-        logger.info('Data now available to users: {}'.format(resource_ckan_url))
-        loader.create_column_indexes(
-            fields=fields,
-            resource_id=resource['id'],
-            logger=logger)
-    except JobError as e:
-        logger.warning('Load using COPY failed: {}'.format(e))
-        logger.info('Trying again with messytables')
-        try:
-            loader.load_table(tmp_file.name,
-                              resource_id=resource['id'],
-                              mimetype=resource.get('format'),
-                              logger=logger)
-        except JobError as e:
-            logger.error('Error during messytables load: {}'.format(e))
-            raise
-        loader.calculate_record_count(
-            resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, api_key, ckan_url, logger)
-        logger.info('Finished loading with messytables')
-    except FileCouldNotBeLoadedError as e:
-        logger.warning('Loading excerpt for this format not supported.')
-        logger.error('Loading file raised an error: {}'.format(e))
-        raise JobError('Loading file raised an error: {}'.format(e))
-
-    tmp_file.close()
-
-    logger.info('Express Load completed')
+    return tmp_file, file_hash
 
 
 def get_response(url, headers):
     def get_url():
-        return requests.get(
-            url,
-            headers=headers,
-            timeout=DOWNLOAD_TIMEOUT,
-            verify=SSL_VERIFY,
-            stream=True,  # just gets the headers for now
-        )
+        kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
+                  'verify': SSL_VERIFY, 'stream': True}  # just gets the headers for now
+        if 'ckan.download_proxy' in config:
+            proxy = config.get('ckan.download_proxy')
+            kwargs['proxies'] = {'http': proxy, 'https': proxy}
+        return requests.get(url, **kwargs)
     response = get_url()
     if response.status_code == 202:
         # Seen: https://data-cdfw.opendata.arcgis.com/datasets
@@ -305,7 +347,7 @@ def get_response(url, headers):
         # 202 can mean other things, but there's no harm in retries.
         wait = 1
         while wait < 120 and response.status_code == 202:
-            # logger.info('Retrying after {}s'.format(wait))
+            # logger.info('Retrying after %ss', wait)
             time.sleep(wait)
             response = get_url()
             wait *= 3
@@ -319,14 +361,17 @@ def get_tmp_file(url):
     return tmp_file
 
 
-def set_datastore_active(data, resource, api_key, ckan_url, logger):
+def set_datastore_active(data, resource, logger):
     if data.get('set_url_type', False):
         logger.debug('Setting resource.url_type = \'datapusher\'')
-        update_resource(resource, api_key, ckan_url)
+        resource['url_type'] = 'datapusher'
+        update_resource(resource)
 
     data['datastore_active'] = True
     logger.info('Setting resource.datastore_active = True')
-    logger.info('Setting resource.datastore_contains_all_records_of_source_file = {}'.format(data.get('datastore_contains_all_records_of_source_file')))
+    logger.info(
+        'Setting resource.datastore_contains_all_records_of_source_file = {}'
+        .format(data.get('datastore_contains_all_records_of_source_file')))
     set_resource_metadata(update_dict=data)
 
 
@@ -350,6 +395,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         result = requests.post(
             result_url,
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
+            verify=SSL_VERIFY,
             headers=headers)
     except requests.ConnectionError:
         return False
@@ -367,26 +413,27 @@ def set_resource_metadata(update_dict):
     # We're modifying the resource extra directly here to avoid a
     # race condition, see issue #3245 for details and plan for a
     # better fix
-    update_dict = {'datastore_active': update_dict.get('datastore_active', True),
-                   'datastore_contains_all_records_of_source_file': update_dict.get('datastore_contains_all_records_of_source_file', True)}
+    update_dict.update({
+        'datastore_active': update_dict.get('datastore_active', True),
+        'datastore_contains_all_records_of_source_file':
+        update_dict.get('datastore_contains_all_records_of_source_file', True)
+    })
 
-    # get extras(for entity update) and package_id(for search index update)
-    res_query = model.Session.query(
-        model.resource_table.c.extras,
-        model.resource_table.c.package_id
-    ).filter(
-        model.Resource.id == update_dict['resource_id']
-    )
-    extras, package_id = res_query.one()
+    q = model.Session.query(model.Resource). \
+        filter(model.Resource.id == update_dict['resource_id'])
+    resource = q.one()
 
-    # update extras in database for record and its revision
+    # update extras in database for record
+    extras = resource.extras
     extras.update(update_dict)
-    res_query.update({'extras': extras}, synchronize_session=False)
-    model.Session.query(model.resource_revision_table).filter(
-        model.ResourceRevision.id == update_dict['resource_id'],
-        model.ResourceRevision.current is True
-    ).update({'extras': extras}, synchronize_session=False)
+    q.update({'extras': extras}, synchronize_session=False)
 
+    # TODO: Remove resource_revision_table when dropping support for 2.8
+    if hasattr(model, 'resource_revision_table'):
+        model.Session.query(model.resource_revision_table).filter(
+            model.ResourceRevision.id == update_dict['resource_id'],
+            model.ResourceRevision.current is True
+        ).update({'extras': extras}, synchronize_session=False)
     model.Session.commit()
 
     # get package with updated resource from solr
@@ -394,7 +441,7 @@ def set_resource_metadata(update_dict):
     psi = search.PackageSearchIndex()
     solr_query = search.PackageSearchQuery()
     q = {
-        'q': 'id:"{0}"'.format(package_id),
+        'q': 'id:"{0}"'.format(resource.package_id),
         'fl': 'data_dict',
         'wt': 'json',
         'fq': 'site_id:"%s"' % config.get('ckan.site_id'),
@@ -424,35 +471,50 @@ def validate_input(input):
         raise JobError('No CKAN API key provided')
 
 
-def update_resource(resource, api_key, ckan_url):
+def update_resource(resource, patch_only=False):
     """
     Update the given CKAN resource to say that it has been stored in datastore
     ok.
-
-    Could simply call the logic layer (the http request is a hangover from
-    datapusher).
+    or patch the given CKAN resource for file hash
     """
-
-    resource['url_type'] = 'datapusher'
-
-    url = get_url('resource_update', ckan_url)
-    r = requests.post(
-        url,
-        verify=SSL_VERIFY,
-        data=json.dumps(resource),
-        headers={'Content-Type': 'application/json',
-                 'Authorization': api_key}
-    )
-
-    check_response(r, url, 'CKAN')
+    action = 'resource_update' if not patch_only else 'resource_patch'
+    user = get_action('get_site_user')({'ignore_auth': True}, {})
+    context = {
+        'ignore_auth': True,
+        'user': user['name'],
+        'auth_user_obj': None
+    }
+    get_action(action)(context, resource)
 
 
-def get_resource_and_dataset(resource_id):
+def _get_user_from_key(api_key_or_token):
+    """ Gets the user using the API Token or API Key.
+
+    This method provides backwards compatibility for CKAN 2.9 that
+    supported both methods and previous CKAN versions supporting
+    only API Keys.
+    """
+    user = None
+    if get_user_from_token:
+        user = get_user_from_token(api_key_or_token)
+    if not user:
+        user = model.Session.query(model.User).filter_by(
+            apikey=api_key_or_token
+        ).first()
+    return user
+
+
+def get_resource_and_dataset(resource_id, api_key):
     """
     Gets available information about the resource and its dataset from CKAN
     """
-    res_dict = get_action('resource_show')(None, {'id': resource_id})
-    pkg_dict = get_action('package_show')(None, {'id': res_dict['package_id']})
+    context = None
+    user = _get_user_from_key(api_key)
+    if user is not None:
+        context = {'user': user.name}
+
+    res_dict = get_action('resource_show')(context, {'id': resource_id})
+    pkg_dict = get_action('package_show')(context, {'id': res_dict['package_id']})
     return res_dict, pkg_dict
 
 
@@ -460,7 +522,7 @@ def get_url(action, ckan_url):
     """
     Get url for ckan action
     """
-    if not urlparse.urlsplit(ckan_url).scheme:
+    if not urlsplit(ckan_url).scheme:
         ckan_url = 'http://' + ckan_url.lstrip('/')
     ckan_url = ckan_url.rstrip('/')
     return '{ckan_url}/api/3/action/{action}'.format(
@@ -517,14 +579,14 @@ class StoringHandler(logging.Handler):
         try:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
-            message = unicode(record.getMessage())
-            level = unicode(record.levelname)
-            module = unicode(record.module)
-            funcName = unicode(record.funcName)
+            message = str(record.getMessage())
+            level = str(record.levelname)
+            module = str(record.module)
+            funcName = str(record.funcName)
 
             conn.execute(db.LOGS_TABLE.insert().values(
                 job_id=self.task_id,
-                timestamp=datetime.datetime.now(),
+                timestamp=datetime.datetime.utcnow(),
                 message=message,
                 level=level,
                 module=module,
@@ -549,5 +611,5 @@ def printable_file_size(size_bytes):
     size_name = ('bytes', 'KB', 'MB', 'GB', 'TB')
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
-    s = round(size_bytes / p, 1)
+    s = round(float(size_bytes) / p, 1)
     return "%s %s" % (s, size_name[i])

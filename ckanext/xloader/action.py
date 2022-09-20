@@ -1,36 +1,28 @@
 # encoding: utf-8
 
-import logging
-import json
+from __future__ import absolute_import
 import datetime
+import json
+import logging
 
-from dateutil.parser import parse as parse_date
-
+import ckan.lib.jobs as rq_jobs
 import ckan.lib.navl.dictization_functions
-import ckan.logic as logic
-import ckan.plugins as p
 from ckan.logic import side_effect_free
+import ckan.plugins as p
+from dateutil.parser import parse as parse_date
+from six import text_type as str
 
 import ckanext.xloader.schema
-import interfaces as xloader_interfaces
-import jobs
-import db
-try:
-    enqueue_job = p.toolkit.enqueue_job
-except AttributeError:
-    from ckanext.rq.jobs import enqueue as enqueue_job
-try:
-    import ckan.lib.jobs as rq_jobs
-except ImportError:
-    import ckanext.rq.jobs as rq_jobs
+
+from . import interfaces as xloader_interfaces, jobs, db, utils
+
+enqueue_job = p.toolkit.enqueue_job
 get_queue = rq_jobs.get_queue
 
 log = logging.getLogger(__name__)
-try:
-    config = p.toolkit.config
-except AttributeError:
-    from pylons import config
-_get_or_bust = logic.get_or_bust
+config = p.toolkit.config
+
+_get_or_bust = p.toolkit.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
 
@@ -59,21 +51,15 @@ def xloader_submit(context, data_dict):
     if errors:
         raise p.toolkit.ValidationError(errors)
 
-    res_id = data_dict['resource_id']
-
     p.toolkit.check_access('xloader_submit', context, data_dict)
 
+    res_id = data_dict['resource_id']
     try:
         resource_dict = p.toolkit.get_action('resource_show')(context, {
             'id': res_id,
         })
-    except logic.NotFound:
+    except p.toolkit.ObjectNotFound:
         return False
-
-    site_url = config['ckan.site_url']
-    callback_url = site_url + '/api/3/action/xloader_hook'
-
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
 
     for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
         upload = plugin.can_upload(res_id)
@@ -108,16 +94,16 @@ def xloader_submit(context, data_dict):
         if existing_task.get('state') == 'pending':
             import re  # here because it takes a moment to load
             queued_res_ids = [
-                re.search(r"'resource_id': u'([^']+)'",
+                re.search(r"'resource_id': u?'([^']+)'",
                           job.description).groups()[0]
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in str(job)  # filter out test_job etc
-                ]
+            ]
             updated = datetime.datetime.strptime(
                 existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
             time_since_last_updated = datetime.datetime.utcnow() - updated
-            if (res_id not in queued_res_ids and
-                    time_since_last_updated > assume_task_stillborn_after):
+            if (res_id not in queued_res_ids
+                    and time_since_last_updated > assume_task_stillborn_after):
                 # it's not on the queue (and if it had just been started then
                 # its taken too long to update the task_status from pending -
                 # the first thing it should do in the xloader job).
@@ -138,34 +124,45 @@ def xloader_submit(context, data_dict):
                 return False
 
         task['id'] = existing_task['id']
-    except logic.NotFound:
+    except p.toolkit.ObjectNotFound:
         pass
 
-    context['ignore_auth'] = True
-    context['user'] = ''  # benign - needed for ckan 2.5
-    p.toolkit.get_action('task_status_update')(context, task)
+    model = context['model']
 
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
+        task
+    )
+
+    callback_url = p.toolkit.url_for(
+        "api.action",
+        ver=3,
+        logic_function="xloader_hook",
+        qualified=True
+    )
     data = {
-        'api_key': site_user['apikey'],
+        'api_key': utils.get_xloader_user_apitoken(),
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
             'ignore_hash': data_dict.get('ignore_hash', False),
-            'ckan_url': site_url,
+            'ckan_url': config['ckan.site_url'],
             'resource_id': res_id,
             'set_url_type': data_dict.get('set_url_type', False),
             'task_created': task['last_updated'],
             'original_url': resource_dict.get('url'),
-            }
         }
+    }
     timeout = config.get('ckanext.xloader.job_timeout', '3600')
     try:
-        try:
-            job = enqueue_job(jobs.xloader_data_into_datastore, [data],
-                              timeout=timeout)
-        except TypeError:
-            # older ckans didn't allow the timeout keyword
-            job = _enqueue(jobs.xloader_data_into_datastore, [data], timeout=timeout)
+        job = enqueue_job(
+            jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=timeout)
+        )
+    except TypeError:
+        # This except provides support for 2.7.
+        job = _enqueue(
+            jobs.xloader_data_into_datastore, [data], timeout=timeout
+        )
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)
         return False
@@ -175,8 +172,12 @@ def xloader_submit(context, data_dict):
 
     task['value'] = value
     task['state'] = 'pending'
-    task['last_updated'] = str(datetime.datetime.utcnow()),
-    p.toolkit.get_action('task_status_update')(context, task)
+    task['last_updated'] = str(datetime.datetime.utcnow())
+
+    p.toolkit.get_action('task_status_update')(
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
+        task
+    )
 
     return True
 
@@ -184,7 +185,10 @@ def xloader_submit(context, data_dict):
 def _enqueue(fn, args=None, kwargs=None, title=None, queue='default',
              timeout=180):
     '''Same as latest ckan.lib.jobs.enqueue - earlier CKAN versions dont have
-    the timeout param'''
+    the timeout param
+
+    This function can be removed when dropping support for 2.7
+    '''
     if args is None:
         args = []
     if kwargs is None:
@@ -264,7 +268,7 @@ def xloader_hook(context, data_dict):
         for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
             plugin.after_upload(context, resource_dict, dataset_dict)
 
-        logic.get_action('resource_create_default_resource_views')(
+        p.toolkit.get_action('resource_create_default_resource_views')(
             context,
             {
                 'resource': resource_dict,
@@ -273,32 +277,32 @@ def xloader_hook(context, data_dict):
             })
 
         # Check if the uploaded file has been modified in the meantime
-        if (resource_dict.get('last_modified') and
-                metadata.get('task_created')):
+        if (resource_dict.get('last_modified')
+                and metadata.get('task_created')):
             try:
                 last_modified_datetime = parse_date(
                     resource_dict['last_modified'])
                 task_created_datetime = parse_date(metadata['task_created'])
                 if last_modified_datetime > task_created_datetime:
-                    log.debug('Uploaded file more recent: {0} > {1}'.format(
-                        last_modified_datetime, task_created_datetime))
+                    log.debug('Uploaded file more recent: %s > %s',
+                              last_modified_datetime, task_created_datetime)
                     resubmit = True
             except ValueError:
                 pass
         # Check if the URL of the file has been modified in the meantime
-        elif (resource_dict.get('url') and
-                metadata.get('original_url') and
-                resource_dict['url'] != metadata['original_url']):
-            log.debug('URLs are different: {0} != {1}'.format(
-                resource_dict['url'], metadata['original_url']))
+        elif (resource_dict.get('url')
+              and metadata.get('original_url')
+              and resource_dict['url'] != metadata['original_url']):
+            log.debug('URLs are different: %s != %s',
+                      resource_dict['url'], metadata['original_url'])
             resubmit = True
 
     context['ignore_auth'] = True
     p.toolkit.get_action('task_status_update')(context, task)
 
     if resubmit:
-        log.debug('Resource {0} has been modified, '
-                  'resubmitting to DataPusher'.format(res_id))
+        log.debug('Resource %s has been modified, '
+                  'resubmitting to DataPusher', res_id)
         p.toolkit.get_action('xloader_submit')(
             context, {'resource_id': res_id})
 
@@ -334,14 +338,10 @@ def xloader_status(context, data_dict):
         db.init(config)
         job_detail = db.get_job(job_id)
 
-        # timestamp is a date, so not sure why this code was there
-        # for log in job_detail['logs']:
-        #     if 'timestamp' in log:
-        #         date = time.strptime(
-        #             log['timestamp'], "%Y-%m-%dT%H:%M:%S.%f")
-        #         date = datetime.datetime.utcfromtimestamp(
-        #             time.mktime(date))
-        #         log['timestamp'] = date
+        if job_detail and job_detail.get('logs'):
+            for log in job_detail['logs']:
+                if 'timestamp' in log and isinstance(log['timestamp'], datetime.datetime):
+                    log['timestamp'] = log['timestamp'].isoformat()
     try:
         error = json.loads(task['error'])
     except ValueError:

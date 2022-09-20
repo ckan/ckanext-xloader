@@ -40,3 +40,12 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# editors
+.vscode
+
+ckan
+.rdp
+.noseids
+subdir/
+dump.rdb
