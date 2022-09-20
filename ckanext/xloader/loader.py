@@ -15,6 +15,7 @@ from unidecode import unidecode
 
 import ckan.plugins as p
 from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from .utils import headers_guess
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -59,7 +60,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             raise LoaderError('Could not detect tabular data in this file')
         row_set = table_set.tables.pop()
         try:
-            header_offset, headers = messytables.headers_guess(row_set.sample)
+            header_offset, headers = headers_guess(row_set.sample)
         except messytables.ReadError as e:
             raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
@@ -254,7 +255,7 @@ def create_column_indexes(fields, resource_id, logger):
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
-    '''Loads an Excel file (or other tabular data recognized by messytables)
+    '''Loads an Excel file (or other tabular data recognized by tabulator)
     into Datastore and creates indexes.
 
     Largely copied from datapusher - see below. Is slower than load_csv.
@@ -283,7 +284,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         if not table_set.tables:
             raise LoaderError('Could not parse file as tabular data')
         row_set = table_set.tables.pop()
-        offset, headers = messytables.headers_guess(row_set.sample)
+        offset, headers = headers_guess(row_set.sample)
 
         existing = datastore_resource_exists(resource_id)
         existing_info = None

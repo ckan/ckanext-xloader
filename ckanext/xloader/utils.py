@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import ckan.plugins as p
 
 
@@ -57,3 +59,42 @@ def get_xloader_user_apitoken():
 
     site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
     return site_user["apikey"]
+
+
+def column_count_modal(rows):
+    """ Return the modal value of columns in the row_set's
+    sample. This can be assumed to be the number of columns
+    of the table.
+
+    Copied from messytables.
+    """
+    counts = defaultdict(int)
+    for row in rows:
+        length = len([c for c in row if not c.empty])
+        if length > 1:
+            counts[length] += 1
+    if not len(counts):
+        return 0
+    return max(list(counts.items()), key=lambda k_v: k_v[1])[0]
+
+
+def headers_guess(rows, tolerance=1):
+    """ Guess the offset and names of the headers of the row set.
+    This will attempt to locate the first row within ``tolerance``
+    of the mode of the number of rows in the row set sample.
+
+    The return value is a tuple of the offset of the header row
+    and the names of the columns.
+
+    Copied from messytables.
+    """
+    rows = list(rows)
+    modal = column_count_modal(rows)
+    for i, row in enumerate(rows):
+        length = len([c for c in row if not c.empty])
+        if length >= modal - tolerance:
+            # TODO: use type guessing to check that this row has
+            # strings and does not conform to the type schema of
+            # the table.
+            return i, [c.value for c in row]
+    return 0, []

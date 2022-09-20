@@ -612,7 +612,7 @@ class TestLoadCsv(TestLoadBase):
         ] + [u"text"] * (len(records[0]) - 1)
 
     def test_integer_header_xlsx(self):
-        # this xlsx file's header is detected by messytables.headers_guess as
+        # this xlsx file's header is detected by utils.headers_guess as
         # integers and we should cope with that
         csv_filepath = get_sample_filepath("go-realtime.xlsx")
         resource_id = factories.Resource()["id"]
