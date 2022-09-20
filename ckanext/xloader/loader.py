@@ -65,13 +65,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
 
-    # Setup the converters that run when you iterate over the row_set.
-    # With pgloader only the headers will be iterated over.
-    row_set.register_processor(messytables.headers_processor(headers))
-    row_set.register_processor(
-        messytables.offset_processor(header_offset + 1))
-    # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
-
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
     # TODO worry about csv header name problems
