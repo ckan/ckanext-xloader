@@ -5,13 +5,12 @@ import os
 import os.path
 import tempfile
 import itertools
-import csv
 
-import six
 from six.moves import zip
 import psycopg2
 import messytables
-import tabulator
+from tabulator import Stream, TabulatorException
+from tabulator.writers.csv import CSVWriter
 from unidecode import unidecode
 
 import ckan.plugins as p
@@ -49,9 +48,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     extension = os.path.splitext(csv_filepath)[1]
     try:
-        with tabulator.Stream(csv_filepath, format=extension) as stream:
+        with Stream(csv_filepath, format=extension) as stream:
             header_offset, headers = headers_guess(stream.sample)
-    except tabulator.TabulatorException as e:
+    except TabulatorException as e:
         raise LoaderError('Tabulator error: {}'.format(e))
     except Exception as e:
         raise FileCouldNotBeLoadedError(e)
@@ -77,10 +76,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
         with open(csv_filepath, 'rb') as f_read:
-            csv_decoder = messytables.commas.UTF8Recoder(f_read, encoding=None)
-            for line in csv_decoder:
-                f_write.write(line)
-            f_write.close()   # ensures the last line is written
+            csv_decoder = CSVWriter(delimiter=delimiter)
+            csv_decoder.write(source=f_read, target=f_write.name, headers=headers,
+                              encoding='utf-8')
             csv_filepath = f_write.name
 
         # datastore db connection
