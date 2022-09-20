@@ -11,6 +11,7 @@ import six
 from six.moves import zip
 import psycopg2
 import messytables
+import tabulator
 from unidecode import unidecode
 
 import ckan.plugins as p
@@ -45,38 +46,24 @@ MAX_COLUMN_LENGTH = 63
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
-    # use messytables to determine the header row
+    # Determine the header row
     extension = os.path.splitext(csv_filepath)[1]
-    with open(csv_filepath, 'rb') as f:
-        try:
-            table_set = messytables.any_tableset(f, mimetype=mimetype,
-                                                 extension=extension)
-        except messytables.ReadError as e:
-            raise LoaderError('Messytables error: {}'.format(e))
-        except Exception as e:
-            raise FileCouldNotBeLoadedError(e)
+    try:
+        with tabulator.Stream(csv_filepath, format=extension) as stream:
+            header_offset, headers = headers_guess(stream.sample)
+    except tabulator.TabulatorException as e:
+        raise LoaderError('Tabulator error: {}'.format(e))
+    except Exception as e:
+        raise FileCouldNotBeLoadedError(e)
 
-        if not table_set.tables:
-            raise LoaderError('Could not detect tabular data in this file')
-        row_set = table_set.tables.pop()
-        try:
-            header_offset, headers = headers_guess(row_set.sample)
-        except messytables.ReadError as e:
-            raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
-    # Guess the delimiter used in the file
-    with open(csv_filepath, 'rb') as f:
-        header_line = f.readline()
-    try:
-        sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(six.ensure_text(header_line)).delimiter
-    except csv.Error:
+    # Get the delimiter used in the file
+    delimiter = stream.dialect.get('delimiter')
+    if delimiter is None:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
-    except UnicodeDecodeError:
-        raise LoaderError('Could not detect delimiter in this file')
 
     # Setup the converters that run when you iterate over the row_set.
     # With pgloader only the headers will be iterated over.
