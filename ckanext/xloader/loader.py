@@ -46,7 +46,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
     # Determine the header row
-    extension = os.path.splitext(csv_filepath)[1]
+    extension = os.path.splitext(csv_filepath)[1].strip('.')
     try:
         with Stream(csv_filepath, format=extension) as stream:
             header_offset, headers = headers_guess(stream.sample)
