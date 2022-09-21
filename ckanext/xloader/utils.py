@@ -1,3 +1,4 @@
+import datetime
 from collections import defaultdict
 
 import ckan.plugins as p
@@ -100,6 +101,9 @@ def headers_guess(rows, tolerance=1):
     return 0, []
 
 
+TYPES = [int, bool, str, datetime.datetime, float]
+
+
 def type_guess(rows, types=TYPES, strict=False):
     """ The type guesser aggregates the number of successful
     conversions of each column to each type, weights them by a
@@ -110,34 +114,33 @@ def type_guess(rows, types=TYPES, strict=False):
     Strict means that a type will not be guessed
     if parsing fails for a single cell in the column."""
     guesses = []
-    type_instances = [i for t in types for i in t.instances()]
     if strict:
         at_least_one_value = []
         for ri, row in enumerate(rows):
             diff = len(row) - len(guesses)
             for _ in range(diff):
                 typesdict = {}
-                for type in type_instances:
+                for type in types:
                     typesdict[type] = 0
                 guesses.append(typesdict)
                 at_least_one_value.append(False)
             for ci, cell in enumerate(row):
-                if not cell.value:
+                if not cell:
                     continue
                 at_least_one_value[ci] = True
                 for type in list(guesses[ci].keys()):
-                    if not type.test(cell.value):
+                    if not isinstance(cell, type):
                         guesses[ci].pop(type)
         # no need to set guessing weights before this
         # because we only accept a type if it never fails
         for i, guess in enumerate(guesses):
             for type in guess:
-                guesses[i][type] = type.guessing_weight
+                guesses[i][type] = 1
         # in case there were no values at all in the column,
         # we just set the guessed type to string
         for i, v in enumerate(at_least_one_value):
             if not v:
-                guesses[i] = {StringType(): 0}
+                guesses[i] = {str: 1}
     else:
         for i, row in enumerate(rows):
             diff = len(row) - len(guesses)
@@ -145,12 +148,12 @@ def type_guess(rows, types=TYPES, strict=False):
                 guesses.append(defaultdict(int))
             for i, cell in enumerate(row):
                 # add string guess so that we have at least one guess
-                guesses[i][StringType()] = guesses[i].get(StringType(), 0)
-                if not cell.value:
+                guesses[i][str] = guesses[i].get(str, 1)
+                if not cell:
                     continue
-                for type in type_instances:
-                    if type.test(cell.value):
-                        guesses[i][type] += type.guessing_weight
+                for type in types:
+                    if isinstance(cell, type):
+                        guesses[i][type] += 1
         _columns = []
     _columns = []
     for guess in guesses:
@@ -158,6 +161,6 @@ def type_guess(rows, types=TYPES, strict=False):
         # sorted. Even though it is not specified, python chooses the first
         # element in case of a tie
         # See: http://stackoverflow.com/a/6783101/214950
-        guesses_tuples = [(t, guess[t]) for t in type_instances if t in guess]
+        guesses_tuples = [(t, guess[t]) for t in types if t in guess]
         _columns.append(max(guesses_tuples, key=lambda t_n: t_n[1])[0])
     return _columns
