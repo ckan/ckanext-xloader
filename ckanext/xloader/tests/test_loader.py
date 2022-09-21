@@ -611,23 +611,6 @@ class TestLoadCsv(TestLoadBase):
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
-    def test_integer_header_xlsx(self):
-        # this xlsx file's header is detected by utils.headers_guess as
-        # integers and we should cope with that
-        csv_filepath = get_sample_filepath("go-realtime.xlsx")
-        resource_id = factories.Resource()["id"]
-        try:
-            loader.load_csv(
-                csv_filepath,
-                resource_id=resource_id,
-                mimetype="CSV",
-                logger=logger,
-            )
-        except (LoaderError, UnicodeDecodeError):
-            pass
-        else:
-            assert 0, "There should have been an exception"
-
     def test_reload(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
         resource_id = "test1"
