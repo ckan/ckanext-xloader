@@ -348,7 +348,7 @@ _TYPE_MAPPING = {
 
 
 def get_types():
-    _TYPES = [str, float, int, datetime.datetime]
+    _TYPES = [int, bool, str, datetime.datetime, float]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
