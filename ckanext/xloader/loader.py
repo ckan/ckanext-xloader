@@ -1,5 +1,8 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
+
+import datetime
+
 from six import text_type as str
 import os
 import os.path
@@ -10,12 +13,11 @@ from six.moves import zip
 import psycopg2
 import messytables
 from tabulator import Stream, TabulatorException
-from tabulator.writers.csv import CSVWriter
 from unidecode import unidecode
 
 import ckan.plugins as p
 from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
-from .utils import headers_guess
+from .utils import headers_guess, type_guess
 import ckan.plugins.toolkit as tk
 try:
     from ckan.plugins.toolkit import config
@@ -241,69 +243,56 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     Largely copied from datapusher - see below. Is slower than load_csv.
     '''
 
-    # use messytables to determine the header row
+    # Determine the header row
     logger.info('Determining column names and types')
-    ct = mimetype
-    format = os.path.splitext(table_filepath)[1]  # filename extension
-    with open(table_filepath, 'rb') as tmp:
+    extension = os.path.splitext(table_filepath)[1].strip('.')
+    try:
+        with Stream(table_filepath, format=extension) as stream:
+            header_offset, headers = headers_guess(stream.sample)
+    except TabulatorException as e:
+        raise LoaderError('Tabulator error: {}'.format(e))
+    except Exception as e:
+        raise FileCouldNotBeLoadedError(e)
 
-        #
-        # Copied from datapusher/jobs.py:push_to_datastore
-        #
+    # Some headers might have been converted from strings to floats and such.
+    headers = encode_headers(headers)
 
-        try:
-            table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
-        except messytables.ReadError:
-            # try again with format
-            tmp.seek(0)
-            try:
-                table_set = messytables.any_tableset(tmp, mimetype=format, extension=format)
-            except Exception as e:
-                raise LoaderError(e)
+    existing = datastore_resource_exists(resource_id)
+    existing_info = None
+    if existing:
+        existing_info = dict(
+            (f['id'], f['info'])
+            for f in existing.get('fields', []) if 'info' in f)
 
-        if not table_set.tables:
-            raise LoaderError('Could not parse file as tabular data')
-        row_set = table_set.tables.pop()
-        offset, headers = headers_guess(row_set.sample)
+    # Some headers might have been converted from strings to floats and such.
+    headers = encode_headers(headers)
 
-        existing = datastore_resource_exists(resource_id)
-        existing_info = None
-        if existing:
-            existing_info = dict(
-                (f['id'], f['info'])
-                for f in existing.get('fields', []) if 'info' in f)
+    # Get the list of rows to skip. The rows in the tabulator stream are
+    # numbered starting with 1. We also want to skip the header row.
+    skip_rows = list(range(1, header_offset + 2))
 
-        # Some headers might have been converted from strings to floats and such.
-        headers = encode_headers(headers)
+    TYPES, TYPE_MAPPING = get_types()
+    types = type_guess(stream.sample[1:], types=TYPES, strict=True)
 
-        row_set.register_processor(messytables.headers_processor(headers))
-        row_set.register_processor(messytables.offset_processor(offset + 1))
-        TYPES, TYPE_MAPPING = get_types()
-        types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
+    # override with types user requested
+    if existing_info:
+        types = [
+            {
+                'text': messytables.StringType(),
+                'numeric': messytables.DecimalType(),
+                'timestamp': messytables.DateUtilType(),
+            }.get(existing_info.get(h, {}).get('type_override'), t)
+            for t, h in zip(types, headers)]
 
-        # override with types user requested
-        if existing_info:
-            types = [
-                {
-                    'text': messytables.StringType(),
-                    'numeric': messytables.DecimalType(),
-                    'timestamp': messytables.DateUtilType(),
-                }.get(existing_info.get(h, {}).get('type_override'), t)
-                for t, h in zip(types, headers)]
+    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
-        row_set.register_processor(messytables.types_processor(types))
-
-        headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-        headers_set = set(headers)
-
+    with Stream(table_filepath, format=extension, skip_rows=skip_rows) as stream:
         def row_iterator():
-            for row in row_set:
+            for row in stream:
                 data_row = {}
                 for index, cell in enumerate(row):
-                    column_name = cell.column.strip()
-                    if column_name not in headers_set:
-                        continue
-                    data_row[column_name] = cell.value
+                    # TODO: cast to required types
+                    data_row[headers[index]] = cell
                 yield data_row
         result = row_iterator()
 
@@ -341,27 +330,25 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 
-        if count:
-            logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
-                        n=count, res_id=resource_id))
-        else:
-            # no datastore table is created
-            raise LoaderError('No entries found - nothing to load')
+    if count:
+        logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
+                    n=count, res_id=resource_id))
+    else:
+        # no datastore table is created
+        raise LoaderError('No entries found - nothing to load')
 
 
 _TYPE_MAPPING = {
-    'String': 'text',
-    # 'int' may not be big enough,
-    # and type detection may not realize it needs to be big
-    'Integer': 'numeric',
-    'Decimal': 'numeric',
-    'DateUtil': 'timestamp'
+    "<type 'unicode'>": 'text',
+    "<type 'bool'>": 'text',
+    "<type 'int'>": 'numeric',
+    "<type 'float'>": 'numeric',
+    "<type 'datetime.datetime'>": 'timestamp'
 }
 
 
 def get_types():
-    _TYPES = [messytables.StringType, messytables.DecimalType,
-              messytables.IntegerType, messytables.DateUtilType]
+    _TYPES = [str, float, int, datetime.datetime]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
