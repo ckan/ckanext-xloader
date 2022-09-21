@@ -17,6 +17,7 @@ from unidecode import unidecode
 
 import ckan.plugins as p
 from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
+from .parser import XloaderCSVParser
 from .utils import headers_guess, type_guess
 import ckan.plugins.toolkit as tk
 try:
@@ -247,7 +248,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Determining column names and types')
     extension = os.path.splitext(table_filepath)[1].strip('.')
     try:
-        with Stream(table_filepath, format=extension) as stream:
+        print(extension)
+        with Stream(table_filepath, format=extension, custom_parsers={'csv': XloaderCSVParser}) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
         raise LoaderError('Tabulator error: {}'.format(e))
@@ -286,7 +288,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
-    with Stream(table_filepath, format=extension, skip_rows=skip_rows) as stream:
+    with Stream(table_filepath, format=extension, skip_rows=skip_rows, custom_parsers={'csv': XloaderCSVParser}) as stream:
         def row_iterator():
             for row in stream:
                 data_row = {}
