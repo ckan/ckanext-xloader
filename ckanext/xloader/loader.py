@@ -58,6 +58,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
+    # Get the list of rows to skip. The rows in the tabulator stream are
+    # numbered starting with 1.
+    skip_rows = list(range(1, header_offset + 1))
+
     # Get the delimiter used in the file
     delimiter = stream.dialect.get('delimiter')
     if delimiter is None:
@@ -75,10 +79,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
-        with open(csv_filepath, 'rb') as f_read:
-            csv_decoder = CSVWriter(delimiter=delimiter)
-            csv_decoder.write(source=f_read, target=f_write.name, headers=headers,
-                              encoding='utf-8')
+        with Stream(csv_filepath, format=extension, skip_rows=skip_rows) as stream:
+            stream.save(target=f_write.name, format='csv', encoding='utf-8')
             csv_filepath = f_write.name
 
         # datastore db connection
