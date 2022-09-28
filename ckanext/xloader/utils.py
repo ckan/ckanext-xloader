@@ -1,5 +1,6 @@
 import datetime
 from collections import defaultdict
+from decimal import Decimal
 from six import text_type as str
 
 import ckan.plugins as p
@@ -102,7 +103,7 @@ def headers_guess(rows, tolerance=1):
     return 0, []
 
 
-TYPES = [int, bool, str, datetime.datetime, float]
+TYPES = [int, bool, str, datetime.datetime, float, Decimal]
 
 
 def type_guess(rows, types=TYPES, strict=False):

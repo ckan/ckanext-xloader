@@ -12,6 +12,7 @@ import itertools
 from six.moves import zip
 import psycopg2
 import messytables
+from decimal import Decimal
 from tabulator import Stream, TabulatorException
 from unidecode import unidecode
 
@@ -345,12 +346,13 @@ _TYPE_MAPPING = {
     "<type 'bool'>": 'text',
     "<type 'int'>": 'numeric',
     "<type 'float'>": 'numeric',
+    "<class 'decimal.Decimal'>": 'numeric',
     "<type 'datetime.datetime'>": 'timestamp'
 }
 
 
 def get_types():
-    _TYPES = [int, bool, str, datetime.datetime, float]
+    _TYPES = [int, bool, str, datetime.datetime, float, Decimal]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
