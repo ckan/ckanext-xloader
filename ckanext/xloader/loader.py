@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import datetime
+import decimal
 
 from six import text_type as str
 import os
@@ -11,7 +12,6 @@ import itertools
 
 from six.moves import zip
 import psycopg2
-import messytables
 from decimal import Decimal
 from tabulator import Stream, TabulatorException
 from unidecode import unidecode
@@ -282,9 +282,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     if existing_info:
         types = [
             {
-                'text': messytables.StringType(),
-                'numeric': messytables.DecimalType(),
-                'timestamp': messytables.DateUtilType(),
+                'text': str,
+                'numeric': decimal.Decimal,
+                'timestamp': datetime.datetime,
             }.get(existing_info.get(h, {}).get('type_override'), t)
             for t, h in zip(types, headers)]
 
