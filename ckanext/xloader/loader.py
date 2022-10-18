@@ -113,7 +113,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         fields = [
             {'id': header_name,
              'type': existing_info.get(header_name, {})
-             .get('type_override') or 'text',
+                .get('type_override') or 'text',
              }
             for header_name in headers]
 
@@ -250,8 +250,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Determining column names and types')
     extension = os.path.splitext(table_filepath)[1].strip('.')
     try:
-        print(extension)
-        with Stream(table_filepath, format=extension, custom_parsers={'csv': XloaderCSVParser}) as stream:
+        with Stream(table_filepath, format=extension,
+                    custom_parsers={'csv': XloaderCSVParser}) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
         raise LoaderError('Tabulator error: {}'.format(e))
@@ -290,12 +290,12 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
-    with Stream(table_filepath, format=extension, skip_rows=skip_rows, custom_parsers={'csv': XloaderCSVParser}) as stream:
+    with Stream(table_filepath, format=extension, skip_rows=skip_rows,
+                custom_parsers={'csv': XloaderCSVParser}) as stream:
         def row_iterator():
             for row in stream:
                 data_row = {}
                 for index, cell in enumerate(row):
-                    # TODO: cast to required types
                     data_row[headers[index]] = cell
                 yield data_row
         result = row_iterator()
