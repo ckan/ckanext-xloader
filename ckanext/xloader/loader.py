@@ -84,7 +84,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
         with Stream(csv_filepath, format=extension, skip_rows=skip_rows) as stream:
-            stream.save(target=f_write.name, format='csv', encoding='utf-8')
+            stream.save(target=f_write.name, format='csv', encoding='utf-8',
+                        delimiter=delimiter)
             csv_filepath = f_write.name
 
         # datastore db connection
