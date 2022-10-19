@@ -2,25 +2,25 @@
 from __future__ import absolute_import
 
 import datetime
-import decimal
-
-from six import text_type as str
+import itertools
 import os
 import os.path
 import tempfile
-import itertools
-
-from six.moves import zip
-import psycopg2
 from decimal import Decimal
+
+import psycopg2
+from six import text_type as str
+from six.moves import zip
 from tabulator import Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
+import ckan.plugins.toolkit as tk
+
+from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import XloaderCSVParser
 from .utils import headers_guess, type_guess
-import ckan.plugins.toolkit as tk
+
 try:
     from ckan.plugins.toolkit import config
 except ImportError:
@@ -289,7 +289,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         types = [
             {
                 'text': str,
-                'numeric': decimal.Decimal,
+                'numeric': Decimal,
                 'timestamp': datetime.datetime,
             }.get(existing_info.get(h, {}).get('type_override'), t)
             for t, h in zip(types, headers)]

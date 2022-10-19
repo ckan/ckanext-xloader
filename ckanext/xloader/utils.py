@@ -1,6 +1,7 @@
 import datetime
 from collections import defaultdict
 from decimal import Decimal
+
 from six import text_type as str
 
 import ckan.plugins as p

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import csv
-import six
-
 from codecs import iterencode
-from dateutil.parser import parser, ParserError
 from decimal import Decimal, InvalidOperation
 from itertools import chain
+
+import six
+from dateutil.parser import ParserError, parser
 from tabulator import helpers
 from tabulator.parser import Parser
 
