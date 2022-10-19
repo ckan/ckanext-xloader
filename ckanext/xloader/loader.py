@@ -342,7 +342,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         raise LoaderError('No entries found - nothing to load')
 
 
-#
 _TYPE_MAPPING = {
     "<type 'unicode'>": 'text',
     "<type 'bool'>": 'text',
