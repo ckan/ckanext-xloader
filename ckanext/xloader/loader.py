@@ -349,6 +349,10 @@ _TYPE_MAPPING = {
     "<type 'float'>": 'numeric',
     "<class 'decimal.Decimal'>": 'numeric',
     "<type 'datetime.datetime'>": 'timestamp',  # Python 2
+    "<class 'str'>": 'text',
+    "<class 'bool'>": 'text',
+    "<class 'int'>": 'numeric',
+    "<class 'float'>": 'numeric',
     "<class 'datetime.datetime'>": 'timestamp',  # Python 3
 }
 
