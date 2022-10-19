@@ -788,7 +788,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
             )
 
 
-class TestLoadMessytables(TestLoadBase):
+class TestLoadTabulator(TestLoadBase):
     def test_simple(self, Session):
         csv_filepath = get_sample_filepath("simple.xls")
         resource_id = "test1"

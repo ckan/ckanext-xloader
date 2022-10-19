@@ -428,9 +428,9 @@ class TestxloaderDataIntoDatastore(object):
 
     @mock_actions
     @responses.activate
-    def test_messytables(self):
+    def test_tabulator(self):
         # xloader's COPY can't handle xls, so it will be dealt with by
-        # messytables
+        # tabulator
         self.register_urls(
             filename="simple.xls", content_type="application/vnd.ms-excel"
         )
@@ -515,7 +515,7 @@ class TestxloaderDataIntoDatastore(object):
 
         # check messytable portion of the logs
         logs = Logs(logs[copy_error_index + 1:])
-        assert logs[0] == (u"INFO", u"Trying again with messytables")
+        assert logs[0] == (u"INFO", u"Trying again with tabulator")
         logs.assert_no_errors()
 
         # Check ANALYZE was run
@@ -529,7 +529,7 @@ class TestxloaderDataIntoDatastore(object):
         # This csv has an extra comma which causes the COPY to throw a
         # psycopg2.DataError and the umlaut can cause problems for logging the
         # error. We need to check that it correctly reverts to using
-        # messytables to load it
+        # tabulator to load it
         data = {
             "api_key": self.api_key,
             "job_type": "xloader_to_datastore",
@@ -583,7 +583,7 @@ class TestxloaderDataIntoDatastore(object):
         # 'invalid byte sequence for encoding "UTF8": 0x00' which causes
         # the COPY to throw a psycopg2.DataError and umlauts in the file can
         # cause problems for logging the error. We need to check that
-        # it correctly reverts to using messytables to load it
+        # it correctly reverts to using tabulator to load it
         data = {
             'api_key': self.api_key,
             'job_type': 'xloader_to_datastore',
