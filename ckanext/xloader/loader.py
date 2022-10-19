@@ -55,7 +55,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         with Stream(csv_filepath, format=extension) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
-        raise LoaderError('Tabulator error: {}'.format(e))
+        try:
+            with Stream(csv_filepath, format=extension) as stream:
+                header_offset, headers = headers_guess(stream.sample)
+        except TabulatorException as e:
+            raise LoaderError('Tabulator error: {}'.format(e))
     except Exception as e:
         raise FileCouldNotBeLoadedError(e)
 
@@ -254,12 +258,14 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     custom_parsers={'csv': XloaderCSVParser}) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
-        raise LoaderError('Tabulator error: {}'.format(e))
+        try:
+            with Stream(table_filepath, format=mimetype,
+                        custom_parsers={'csv': XloaderCSVParser}) as stream:
+                header_offset, headers = headers_guess(stream.sample)
+        except TabulatorException as e:
+            raise LoaderError('Tabulator error: {}'.format(e))
     except Exception as e:
         raise FileCouldNotBeLoadedError(e)
-
-    # Some headers might have been converted from strings to floats and such.
-    headers = encode_headers(headers)
 
     existing = datastore_resource_exists(resource_id)
     existing_info = None
