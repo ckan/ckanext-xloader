@@ -205,12 +205,12 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # Load it
     logger.info('Loading CSV')
-    just_load_with_tabulator = asbool(config.get(
-        'ckanext.xloader.just_load_with_tabulator', False))
-    logger.info("'Just load with tabulator' mode is: %s",
-                just_load_with_tabulator)
+    use_type_guessing = asbool(config.get(
+        'ckanext.xloader.use_type_guessing', False))
+    logger.info("'use_type_guessing' mode is: %s",
+                use_type_guessing)
     try:
-        if just_load_with_tabulator:
+        if use_type_guessing:
             tabulator_load()
         else:
             try:

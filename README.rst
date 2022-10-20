@@ -234,12 +234,15 @@ Configuration:
     # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
     ckanext.xloader.max_content_length = 1000000000
 
-    # To always use the tabulator library to load data, instead of attempting a
-    # direct PostgreSQL COPY, set this to True. This more closely matches the
-    # DataPusher's behavior. It has the advantage that the column types
+    # By default, xloader will first try to add tabular data to the DataStore
+    # with a direct PostgreSQL COPY. This is relatively fast, but does not
+    # guess column types. If this fails, xloader falls back to a method more
+    # like DataPusher's behaviour. This has the advantage that the column types
     # are guessed. However it is more error prone, far slower and you can't run
     # the CPU-intensive queue on a separate machine.
-    ckanext.xloader.just_load_with_tabulator = False
+    # To always skip the direct PostgreSQL COPY and use type guessing, set
+    # this option to True.
+    ckanext.xloader.use_type_guessing = False
 
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
@@ -302,7 +305,7 @@ To upgrade from DataPusher to XLoader:
 
 4. (Optional) If you wish, you can disable the direct loading and continue to
    just use tabulator - for more about this see the docs on config option:
-   ``ckanext.xloader.just_load_with_tabulator``
+   ``ckanext.xloader.use_type_guessing``
 
 5. Stop the datapusher worker::
 
