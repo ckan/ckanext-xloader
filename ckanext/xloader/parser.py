@@ -51,6 +51,7 @@ class XloaderCSVParser(Parser):
         return self.__chars is None or self.__chars.closed
 
     def open(self, source, encoding=None):
+        # Close the character stream, if necessary, before reloading it.
         self.close()
         self.__chars = self.__loader.load(source, encoding=encoding)
         self.__encoding = getattr(self.__chars, 'encoding', encoding)
