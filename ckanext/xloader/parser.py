@@ -35,7 +35,7 @@ class XloaderCSVParser(Parser):
         if six.PY2:
             for key, value in options.items():
                 if isinstance(value, six.string_types):
-                    options[key] = str(value)
+                    options[key] = six.text_type(value)
 
         # Set attributes
         self.__loader = loader
