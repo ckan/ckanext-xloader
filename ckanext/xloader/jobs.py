@@ -205,8 +205,11 @@ def xloader_data_into_datastore_(input, job_dict):
 
     # Load it
     logger.info('Loading CSV')
+    # If ckanext.xloader.use_type_guessing is not configured, fall back to
+    # deprecated ckanext.xloader.just_load_with_messytables
     use_type_guessing = asbool(config.get(
-        'ckanext.xloader.use_type_guessing', False))
+        'ckanext.xloader.use_type_guessing', config.get(
+            'ckanext.xloader.just_load_with_messytables', False)))
     logger.info("'use_type_guessing' mode is: %s",
                 use_type_guessing)
     try:

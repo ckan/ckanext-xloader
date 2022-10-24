@@ -244,6 +244,9 @@ Configuration:
     # this option to True.
     ckanext.xloader.use_type_guessing = False
 
+    # Deprecated: use ckanext.xloader.use_type_guessing instead.
+    ckanext.xloader.just_load_with_messytables = False
+
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
     ckanext.xloader.job_timeout = 3600
