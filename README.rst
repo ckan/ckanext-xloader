@@ -247,6 +247,21 @@ Configuration:
     # Deprecated: use ckanext.xloader.use_type_guessing instead.
     ckanext.xloader.just_load_with_messytables = False
 
+    # Whether ambiguous dates should be parsed day first. Defaults to False.
+    # If set to True, dates like '01.02.2022' will be parsed as day = 01,
+    # month = 02.
+    # NB: isoformat dates like '2022-01-02' will be parsed as YYYY-MM-DD, and
+    # this option will not override that.
+    # See https://dateutil.readthedocs.io/en/stable/parser.html#dateutil.parser.parse
+    # for more details.
+    ckanext.xloader.parse_dates_dayfirst = False
+
+    # Whether ambiguous dates should be parsed year first. Defaults to False.
+    # If set to True, dates like '01.02.03' will be parsed as year = 2001,
+    # month = 02, day = 03. See https://dateutil.readthedocs.io/en/stable/parser.html#dateutil.parser.parse
+    # for more details.
+    ckanext.xloader.parse_dates_yearfirst = False
+
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
     ckanext.xloader.job_timeout = 3600

@@ -5,9 +5,16 @@ from decimal import Decimal, InvalidOperation
 from itertools import chain
 
 import six
-from dateutil.parser import ParserError, parser
+from ckan.plugins.toolkit import asbool
+from dateutil.parser import isoparser, ParserError, parser
 from tabulator import helpers
 from tabulator.parser import Parser
+
+try:
+    from ckan.plugins.toolkit import config
+except ImportError:
+    # older versions of ckan
+    from pylons import config
 
 CSV_SAMPLE_LINES = 100
 
@@ -107,8 +114,18 @@ class XloaderCSVParser(Parser):
                 pass
 
             try:
+                i = isoparser()
+                return i.isoparse(value)
+            except ValueError:
+                pass
+
+            try:
                 p = parser()
-                return p.parse(value)
+                yearfirst = asbool(config.get(
+                    'ckanext.xloader.parse_dates_yearfirst', False))
+                dayfirst = asbool(config.get(
+                    'ckanext.xloader.parse_dates_dayfirst', False))
+                return p.parse(value, yearfirst=yearfirst, dayfirst=dayfirst)
             except ParserError:
                 pass
 
