@@ -238,8 +238,7 @@ Configuration:
     # with a direct PostgreSQL COPY. This is relatively fast, but does not
     # guess column types. If this fails, xloader falls back to a method more
     # like DataPusher's behaviour. This has the advantage that the column types
-    # are guessed. However it is more error prone, far slower and you can't run
-    # the CPU-intensive queue on a separate machine.
+    # are guessed. However it is more error prone and far slower.
     # To always skip the direct PostgreSQL COPY and use type guessing, set
     # this option to True.
     ckanext.xloader.use_type_guessing = False
