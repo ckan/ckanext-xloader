@@ -52,16 +52,21 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
+        print(file_format)
         with Stream(csv_filepath, format=file_format) as stream:
             header_offset, headers = headers_guess(stream.sample)
+            print(stream.sample)
     except TabulatorException as e:
         try:
             file_format = mimetype.lower().split('/')[-1]
+            print(file_format)
             with Stream(csv_filepath, format=file_format) as stream:
                 header_offset, headers = headers_guess(stream.sample)
+                print(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
     except Exception as e:
+        print(e)
         raise FileCouldNotBeLoadedError(e)
 
     # Some headers might have been converted from strings to floats and such.
@@ -141,6 +146,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         data_dict['force'] = True  # TODO check this - I don't fully
         # understand read-only/datastore resources
         try:
+            print('datastore_create')
+            print(data_dict)
             p.toolkit.get_action('datastore_create')(context, data_dict)
         except p.toolkit.ValidationError as e:
             if 'fields' in e.error_dict:
@@ -155,6 +162,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         except Exception as e:
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
+        print('successfully did datastore_create')
         connection = context['connection'] = engine.connect()
         if not fulltext_trigger_exists(connection, resource_id):
             logger.info('Trigger created')
