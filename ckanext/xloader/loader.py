@@ -50,13 +50,14 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
     # Determine the header row
-    extension = os.path.splitext(csv_filepath)[1].strip('.')
     try:
-        with Stream(csv_filepath, format=extension) as stream:
+        file_format = os.path.splitext(csv_filepath)[1].strip('.')
+        with Stream(csv_filepath, format=file_format) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
         try:
-            with Stream(csv_filepath, format=extension) as stream:
+            file_format = mimetype.lower().split('/')[-1]
+            with Stream(csv_filepath, format=file_format) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -85,9 +86,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # It is easier to reencode it as UTF8 than convert the name of the encoding
     # to one that pgloader will understand.
     logger.info('Ensuring character coding is UTF8')
-    f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
+    f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with Stream(csv_filepath, format=extension, skip_rows=skip_rows) as stream:
+        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
             stream.save(target=f_write.name, format='csv', encoding='utf-8',
                         delimiter=delimiter)
             csv_filepath = f_write.name
@@ -252,14 +253,15 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # Determine the header row
     logger.info('Determining column names and types')
-    extension = os.path.splitext(table_filepath)[1].strip('.')
     try:
-        with Stream(table_filepath, format=extension,
+        file_format = os.path.splitext(table_filepath)[1].strip('.')
+        with Stream(table_filepath, format=file_format,
                     custom_parsers={'csv': XloaderCSVParser}) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException as e:
         try:
-            with Stream(table_filepath, format=mimetype,
+            file_format = mimetype.lower().split('/')[-1]
+            with Stream(table_filepath, format=file_format,
                         custom_parsers={'csv': XloaderCSVParser}) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
@@ -296,7 +298,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
-    with Stream(table_filepath, format=extension, skip_rows=skip_rows,
+    with Stream(table_filepath, format=file_format, skip_rows=skip_rows,
                 custom_parsers={'csv': XloaderCSVParser}) as stream:
         def row_iterator():
             for row in stream:

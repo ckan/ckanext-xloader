@@ -760,7 +760,11 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 mimetype="text/csv",
                 logger=logger,
             )
-        assert "Tabulator error: Format \"kml\" is not supported" in str(exception.value)
+        assert "Error with field definition" in str(exception.value)
+        assert (
+            '"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name'
+            in str(exception.value)
+        )
 
     def test_geojson(self):
         filepath = get_sample_filepath("polling_locations.geojson")
@@ -773,7 +777,11 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 mimetype="text/csv",
                 logger=logger,
             )
-        assert "Tabulator error: Format \"geojson\" is not supported" in str(exception.value)
+        assert "Error with field definition" in str(exception.value)
+        assert (
+            '"{"type":"FeatureCollection"" is not a valid field name'
+            in str(exception.value)
+        )
 
     def test_shapefile_zip(self):
         filepath = get_sample_filepath("polling_locations.shapefile.zip")
