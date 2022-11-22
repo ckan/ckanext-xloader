@@ -190,6 +190,10 @@ To install XLoader:
 
 9. Run the worker. First test it on the command-line::
 
+     ckan -c /etc/ckan/default/ckan.ini jobs worker
+    
+   or
+
      paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
 
    or if you have CKAN version 2.6.x or less (and are therefore using ckanext-rq)::
