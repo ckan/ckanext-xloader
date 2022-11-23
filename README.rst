@@ -189,7 +189,9 @@ To install XLoader:
      sudo service apache2 reload
 
 9. Run the worker. First test it on the command-line::
-
+   
+   If you have CKAN version 2.9 or above::
+   
      ckan -c /etc/ckan/default/ckan.ini jobs worker
     
    or
