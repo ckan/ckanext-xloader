@@ -16,13 +16,13 @@ import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
-import ckan.model as model
+from ckan import model
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
-import ckan.lib.search as search
 
 from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
+from .utils import set_resource_metadata
 
 try:
     from ckan.lib.api_token import get_user_from_token
@@ -244,7 +244,8 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
-    scheme = urlsplit(url).scheme
+    url_parts = urlsplit(url)
+    scheme = url_parts.scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
             'Only http, https, and ftp resources may be fetched.'
@@ -263,7 +264,17 @@ def _download_resource_data(resource, data, api_key, logger):
             # otherwise we won't get file from private resources
             headers['Authorization'] = api_key
 
-        response = get_response(url, headers)
+            # Add a constantly changing parameter to bypass URL caching.
+            # If we're running XLoader, then either the resource has
+            # changed, or something went wrong and we want a clean start.
+            # Either way, we don't want a cached file.
+            download_url = url_parts._replace(
+                query='{}&nonce={}'.format(url_parts.query, time.time())
+            ).geturl()
+        else:
+            download_url = url
+
+        response = get_response(download_url, headers)
 
         cl = response.headers.get('content-length')
         if cl and int(cl) > MAX_CONTENT_LENGTH:
@@ -369,9 +380,12 @@ def set_datastore_active(data, resource, logger):
 
     data['datastore_active'] = True
     logger.info('Setting resource.datastore_active = True')
+    contains_all_records = data.get(
+        'datastore_contains_all_records_of_source_file', True)
+    data['datastore_contains_all_records_of_source_file'] = contains_all_records
     logger.info(
-        'Setting resource.datastore_contains_all_records_of_source_file = {}'
-        .format(data.get('datastore_contains_all_records_of_source_file')))
+        'Setting resource.datastore_contains_all_records_of_source_file = %s',
+        contains_all_records)
     set_resource_metadata(update_dict=data)
 
 
@@ -401,59 +415,6 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         return False
 
     return result.status_code == requests.codes.ok
-
-
-def set_resource_metadata(update_dict):
-    '''
-    Set appropriate datastore_active flag on CKAN resource.
-
-    Called after creation or deletion of DataStore table.
-    '''
-    from ckan import model
-    # We're modifying the resource extra directly here to avoid a
-    # race condition, see issue #3245 for details and plan for a
-    # better fix
-    update_dict.update({
-        'datastore_active': update_dict.get('datastore_active', True),
-        'datastore_contains_all_records_of_source_file':
-        update_dict.get('datastore_contains_all_records_of_source_file', True)
-    })
-
-    q = model.Session.query(model.Resource). \
-        filter(model.Resource.id == update_dict['resource_id'])
-    resource = q.one()
-
-    # update extras in database for record
-    extras = resource.extras
-    extras.update(update_dict)
-    q.update({'extras': extras}, synchronize_session=False)
-
-    # TODO: Remove resource_revision_table when dropping support for 2.8
-    if hasattr(model, 'resource_revision_table'):
-        model.Session.query(model.resource_revision_table).filter(
-            model.ResourceRevision.id == update_dict['resource_id'],
-            model.ResourceRevision.current is True
-        ).update({'extras': extras}, synchronize_session=False)
-    model.Session.commit()
-
-    # get package with updated resource from solr
-    # find changed resource, patch it and reindex package
-    psi = search.PackageSearchIndex()
-    solr_query = search.PackageSearchQuery()
-    q = {
-        'q': 'id:"{0}"'.format(resource.package_id),
-        'fl': 'data_dict',
-        'wt': 'json',
-        'fq': 'site_id:"%s"' % config.get('ckan.site_id'),
-        'rows': 1
-    }
-    for record in solr_query.run(q)['results']:
-        solr_data_dict = json.loads(record['data_dict'])
-        for resource in solr_data_dict['resources']:
-            if resource['id'] == update_dict['resource_id']:
-                resource.update(update_dict)
-                psi.index_package(solr_data_dict)
-                break
 
 
 def validate_input(input):
