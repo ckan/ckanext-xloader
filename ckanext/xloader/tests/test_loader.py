@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 import os
 import pytest
+import six
 import sqlalchemy.orm as orm
 import datetime
 import logging
@@ -611,23 +612,6 @@ class TestLoadCsv(TestLoadBase):
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
-    def test_integer_header_xlsx(self):
-        # this xlsx file's header is detected by messytables.headers_guess as
-        # integers and we should cope with that
-        csv_filepath = get_sample_filepath("go-realtime.xlsx")
-        resource_id = factories.Resource()["id"]
-        try:
-            loader.load_csv(
-                csv_filepath,
-                resource_id=resource_id,
-                mimetype="CSV",
-                logger=logger,
-            )
-        except (LoaderError, UnicodeDecodeError):
-            pass
-        else:
-            assert 0, "There should have been an exception"
-
     def test_reload(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
         resource_id = "test1"
@@ -800,7 +784,12 @@ class TestLoadUnhandledTypes(TestLoadBase):
             in str(exception.value)
         )
 
-    def test_shapefile_zip(self):
+    @pytest.mark.skipif(
+        six.PY3,
+        reason="In Python 3, tabulator will unzip archives and load the first "
+               "file found (if possible)."
+    )
+    def test_shapefile_zip_python2(self):
         filepath = get_sample_filepath("polling_locations.shapefile.zip")
         resource_id = "test1"
         factories.Resource(id=resource_id)
@@ -812,8 +801,34 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 logger=logger,
             )
 
+    @pytest.mark.skipif(
+        six.PY2,
+        reason="In Python 2, tabulator will not load a zipped archive, so the "
+               "loader will raise a LoaderError."
+    )
+    def test_shapefile_zip_python3(self, Session):
+        # tabulator unzips the archive and tries to load the first file it
+        # finds, 'Polling_Locations.cpg'. This file only contains the
+        # following data: `UTF-8`.
+        filepath = get_sample_filepath("polling_locations.shapefile.zip")
+        resource_id = "test1"
+        factories.Resource(id=resource_id)
+        loader.load_csv(
+            filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
 
-class TestLoadMessytables(TestLoadBase):
+        assert self._get_records(Session, "test1") == []
+        assert self._get_column_names(Session, "test1") == [
+            '_id',
+            '_full_text',
+            'UTF-8'
+        ]
+
+
+class TestLoadTabulator(TestLoadBase):
     def test_simple(self, Session):
         csv_filepath = get_sample_filepath("simple.xls")
         resource_id = "test1"

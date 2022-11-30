@@ -240,12 +240,32 @@ Configuration:
     # The maximum size of files to load into DataStore. In bytes. Default is 1 GB.
     ckanext.xloader.max_content_length = 1000000000
 
-    # To always use messytables to load data, instead of attempting a direct
-    # PostgreSQL COPY, set this to True. This more closely matches the
-    # DataPusher's behavior. It has the advantage that the column types
-    # are guessed. However it is more error prone, far slower and you can't run
-    # the CPU-intensive queue on a separate machine.
+    # By default, xloader will first try to add tabular data to the DataStore
+    # with a direct PostgreSQL COPY. This is relatively fast, but does not
+    # guess column types. If this fails, xloader falls back to a method more
+    # like DataPusher's behaviour. This has the advantage that the column types
+    # are guessed. However it is more error prone and far slower.
+    # To always skip the direct PostgreSQL COPY and use type guessing, set
+    # this option to True.
+    ckanext.xloader.use_type_guessing = False
+
+    # Deprecated: use ckanext.xloader.use_type_guessing instead.
     ckanext.xloader.just_load_with_messytables = False
+
+    # Whether ambiguous dates should be parsed day first. Defaults to False.
+    # If set to True, dates like '01.02.2022' will be parsed as day = 01,
+    # month = 02.
+    # NB: isoformat dates like '2022-01-02' will be parsed as YYYY-MM-DD, and
+    # this option will not override that.
+    # See https://dateutil.readthedocs.io/en/stable/parser.html#dateutil.parser.parse
+    # for more details.
+    ckanext.xloader.parse_dates_dayfirst = False
+
+    # Whether ambiguous dates should be parsed year first. Defaults to False.
+    # If set to True, dates like '01.02.03' will be parsed as year = 2001,
+    # month = 02, day = 03. See https://dateutil.readthedocs.io/en/stable/parser.html#dateutil.parser.parse
+    # for more details.
+    ckanext.xloader.parse_dates_yearfirst = False
 
     # The maximum time for the loading of a resource before it is aborted.
     # Give an amount in seconds. Default is 60 minutes
@@ -307,8 +327,8 @@ To upgrade from DataPusher to XLoader:
    ``ckan.plugins`` line replace ``datapusher`` with ``xloader``.
 
 4. (Optional) If you wish, you can disable the direct loading and continue to
-   just use messytables - for more about this see the docs on config option:
-   ``ckanext.xloader.just_load_with_messytables``
+   just use tabulator - for more about this see the docs on config option:
+   ``ckanext.xloader.use_type_guessing``
 
 5. Stop the datapusher worker::
 
