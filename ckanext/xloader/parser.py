@@ -6,7 +6,12 @@ from itertools import chain
 
 import six
 from ckan.plugins.toolkit import asbool
-from dateutil.parser import isoparser, ParserError, parser
+from dateutil.parser import isoparser, parser
+try:
+    from dateutil.parser import ParserError
+except ImportError:
+    ParserError = ValueError
+
 from tabulator import helpers
 from tabulator.parser import Parser
 
