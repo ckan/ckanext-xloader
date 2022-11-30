@@ -13,7 +13,10 @@ except ImportError:
 import pytest
 
 from nose.tools import make_decorator
-import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 import responses
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import select

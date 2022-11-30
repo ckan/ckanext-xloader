@@ -1,5 +1,8 @@
 import pytest
-import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 from ckan.tests import helpers, factories
 
