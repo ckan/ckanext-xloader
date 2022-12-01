@@ -99,8 +99,20 @@ def xloader_submit(context, data_dict):
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in str(job)  # filter out test_job etc
             ]
-            updated = datetime.datetime.strptime(
-                existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
+
+            # Parse date format from the following valid dates
+            date_formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']
+            updated = None
+            for format in date_formats:
+                try:
+                    updated = datetime.datetime.strptime(
+                        existing_task['last_updated'], format)
+                except ValueError:
+                    pass
+            if not updated:
+                log.exception('Invalid last_updated date for entity_id=%s', res_id)
+                return False
+
             time_since_last_updated = datetime.datetime.utcnow() - updated
             if (res_id not in queued_res_ids
                     and time_since_last_updated > assume_task_stillborn_after):
