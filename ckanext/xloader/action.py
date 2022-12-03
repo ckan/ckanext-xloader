@@ -10,6 +10,7 @@ import ckan.lib.navl.dictization_functions
 from ckan.logic import side_effect_free
 import ckan.plugins as p
 from dateutil.parser import parse as parse_date
+from dateutil.parser import isoparse as parse_iso_date
 from six import text_type as str
 
 import ckanext.xloader.schema
@@ -99,8 +100,7 @@ def xloader_submit(context, data_dict):
                 for job in get_queue().get_jobs()
                 if 'xloader_to_datastore' in str(job)  # filter out test_job etc
             ]
-            updated = datetime.datetime.strptime(
-                existing_task['last_updated'], '%Y-%m-%dT%H:%M:%S.%f')
+            updated = parse_iso_date(existing_task['last_updated'])
             time_since_last_updated = datetime.datetime.utcnow() - updated
             if (res_id not in queued_res_ids
                     and time_since_last_updated > assume_task_stillborn_after):
