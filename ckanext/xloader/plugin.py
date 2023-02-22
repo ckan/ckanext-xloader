@@ -8,6 +8,12 @@ from ckan.plugins import toolkit
 from . import action, auth, helpers as xloader_helpers, utils
 from .loader import fulltext_function_exists, get_write_engine
 
+IConfigDeclaration = None
+if toolkit.check_ckan_version("2.10"):
+    import yaml
+    import os
+    IConfigDeclaration = plugins.IConfigDeclaration
+
 log = logging.getLogger(__name__)
 
 
@@ -51,6 +57,24 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    if IConfigDeclaration:
+        plugins.implements(IConfigDeclaration)
+
+    # IConfigDeclaration
+    def declare_config_options(self, declaration, key):
+        """ckanext-xloader config declaration.
+
+        Migrate to blanket's decorator when dropping support
+        for CKAN 2.9.
+        """
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        file_path = dir_path + "/config_declaration.yaml"
+        with open(file_path, 'r') as stream:
+            try:
+                result = yaml.safe_load(stream)
+            except yaml.YAMLError as e:
+                print(e)
+        declaration.load_dict(result)
 
     # IClick
     def get_commands(self):
@@ -68,6 +92,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def update_config(self, config):
         toolkit.add_template_directory(config, 'templates')
+
+
 
     # IConfigurable
 
