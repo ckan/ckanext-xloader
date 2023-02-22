@@ -39,7 +39,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
         with Stream(csv_filepath, format=file_format) as stream:
             header_offset, headers = headers_guess(stream.sample)
-    except TabulatorException as e:
+    except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
             with Stream(csv_filepath, format=file_format) as stream:
@@ -240,7 +240,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         with Stream(table_filepath, format=file_format,
                     custom_parsers={'csv': XloaderCSVParser}) as stream:
             header_offset, headers = headers_guess(stream.sample)
-    except TabulatorException as e:
+    except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
             with Stream(table_filepath, format=file_format,
