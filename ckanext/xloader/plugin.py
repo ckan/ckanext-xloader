@@ -70,10 +70,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         file_path = dir_path + "/config_declaration.yaml"
         with open(file_path, 'r') as stream:
-            try:
-                result = yaml.safe_load(stream)
-            except yaml.YAMLError as e:
-                print(e)
+            result = yaml.safe_load(stream)
         declaration.load_dict(result)
 
     # IClick
