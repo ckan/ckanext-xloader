@@ -69,8 +69,8 @@ DataPusher - job queue is done by ckan-service-provider which is bespoke,
 complicated and stores jobs in its own database (sqlite by default).
 
 XLoader - job queue is done by RQ, which is simpler, is backed by Redis, allows
-access to the CKAN model and is CKAN's default queue technology (since CKAN
-2.7). You can also debug jobs easily using pdb. Job results are stored in
+access to the CKAN model and is CKAN's default queue technology.
+You can also debug jobs easily using pdb. Job results are stored in
 Sqlite by default, and for production simply specify CKAN's database in the
 config and it's held there - easy.
 
@@ -98,7 +98,7 @@ Caveat - column types
 Note: With XLoader, all columns are stored in DataStore's database as 'text'
 type (whereas DataPusher did some rudimentary type guessing - see 'Robustness'
 above). However once a resource is xloaded, an admin can use the resource's
-Data Dictionary tab (CKAN 2.7 onwards) to change these types to numeric or
+Data Dictionary tab to change these types to numeric or
 datestamp and re-load the file. When migrating from DataPusher to XLoader you
 can preserve the types of existing resources by using the ``migrate_types``
 command.
@@ -116,13 +116,10 @@ Compatibility with core CKAN versions:
 =============== =============
 CKAN version    Compatibility
 =============== =============
-2.3             no longer tested and you must install ckanext-rq
-2.4             no longer tested and you must install ckanext-rq
-2.5             no longer tested and you must install ckanext-rq
-2.6             no longer tested and you must install ckanext-rq
-2.7             yes
-2.8             yes
-2.9             yes (both Python2 and Python3)
+2.7             no longer supported (last supported version: 0.12.2)
+2.8             no longer supported (last supported version: 0.12.2)
+2.9             yes (Python3) (last supported version for Python 2.7: 0.12.2))
+2.10            yes
 =============== =============
 
 ------------
@@ -144,24 +141,7 @@ To install XLoader:
      pip install -r https://raw.githubusercontent.com/ckan/ckanext-xloader/master/requirements.txt
      pip install -U requests[security]
 
-4. If you are using CKAN version before 2.8.x you need to define the
-   ``populate_full_text_trigger`` in your database
-   ::
-
-     sudo -u postgres psql datastore_default -f full_text_function.sql
-
-   If successful it will print
-   ::
-
-     CREATE FUNCTION
-     ALTER FUNCTION
-
-   NB this assumes you used the defaults for the database name and username.
-   If in doubt, check your config's ``ckan.datastore.write_url``. If you don't have
-   database name ``datastore_default`` and username ``ckan_default`` then adjust
-   the psql option and ``full_text_function.sql`` before running this.
-
-5. Add ``xloader`` to the ``ckan.plugins`` setting in your CKAN
+4. Add ``xloader`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 
@@ -170,12 +150,12 @@ To install XLoader:
 
    Ensure ``datastore`` is also listed, to enable CKAN DataStore.
 
-6. Starting CKAN 2.10 you will need to set an API Token to be able to
+5. Starting CKAN 2.10 you will need to set an API Token to be able to
    execute jobs against the server::
 
      ckanext.xloader.api_token = <your-CKAN-generated-API-Token>
 
-7. If it is a production server, you'll want to store jobs info in a more
+6. If it is a production server, you'll want to store jobs info in a more
    robust database than the default sqlite file. It can happily use the main
    CKAN postgres db by adding this line to the config, but with the same value
    as you have for ``sqlalchemy.url``::
@@ -184,35 +164,13 @@ To install XLoader:
 
    (This step can be skipped when just developing or testing.)
 
-8. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
+7. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
 
      sudo service apache2 reload
 
-9. Run the worker. First test it on the command-line. If you have CKAN version 2.9 or above::
-   
+8. Run the worker::
+
     ckan -c /etc/ckan/default/ckan.ini jobs worker
-    
-   otherwise::
-
-     paster --plugin=ckan jobs -c /etc/ckan/default/ckan.ini worker
-
-   or if you have CKAN version 2.6.x or less (and are therefore using ckanext-rq)::
-
-     paster --plugin=ckanext-rq jobs -c /etc/ckan/default/ckan.ini worker
-
-   Test it will load a CSV ok by submitting a `CSV in the web interface <http://docs.ckan.org/projects/datapusher/en/latest/using.html#ckan-2-2-and-above>`_
-   or in another shell::
-
-     paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
-
-   Clearly, running the worker on the command-line is only for testing - for
-   production services see:
-
-       http://docs.ckan.org/en/ckan-2.7.0/maintaining/background-tasks.html#using-supervisor
-
-   If you have CKAN version 2.6.x or less then you'll need to download
-   `supervisor-ckan-worker.conf <https://raw.githubusercontent.com/ckan/ckan/master/ckan/config/supervisor-ckan-worker.conf>`_ and adjust the ``command`` to reference
-   ckanext-rq.
 
 
 ---------------
@@ -304,7 +262,7 @@ in the directory up from your local ckan repo::
 
     git clone https://github.com/ckan/ckanext-xloader.git
     cd ckanext-xloader
-    python setup.py develop
+    pip install -e .
     pip install -r requirements.txt
     pip install -r dev-requirements.txt
 
@@ -346,35 +304,31 @@ command-line interface.
 
 e.g. ::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
-    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -c /etc/ckan/default/ckan.ini
+    ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name>
 
 For debugging you can try xloading it synchronously (which does the load
 directly, rather than asking the worker to do it) with the ``-s`` option::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
-    [pre-2.9] paster --plugin=ckanext-xloader xloader submit <dataset-name> -s -c /etc/ckan/default/ckan.ini
+    ckan -c /etc/ckan/default/ckan.ini xloader submit <dataset-name> -s
 
 See the status of jobs::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader status
-    [pre-2.9] paster --plugin=ckanext-xloader xloader status -c /etc/ckan/default/development.ini
+    ckan -c /etc/ckan/default/ckan.ini xloader status
 
 Submit all datasets' resources to the DataStore::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all
-    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all -c /etc/ckan/default/ckan.ini
+    ckan -c /etc/ckan/default/ckan.ini xloader submit all
 
 Re-submit all the resources already in the DataStore (Ignores any resources
 that have not been stored in DataStore e.g. because they are not tabular)::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
-    [pre-2.9] paster --plugin=ckanext-xloader xloader submit all-existing -c /etc/ckan/default/ckan.ini
+    ckan -c /etc/ckan/default/ckan.ini xloader submit all-existing
+
 
 **Full list of XLoader CLI commands**::
 
-    [2.9] ckan -c /etc/ckan/default/ckan.ini xloader --help
-    [pre-2.9] paster --plugin=ckanext-xloader xloader --help
+    ckan -c /etc/ckan/default/ckan.ini xloader --help
+
 
 Jobs and workers
 ----------------
@@ -387,8 +341,7 @@ Useful commands:
 
 Clear (delete) all outstanding jobs::
 
-    CKAN 2.9, Python 3 ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
-    CKAN <2.9, Python 2 paster --plugin=ckanext-xloader xloader jobs clear [QUEUES] -c /etc/ckan/default/development.ini
+    ckan -c /etc/ckan/default/ckan.ini jobs clear [QUEUES]
 
 If having trouble with the worker process, restarting it can help::
 
@@ -409,13 +362,6 @@ exist**
 Your DataStore permissions have not been set-up - see:
 <https://docs.ckan.org/en/latest/maintaining/datastore.html#set-permissions>
 
-**When editing a package, all its existing resources get re-loaded by xloader**
-
-This behavior was documented in
-`Issue 75 <https://github.com/ckan/ckanext-xloader/issues/75>`_ and is related
-to a bug in CKAN that is fixed in versions 2.6.9, 2.7.7, 2.8.4
-and 2.9.0+.
-
 -----------------
 Running the Tests
 -----------------
@@ -426,12 +372,8 @@ The first time, your test datastore database needs the trigger applied::
 
 To run the tests, do::
 
-    nosetests --nologcapture --with-pylons=test.ini
+    pytest ckan-ini=test.ini ckanext/xloader/tests
 
-To run the tests and produce a coverage report, first make sure you have
-coverage installed in your virtualenv (``pip install coverage``) then run::
-
-    nosetests --nologcapture --with-pylons=test.ini --with-coverage --cover-package=ckanext.xloader --cover-inclusive --cover-erase --cover-tests
 
 ----------------------------------
 Releasing a New Version of XLoader

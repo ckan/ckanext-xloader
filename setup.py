@@ -38,12 +38,11 @@ setup(
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
 
-        # Specify the Python versions you support here. In particular, ensure
-        # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.6',
+        # Specify the Python versions you support here.
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 
 
@@ -84,10 +83,6 @@ setup(
 
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan
-
-        [paste.paster_command]
-        xloader = ckanext.xloader.paster:xloaderCommand
-        migrate_types = ckanext.xloader.paster:MigrateTypesCommand
 
     ''',
 
