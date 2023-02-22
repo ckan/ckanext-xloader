@@ -9,7 +9,6 @@ import json
 import datetime
 import traceback
 import sys
-from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests

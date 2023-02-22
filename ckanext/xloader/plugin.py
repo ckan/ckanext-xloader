@@ -49,44 +49,25 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceController, inherit=True)
+    plugins.implements(plugins.IClick)
+    plugins.implements(plugins.IBlueprint)
 
-    if toolkit.check_ckan_version("2.9"):
-        plugins.implements(plugins.IClick)
-        plugins.implements(plugins.IBlueprint)
+    # IClick
+    def get_commands(self):
+        from ckanext.xloader.cli import get_commands
 
-        # IClick
-        def get_commands(self):
-            from ckanext.xloader.cli import get_commands
+        return get_commands()
 
-            return get_commands()
+    # IBlueprint
+    def get_blueprint(self):
+        from ckanext.xloader.views import get_blueprints
 
-        # IBlueprint
-        def get_blueprint(self):
-            from ckanext.xloader.views import get_blueprints
-
-            return get_blueprints()
-
-    else:
-        plugins.implements(plugins.IRoutes, inherit=True)
-
-        # IRoutes
-        def before_map(self, m):
-            m.connect(
-                "xloader.resource_data",
-                "/dataset/{id}/resource_data/{resource_id}",
-                controller="ckanext.xloader.controllers:ResourceDataController",
-                action="resource_data",
-                ckan_icon="cloud-upload",
-            )
-            return m
+        return get_blueprints()
 
     # IConfigurer
 
     def update_config(self, config):
-        templates_base = config.get(
-            "ckan.base_templates_folder", "templates-bs2"
-        )  # for ckan < 2.8
-        toolkit.add_template_directory(config, templates_base)
+        toolkit.add_template_directory(config, 'templates/')
 
     # IConfigurable
 
@@ -102,20 +83,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     "Config option `{0}` must be set to use ckanext-xloader.".format(
                         config_option
                     )
-                )
-
-        if toolkit.check_ckan_version(max_version="2.7.99"):
-            # populate_full_text_trigger() needs to be defined, and this was
-            # introduced in CKAN 2.8 when you installed datastore e.g.:
-            #     paster datastore set-permissions
-            # However before CKAN 2.8 we need to check the user has defined
-            # this function manually.
-            connection = get_write_engine().connect()
-            if not fulltext_function_exists(connection):
-                raise Exception(
-                    "populate_full_text_trigger is not defined. "
-                    "See ckanext-xloader's README.rst for more "
-                    "details."
                 )
 
     # IResourceUrlChange
