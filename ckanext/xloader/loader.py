@@ -141,9 +141,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
         connection = context['connection'] = engine.connect()
-        if not fulltext_trigger_exists(connection, resource_id):
-            logger.info('Trigger created')
-            _create_fulltext_trigger(connection, resource_id)
 
         # datstore_active is switched on by datastore_create - TODO temporarily
         # disable it until the load is complete
@@ -498,3 +495,14 @@ def calculate_record_count(resource_id, logger):
     conn = engine.connect()
     conn.execute("ANALYZE \"{resource_id}\";"
                  .format(resource_id=resource_id))
+
+
+def identifier(s):
+    # "%" needs to be escaped, otherwise connection.execute thinks it is for
+    # substituting a bind parameter
+    return u'"' + s.replace(u'"', u'""').replace(u'\0', '').replace('%', '%%')\
+        + u'"'
+
+
+def literal_string(s):
+    return u"'" + s.replace(u"'", u"''").replace(u'\0', '') + u"'"
