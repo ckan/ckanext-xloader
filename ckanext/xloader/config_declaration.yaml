@@ -3,7 +3,7 @@ groups:
   - annotation: ckanext-xloader settings
     options:
       - key: ckanext.xloader.jobs_db.uri
-        example: sqlite:////tmp/xloader_jobs.db
+        default: sqlite:////tmp/xloader_jobs.db
         description: |
             The connection string for the jobs database used by XLoader. The
             default of an sqlite file is fine for development. For production use a
