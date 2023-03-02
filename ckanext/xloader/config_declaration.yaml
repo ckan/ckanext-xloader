@@ -26,7 +26,7 @@ groups:
             Case insensitive. Defaults are listed in plugin.py.
         required: false
       - key: ckanext.xloader.max_content_length
-        default: 1000000000
+        default: 1_000_000_000
         example: 100000
         description: |
             The connection string for the jobs database used by XLoader. The
