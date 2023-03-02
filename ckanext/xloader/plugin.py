@@ -8,11 +8,13 @@ from ckan.plugins import toolkit
 from . import action, auth, helpers as xloader_helpers, utils
 from .loader import fulltext_function_exists, get_write_engine
 
-IConfigDeclaration = None
-if toolkit.check_ckan_version("2.10"):
-    import yaml
-    import os
-    IConfigDeclaration = plugins.IConfigDeclaration
+try:
+    config_declarations = toolkit.blanket.config_declarations
+except AttributeError:
+    # CKAN 2.9 does not have config_declarations.
+    # Remove when dropping support.
+    def config_declarations(cls):
+        return cls
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
+@config_declarations
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
@@ -57,21 +60,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
-    if IConfigDeclaration:
-        plugins.implements(IConfigDeclaration)
-
-    # IConfigDeclaration
-    def declare_config_options(self, declaration, key):
-        """ckanext-xloader config declaration.
-
-        Migrate to blanket's decorator when dropping support
-        for CKAN 2.9.
-        """
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        file_path = dir_path + "/config_declaration.yaml"
-        with open(file_path, 'r') as stream:
-            result = yaml.safe_load(stream)
-        declaration.load_dict(result)
 
     # IClick
     def get_commands(self):
