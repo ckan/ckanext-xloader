@@ -8,8 +8,6 @@ from ckan.lib import search
 from collections import defaultdict
 from decimal import Decimal
 
-from six import text_type as str
-
 import ckan.plugins as p
 
 
@@ -90,12 +88,6 @@ def set_resource_metadata(update_dict):
     extras.update(update_dict)
     q.update({'extras': extras}, synchronize_session=False)
 
-    # TODO: Remove resource_revision_table when dropping support for 2.8
-    if hasattr(model, 'resource_revision_table'):
-        model.Session.query(model.resource_revision_table).filter(
-            model.ResourceRevision.id == update_dict['resource_id'],
-            model.ResourceRevision.current is True
-        ).update({'extras': extras}, synchronize_session=False)
     model.Session.commit()
 
     # get package with updated resource from solr

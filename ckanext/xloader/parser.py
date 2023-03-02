@@ -7,19 +7,12 @@ from itertools import chain
 import six
 from ckan.plugins.toolkit import asbool
 from dateutil.parser import isoparser, parser
-try:
-    from dateutil.parser import ParserError
-except ImportError:
-    ParserError = ValueError
+from dateutil.parser import ParserError
 
 from tabulator import helpers
 from tabulator.parser import Parser
 
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    # older versions of ckan
-    from pylons import config
+from ckan.plugins.toolkit import config
 
 CSV_SAMPLE_LINES = 100
 
@@ -42,13 +35,6 @@ class XloaderCSVParser(Parser):
 
     def __init__(self, loader, force_parse=False, **options):
         super(XloaderCSVParser, self).__init__(loader, force_parse, **options)
-
-        # Make bytes
-        if six.PY2:
-            for key, value in options.items():
-                if isinstance(value, six.string_types):
-                    options[key] = six.text_type(value)
-
         # Set attributes
         self.__loader = loader
         self.__options = options
@@ -136,30 +122,14 @@ class XloaderCSVParser(Parser):
 
             return value
 
-        # For PY2 encode/decode
-        if six.PY2:
-            # Reader requires utf-8 encoded stream
-            bytes = iterencode(self.__chars, 'utf-8')
-            sample, dialect = self.__prepare_dialect(bytes)
-            items = csv.reader(chain(sample, bytes), dialect=dialect)
-            for row_number, item in enumerate(items, start=1):
-                values = []
-                for value in item:
-                    value = value.decode('utf-8')
-                    value = type_value(value)
-                    values.append(value)
-                yield row_number, None, list(values)
-
-        # For PY3 use chars
-        else:
-            sample, dialect = self.__prepare_dialect(self.__chars)
-            items = csv.reader(chain(sample, self.__chars), dialect=dialect)
-            for row_number, item in enumerate(items, start=1):
-                values = []
-                for value in item:
-                    value = type_value(value)
-                    values.append(value)
-                yield row_number, None, list(values)
+        sample, dialect = self.__prepare_dialect(self.__chars)
+        items = csv.reader(chain(sample, self.__chars), dialect=dialect)
+        for row_number, item in enumerate(items, start=1):
+            values = []
+            for value in item:
+                value = type_value(value)
+                values.append(value)
+            yield row_number, None, list(values)
 
     def __prepare_dialect(self, stream):
 
@@ -175,7 +145,7 @@ class XloaderCSVParser(Parser):
 
         # Get dialect
         try:
-            separator = b'' if six.PY2 else ''
+            separator = ''
             delimiter = self.__options.get('delimiter', ',\t;|')
             dialect = csv.Sniffer().sniff(separator.join(sample), delimiter)
             if not dialect.escapechar:

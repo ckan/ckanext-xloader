@@ -11,7 +11,6 @@ from ckan.logic import side_effect_free
 import ckan.plugins as p
 from dateutil.parser import parse as parse_date
 from dateutil.parser import isoparse as parse_iso_date
-from six import text_type as str
 
 import ckanext.xloader.schema
 
@@ -157,11 +156,6 @@ def xloader_submit(context, data_dict):
     try:
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=timeout)
-        )
-    except TypeError:
-        # This except provides support for 2.7.
-        job = _enqueue(
-            jobs.xloader_data_into_datastore, [data], timeout=timeout
         )
     except Exception:
         log.exception('Unable to enqueued xloader res_id=%s', res_id)

@@ -9,6 +9,7 @@
 
   {% block upload_ds_button %}
     <form method="post" action="{{ action }}" class="datapusher-form">
+      {{ h.csrf_input() if 'csrf_input' in h }}
       <button class="btn btn-primary" name="save" type="submit">
         <i class="fa fa-cloud-upload"></i> {{ _('Upload to DataStore') }}
       </button>
@@ -22,10 +23,7 @@
     </div>
   {% elif status.task_info and status.task_info.error %}
     <div class="alert alert-error">
-      {% if status.task_info.error is string %}
-        {# DataPusher < 0.0.3 #}
-        <strong>{{ _('Error:') }}</strong> {{ status.task_info.error }}
-      {% elif status.task_info.error is mapping %}
+      {% if status.task_info.error is mapping %}
         <strong>{{ _('Error:') }}</strong> {{ status.task_info.error.message }}
         {% for error_key, error_value in status.task_info.error.items() %}
           {% if error_key != "message" and error_value %}
