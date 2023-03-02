@@ -12,6 +12,7 @@ from ckan.tests import helpers, factories
 from unittest import mock
 
 from ckanext.xloader import jobs
+from ckanext.xloader.utils import get_xloader_user_apitoken
 
 
 _TEST_FILE_CONTENT = "x, y\n1,2\n2,4\n3,6\n4,8\n5,10"
@@ -34,9 +35,20 @@ def get_large_response(download_url, headers):
 
 
 @pytest.fixture
-def data(create_with_upload):
+def apikey():
+    try:
+        sysadmin = factories.SysadminWithToken()
+    except AttributeError:
+        # To provide support with CKAN 2.9
+        sysadmin = factories.Sysadmin()
+        sysadmin["token"] = get_xloader_user_apitoken()
+
+    return sysadmin["token"]
+
+
+@pytest.fixture
+def data(create_with_upload, apikey):
     dataset = factories.Dataset()
-    sysadmin = factories.SysadminWithToken()
     resource = create_with_upload(
         _TEST_FILE_CONTENT,
         "multiplication_2.csv",
@@ -47,7 +59,7 @@ def data(create_with_upload):
         "api.action", ver=3, logic_function="xloader_hook", qualified=True
     )
     return {
-        'api_key': sysadmin["token"],
+        'api_key': apikey,
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
