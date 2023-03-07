@@ -36,9 +36,9 @@ def get_large_response(download_url, headers):
 
 @pytest.fixture
 def apikey():
-    try:
+    if toolkit.check_ckan_version(min_version="2.10"):
         sysadmin = factories.SysadminWithToken()
-    except AttributeError:
+    else:
         # To provide support with CKAN 2.9
         sysadmin = factories.Sysadmin()
         sysadmin["token"] = get_xloader_user_apitoken()
