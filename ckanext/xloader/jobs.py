@@ -9,12 +9,16 @@ import json
 import datetime
 import traceback
 import sys
+import csv
+import codecs
+from io import StringIO
 from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
+import openpyxl
 
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
@@ -37,6 +41,35 @@ MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
+
+class UnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") if isinstance(s, str) or isinstance(s, unicode) else s for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
 
 
 # input = {
@@ -163,6 +196,37 @@ def xloader_data_into_datastore_(input, job_dict):
         return
     logger.info('File hash: %s', file_hash)
     resource['hash'] = file_hash
+
+    def convert_xlsx_to_csv(filename):
+        csv_filename = '{}.csv'.format(os.path.basename(filename))
+        tmp_csv_file = tempfile.NamedTemporaryFile(suffix=csv_filename)
+
+        wb = openpyxl.load_workbook(filename)
+        ws = wb.active
+
+        csv_writer = UnicodeWriter(tmp_csv_file, quoting=csv.QUOTE_MINIMAL)
+        for row in ws.iter_rows(values_only=True):
+            csv_writer.writerow(row)
+        tmp_csv_file.seek(0)
+
+        return tmp_csv_file
+
+    def direct_load():
+        resource_format = resource.get('format')
+        file_name = tmp_file.name
+        if resource_format.lower() == 'xlsx':
+            csv_tmp_file = convert_xlsx_to_csv(file_name)
+            resource_format = 'CSV'
+            file_name = csv_tmp_file.name
+
+        fields = loader.load_csv(
+            file_name,
+            resource_id=resource['id'],
+            mimetype=resource_format,
+            logger=logger)
+        loader.calculate_record_count(
+            resource_id=resource['id'], logger=logger)
+
 
     def direct_load():
         fields = loader.load_csv(
