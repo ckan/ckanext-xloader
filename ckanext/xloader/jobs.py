@@ -11,6 +11,7 @@ import traceback
 import sys
 import csv
 import codecs
+import os
 from io import StringIO
 from six import text_type as str
 
@@ -197,19 +198,33 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('File hash: %s', file_hash)
     resource['hash'] = file_hash
 
+    def fix_xlsx_header(header):
+        for i, v in enumerate(header):
+            header = list(header)
+            if v is None:
+                header[i] = 'col_{}'.format(i+1)
+        return header
+
     def convert_xlsx_to_csv(filename):
-        csv_filename = '{}.csv'.format(os.path.basename(filename))
-        tmp_csv_file = tempfile.NamedTemporaryFile(suffix=csv_filename)
+            csv_filename = '{}.csv'.format(os.path.basename(filename))
+            tmp_csv_file = tempfile.NamedTemporaryFile(suffix=csv_filename)
 
-        wb = openpyxl.load_workbook(filename)
-        ws = wb.active
+            wb = openpyxl.load_workbook(filename)
+            ws = wb.active
+            max_col = ws.max_column
+            max_row = ws.max_row
 
-        csv_writer = UnicodeWriter(tmp_csv_file, quoting=csv.QUOTE_MINIMAL)
-        for row in ws.iter_rows(values_only=True):
-            csv_writer.writerow(row)
-        tmp_csv_file.seek(0)
-
-        return tmp_csv_file
+            csv_writer = UnicodeWriter(tmp_csv_file, quoting=csv.QUOTE_ALL)
+            header_set = False
+            for row in ws.iter_rows(values_only=True, max_col=max_col, max_row=max_row):
+                if not header_set:
+                    header = fix_xlsx_header(row)
+                    csv_writer.writerow(header)
+                    header_set = True
+                    continue
+                csv_writer.writerow(row)
+            tmp_csv_file.seek(0)
+            return tmp_csv_file
 
     def direct_load():
         resource_format = resource.get('format')
