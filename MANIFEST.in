@@ -2,4 +2,5 @@ include *requirements*.txt
 include CHANGELOG
 include LICENSE
 include README.rst
+include ckanext/xloader/config_declaration.yaml
 recursive-include ckanext/xloader/templates *.html
