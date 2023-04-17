@@ -9,7 +9,6 @@ import json
 import datetime
 import traceback
 import sys
-from six import text_type as str
 
 from six.moves.urllib.parse import urlsplit
 import requests
@@ -17,7 +16,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 
 from . import loader
 from . import db
@@ -186,39 +185,42 @@ def xloader_data_into_datastore_(input, job_dict):
                         patch_only=True)
         logger.info('File Hash updated for resource: %s', resource['hash'])
 
-    def messytables_load():
+    def tabulator_load():
         try:
             loader.load_table(tmp_file.name,
                               resource_id=resource['id'],
                               mimetype=resource.get('format'),
                               logger=logger)
         except JobError as e:
-            logger.error('Error during messytables load: %s', e)
+            logger.error('Error during tabulator load: %s', e)
             raise
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, logger)
-        logger.info('Finished loading with messytables')
+        logger.info('Finished loading with tabulator')
         update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
                         patch_only=True)
         logger.info('File Hash updated for resource: %s', resource['hash'])
 
     # Load it
     logger.info('Loading CSV')
-    just_load_with_messytables = asbool(config.get(
-        'ckanext.xloader.just_load_with_messytables', config.get('ckanext.xloader.compatibility_mode', False)))
-    logger.info("'Just load with messytables' mode is: %s",
-                just_load_with_messytables)
+    # If ckanext.xloader.use_type_guessing is not configured, fall back to
+    # deprecated ckanext.xloader.just_load_with_messytables
+    use_type_guessing = asbool(config.get(
+        'ckanext.xloader.use_type_guessing', config.get(
+            'ckanext.xloader.just_load_with_messytables', False)))
+    logger.info("'use_type_guessing' mode is: %s",
+                use_type_guessing)
     try:
-        if just_load_with_messytables:
-            messytables_load()
+        if use_type_guessing:
+            tabulator_load()
         else:
             try:
                 direct_load()
             except JobError as e:
                 logger.warning('Load using COPY failed: %s', e)
-                logger.info('Trying again with messytables')
-                messytables_load()
+                logger.info('Trying again with tabulator')
+                tabulator_load()
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)

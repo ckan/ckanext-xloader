@@ -2,7 +2,10 @@
 
 import datetime
 import pytest
-import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 from six import text_type as str
 from ckan.tests import helpers, factories
 from ckan.logic import _actions

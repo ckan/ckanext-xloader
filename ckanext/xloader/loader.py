@@ -1,40 +1,29 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
-from six import text_type as str
+
+import datetime
+import itertools
 import os
 import os.path
 import tempfile
-import itertools
-import csv
+from decimal import Decimal
 
-import six
-from six.moves import zip
 import psycopg2
-import messytables
+from six.moves import zip
+from tabulator import Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-from .job_exceptions import LoaderError, FileCouldNotBeLoadedError
-import ckan.plugins.toolkit as tk
-try:
-    from ckan.plugins.toolkit import config
-except ImportError:
-    # older versions of ckan
-    from pylons import config
 
-if tk.check_ckan_version(min_version='2.7'):
-    import ckanext.datastore.backend.postgres as datastore_db
-    get_write_engine = datastore_db.get_write_engine
-else:
-    # older versions of ckan
-    def get_write_engine():
-        from ckanext.datastore.db import _get_engine
-        from pylons import config
-        data_dict = {'connection_url': config['ckan.datastore.write_url']}
-        return _get_engine(data_dict)
-    import ckanext.datastore.db as datastore_db
+from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
+from .parser import XloaderCSVParser
+from .utils import headers_guess, type_guess
 
+from ckan.plugins.toolkit import config
 
+import ckanext.datastore.backend.postgres as datastore_db
+
+get_write_engine = datastore_db.get_write_engine
 create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
@@ -44,45 +33,33 @@ MAX_COLUMN_LENGTH = 63
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
-    # use messytables to determine the header row
-    extension = os.path.splitext(csv_filepath)[1]
-    with open(csv_filepath, 'rb') as f:
+    # Determine the header row
+    try:
+        file_format = os.path.splitext(csv_filepath)[1].strip('.')
+        with Stream(csv_filepath, format=file_format) as stream:
+            header_offset, headers = headers_guess(stream.sample)
+    except TabulatorException:
         try:
-            table_set = messytables.any_tableset(f, mimetype=mimetype,
-                                                 extension=extension)
-        except messytables.ReadError as e:
-            raise LoaderError('Messytables error: {}'.format(e))
-        except Exception as e:
-            raise FileCouldNotBeLoadedError(e)
+            file_format = mimetype.lower().split('/')[-1]
+            with Stream(csv_filepath, format=file_format) as stream:
+                header_offset, headers = headers_guess(stream.sample)
+        except TabulatorException as e:
+            raise LoaderError('Tabulator error: {}'.format(e))
+    except Exception as e:
+        raise FileCouldNotBeLoadedError(e)
 
-        if not table_set.tables:
-            raise LoaderError('Could not detect tabular data in this file')
-        row_set = table_set.tables.pop()
-        try:
-            header_offset, headers = messytables.headers_guess(row_set.sample)
-        except messytables.ReadError as e:
-            raise LoaderError('Messytables error: {}'.format(e))
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
 
-    # Guess the delimiter used in the file
-    with open(csv_filepath, 'rb') as f:
-        header_line = f.readline()
-    try:
-        sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(six.ensure_text(header_line)).delimiter
-    except csv.Error:
+    # Get the list of rows to skip. The rows in the tabulator stream are
+    # numbered starting with 1.
+    skip_rows = list(range(1, header_offset + 1))
+
+    # Get the delimiter used in the file
+    delimiter = stream.dialect.get('delimiter')
+    if delimiter is None:
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
-    except UnicodeDecodeError:
-        raise LoaderError('Could not detect delimiter in this file')
-
-    # Setup the converters that run when you iterate over the row_set.
-    # With pgloader only the headers will be iterated over.
-    row_set.register_processor(messytables.headers_processor(headers))
-    row_set.register_processor(
-        messytables.offset_processor(header_offset + 1))
-    # types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
@@ -93,13 +70,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # It is easier to reencode it as UTF8 than convert the name of the encoding
     # to one that pgloader will understand.
     logger.info('Ensuring character coding is UTF8')
-    f_write = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
+    f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with open(csv_filepath, 'rb') as f_read:
-            csv_decoder = messytables.commas.UTF8Recoder(f_read, encoding=None)
-            for line in csv_decoder:
-                f_write.write(line)
-            f_write.close()   # ensures the last line is written
+        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
+            stream.save(target=f_write.name, format='csv', encoding='utf-8',
+                        delimiter=delimiter)
             csv_filepath = f_write.name
 
         # datastore db connection
@@ -127,7 +102,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         fields = [
             {'id': header_name,
              'type': existing_info.get(header_name, {})
-             .get('type_override') or 'text',
+                .get('type_override') or 'text',
              }
             for header_name in headers]
 
@@ -165,9 +140,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
         connection = context['connection'] = engine.connect()
-        if not fulltext_trigger_exists(connection, resource_id):
-            logger.info('Trigger created')
-            _create_fulltext_trigger(connection, resource_id)
 
         # datstore_active is switched on by datastore_create - TODO temporarily
         # disable it until the load is complete
@@ -254,75 +226,66 @@ def create_column_indexes(fields, resource_id, logger):
 
 
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
-    '''Loads an Excel file (or other tabular data recognized by messytables)
+    '''Loads an Excel file (or other tabular data recognized by tabulator)
     into Datastore and creates indexes.
 
     Largely copied from datapusher - see below. Is slower than load_csv.
     '''
 
-    # use messytables to determine the header row
+    # Determine the header row
     logger.info('Determining column names and types')
-    ct = mimetype
-    format = os.path.splitext(table_filepath)[1]  # filename extension
-    with open(table_filepath, 'rb') as tmp:
-
-        #
-        # Copied from datapusher/jobs.py:push_to_datastore
-        #
-
+    try:
+        file_format = os.path.splitext(table_filepath)[1].strip('.')
+        with Stream(table_filepath, format=file_format,
+                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+            header_offset, headers = headers_guess(stream.sample)
+    except TabulatorException:
         try:
-            table_set = messytables.any_tableset(tmp, mimetype=ct, extension=ct)
-        except messytables.ReadError:
-            # try again with format
-            tmp.seek(0)
-            try:
-                table_set = messytables.any_tableset(tmp, mimetype=format, extension=format)
-            except Exception as e:
-                raise LoaderError(e)
+            file_format = mimetype.lower().split('/')[-1]
+            with Stream(table_filepath, format=file_format,
+                        custom_parsers={'csv': XloaderCSVParser}) as stream:
+                header_offset, headers = headers_guess(stream.sample)
+        except TabulatorException as e:
+            raise LoaderError('Tabulator error: {}'.format(e))
+    except Exception as e:
+        raise FileCouldNotBeLoadedError(e)
 
-        if not table_set.tables:
-            raise LoaderError('Could not parse file as tabular data')
-        row_set = table_set.tables.pop()
-        offset, headers = messytables.headers_guess(row_set.sample)
+    existing = datastore_resource_exists(resource_id)
+    existing_info = None
+    if existing:
+        existing_info = dict(
+            (f['id'], f['info'])
+            for f in existing.get('fields', []) if 'info' in f)
 
-        existing = datastore_resource_exists(resource_id)
-        existing_info = None
-        if existing:
-            existing_info = dict(
-                (f['id'], f['info'])
-                for f in existing.get('fields', []) if 'info' in f)
+    # Some headers might have been converted from strings to floats and such.
+    headers = encode_headers(headers)
 
-        # Some headers might have been converted from strings to floats and such.
-        headers = encode_headers(headers)
+    # Get the list of rows to skip. The rows in the tabulator stream are
+    # numbered starting with 1. We also want to skip the header row.
+    skip_rows = list(range(1, header_offset + 2))
 
-        row_set.register_processor(messytables.headers_processor(headers))
-        row_set.register_processor(messytables.offset_processor(offset + 1))
-        TYPES, TYPE_MAPPING = get_types()
-        types = messytables.type_guess(row_set.sample, types=TYPES, strict=True)
+    TYPES, TYPE_MAPPING = get_types()
+    types = type_guess(stream.sample[1:], types=TYPES, strict=True)
 
-        # override with types user requested
-        if existing_info:
-            types = [
-                {
-                    'text': messytables.StringType(),
-                    'numeric': messytables.DecimalType(),
-                    'timestamp': messytables.DateUtilType(),
-                }.get(existing_info.get(h, {}).get('type_override'), t)
-                for t, h in zip(types, headers)]
+    # override with types user requested
+    if existing_info:
+        types = [
+            {
+                'text': str,
+                'numeric': Decimal,
+                'timestamp': datetime.datetime,
+            }.get(existing_info.get(h, {}).get('type_override'), t)
+            for t, h in zip(types, headers)]
 
-        row_set.register_processor(messytables.types_processor(types))
+    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
 
-        headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-        headers_set = set(headers)
-
+    with Stream(table_filepath, format=file_format, skip_rows=skip_rows,
+                custom_parsers={'csv': XloaderCSVParser}) as stream:
         def row_iterator():
-            for row in row_set:
+            for row in stream:
                 data_row = {}
                 for index, cell in enumerate(row):
-                    column_name = cell.column.strip()
-                    if column_name not in headers_set:
-                        continue
-                    data_row[column_name] = cell.value
+                    data_row[headers[index]] = cell
                 yield data_row
         result = row_iterator()
 
@@ -354,33 +317,43 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Copying to database...')
         count = 0
+        # Some types cannot be stored as empty strings and must be converted to None,
+        # https://github.com/ckan/ckanext-xloader/issues/182
+        non_empty_types = ['timestamp', 'numeric']
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
             logger.info('Saving chunk {number}'.format(number=i))
+            for row in records:
+                for column_index, column_name in enumerate(row):
+                    if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
+                        row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 
-        if count:
-            logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
-                        n=count, res_id=resource_id))
-        else:
-            # no datastore table is created
-            raise LoaderError('No entries found - nothing to load')
+    if count:
+        logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
+                    n=count, res_id=resource_id))
+    else:
+        # no datastore table is created
+        raise LoaderError('No entries found - nothing to load')
 
 
 _TYPE_MAPPING = {
-    'String': 'text',
-    # 'int' may not be big enough,
-    # and type detection may not realize it needs to be big
-    'Integer': 'numeric',
-    'Decimal': 'numeric',
-    'DateUtil': 'timestamp'
+    "<type 'unicode'>": 'text',
+    "<type 'bool'>": 'text',
+    "<type 'int'>": 'numeric',
+    "<type 'float'>": 'numeric',
+    "<class 'decimal.Decimal'>": 'numeric',
+    "<class 'str'>": 'text',
+    "<class 'bool'>": 'text',
+    "<class 'int'>": 'numeric',
+    "<class 'float'>": 'numeric',
+    "<class 'datetime.datetime'>": 'timestamp',
 }
 
 
 def get_types():
-    _TYPES = [messytables.StringType, messytables.DecimalType,
-              messytables.IntegerType, messytables.DateUtilType]
+    _TYPES = [int, bool, str, datetime.datetime, float, Decimal]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
@@ -530,18 +503,6 @@ def calculate_record_count(resource_id, logger):
                  .format(resource_id=resource_id))
 
 
-################################
-#    datastore copied code     #
-# (for use with older ckans that lack this)
-
-def _create_fulltext_trigger(connection, resource_id):
-    connection.execute(
-        u'''CREATE TRIGGER zfulltext
-        BEFORE INSERT OR UPDATE ON {table}
-        FOR EACH ROW EXECUTE PROCEDURE populate_full_text_trigger()'''.format(
-            table=identifier(resource_id)))
-
-
 def identifier(s):
     # "%" needs to be escaped, otherwise connection.execute thinks it is for
     # substituting a bind parameter
@@ -551,6 +512,3 @@ def identifier(s):
 
 def literal_string(s):
     return u"'" + s.replace(u"'", u"''").replace(u'\0', '') + u"'"
-
-# end of datastore copied code #
-################################
