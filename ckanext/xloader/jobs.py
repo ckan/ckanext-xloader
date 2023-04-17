@@ -16,7 +16,7 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 
 from . import loader
 from . import db

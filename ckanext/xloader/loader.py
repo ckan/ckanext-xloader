@@ -14,7 +14,6 @@ from tabulator import Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-import ckan.plugins.toolkit as tk
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import XloaderCSVParser

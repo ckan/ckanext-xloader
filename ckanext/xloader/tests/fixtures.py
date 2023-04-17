@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-import sqlalchemy
-import sqlalchemy.orm as orm
+from sqlalchemy import orm
 import os
 
 from ckanext.datastore.tests import helpers as datastore_helpers
@@ -11,7 +10,7 @@ __location__ = os.path.realpath(
 )
 
 try:
-    from ckan.tests.pytest_ckan.fixtures import *
+    from ckan.tests.pytest_ckan.fixtures import *  # noqa
 except ImportError:
     import pytest
 
