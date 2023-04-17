@@ -318,9 +318,16 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Copying to database...')
         count = 0
+        # Some types cannot be stored as empty strings and must be converted to None,
+        # https://github.com/ckan/ckanext-xloader/issues/182
+        non_empty_types = ['timestamp', 'numeric']
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
             logger.info('Saving chunk {number}'.format(number=i))
+            for row in records:
+                for column_index, column_name in enumerate(row):
+                    if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
+                        row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 
