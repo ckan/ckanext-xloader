@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import csv
-from codecs import iterencode
 from decimal import Decimal, InvalidOperation
 from itertools import chain
 
-import six
 from ckan.plugins.toolkit import asbool
 from dateutil.parser import isoparser, parser
 from dateutil.parser import ParserError
