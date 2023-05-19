@@ -62,6 +62,8 @@
     <h3>{{ _('Upload Log') }}</h3>
     <ul class="activity">
       {% for item in status.task_info.logs %}
+        {# Truncate very long loops, showing just the start and end #}
+        {% if loop.index <= 100 or loop.revindex <= 100 %}
         {% set icon = 'ok' if item.level == 'INFO' else 'exclamation' %}
         {% set class = ' failure' if icon == 'exclamation' else ' success' %}
         {% set popover_content = 'test' %}
@@ -77,6 +79,12 @@
             </span>
           </p>
         </li>
+        {% elif loop.index == 101 %}
+          <li class="item no-avatar">
+            <i class="fa icon fa-exclamation"></i>
+            <p>Skipping {{ loop.revindex - 100}} records<br>...</p>
+          </li>
+        {% endif %}
       {% endfor %}
       <li class="item no-avatar">
         <i class="fa icon fa-info"></i>
