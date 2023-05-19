@@ -44,7 +44,7 @@ def resource_data(id, resource_id, rows=None):
     except p.toolkit.NotAuthorized:
         return p.toolkit.abort(403, p.toolkit._("Not authorized to see this page"))
 
-    extra_vars={
+    extra_vars = {
         "status": xloader_status,
         "resource": resource,
         "pkg_dict": pkg_dict,

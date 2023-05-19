@@ -16,6 +16,8 @@ def resource_data(id, resource_id):
     if rows:
         try:
             rows = int(rows)
+            if rows < 0:
+                rows = None
         except ValueError:
             rows = None
     return utils.resource_data(id, resource_id, rows)
