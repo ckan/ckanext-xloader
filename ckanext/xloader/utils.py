@@ -11,7 +11,7 @@ from decimal import Decimal
 import ckan.plugins as p
 
 
-def resource_data(id, resource_id):
+def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
         try:
@@ -44,13 +44,16 @@ def resource_data(id, resource_id):
     except p.toolkit.NotAuthorized:
         return p.toolkit.abort(403, p.toolkit._("Not authorized to see this page"))
 
+    extra_vars = {
+        "status": xloader_status,
+        "resource": resource,
+        "pkg_dict": pkg_dict,
+    }
+    if rows:
+        extra_vars["rows"] = rows
     return p.toolkit.render(
         "xloader/resource_data.html",
-        extra_vars={
-            "status": xloader_status,
-            "resource": resource,
-            "pkg_dict": pkg_dict,
-        },
+        extra_vars=extra_vars,
     )
 
 
