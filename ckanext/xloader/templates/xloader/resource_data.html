@@ -61,9 +61,11 @@
   {% if status.status and status.task_info and show_table %}
     <h3>{{ _('Upload Log') }}</h3>
     <ul class="activity">
+      {% set rows = rows or 50 %}
       {% for item in status.task_info.logs %}
         {# Truncate very long loops, showing just the start and end #}
-        {% if loop.index <= 100 or loop.revindex <= 100 %}
+        {% if loop.index <= rows or loop.revindex <= rows
+           or (loop.index == rows + 1 and loop.revindex == rows + 1) %}
         {% set icon = 'ok' if item.level == 'INFO' else 'exclamation' %}
         {% set class = ' failure' if icon == 'exclamation' else ' success' %}
         {% set popover_content = 'test' %}
@@ -79,10 +81,16 @@
             </span>
           </p>
         </li>
-        {% elif loop.index == 101 %}
+        {% elif loop.index == rows + 1 %}
           <li class="item no-avatar">
             <i class="fa icon fa-exclamation"></i>
-            <p>Skipping {{ loop.revindex - 100}} records<br>...</p>
+            <p>
+              Skipping {{ loop.revindex - rows}} records...
+              <br>
+              <span class="date">
+                <a href="?rows={{rows * 2}}">Show more</a>
+              </span>
+            </p>
           </li>
         {% endif %}
       {% endfor %}
