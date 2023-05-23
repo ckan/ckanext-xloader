@@ -119,10 +119,7 @@ class XloaderCmd:
             self.error_occured = True
 
     def print_status(self):
-        try:
-            import ckan.lib.jobs as rq_jobs
-        except ImportError:
-            import ckanext.rq.jobs as rq_jobs
+        import ckan.lib.jobs as rq_jobs
         jobs = rq_jobs.get_queue().jobs
         if not jobs:
             print('No jobs currently queued')
