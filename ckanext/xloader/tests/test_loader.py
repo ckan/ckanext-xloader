@@ -624,6 +624,18 @@ class TestLoadCsv(TestLoadBase):
         )
         assert len(self._get_records(Session, "test1")) == 3
 
+    def test_with_quoted_commas(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
+        resource_id = "test1"
+        factories.Resource(id=resource_id)
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, "test1")) == 3
+
     def test_with_mixed_types(self, Session):
         csv_filepath = get_sample_filepath("mixed_numeric_string_sample.csv")
         resource_id = "test1"
