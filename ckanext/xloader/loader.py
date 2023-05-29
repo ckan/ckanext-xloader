@@ -16,7 +16,7 @@ from unidecode import unidecode
 import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import XloaderCSVParser
+from .parser import CSV_SAMPLE_LINES, XloaderCSVParser
 from .utils import headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -36,12 +36,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with Stream(csv_filepath, format=file_format) as stream:
+        with Stream(csv_filepath, format=file_format, sample_size=CSV_SAMPLE_LINES) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(csv_filepath, format=file_format) as stream:
+            with Stream(csv_filepath, format=file_format, sample_size=CSV_SAMPLE_LINES) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
