@@ -72,7 +72,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
+        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows, sample_size=CSV_SAMPLE_LINES) as stream:
             stream.save(target=f_write.name, format='csv', encoding='utf-8',
                         delimiter=delimiter)
             csv_filepath = f_write.name
