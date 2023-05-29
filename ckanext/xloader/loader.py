@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import psycopg2
 from six.moves import zip
-from tabulator import Stream, TabulatorException
+from tabulator import config as tabulator_config, Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
@@ -28,6 +28,7 @@ create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
+tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -36,12 +37,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with Stream(csv_filepath, format=file_format, sample_size=CSV_SAMPLE_LINES) as stream:
+        with Stream(csv_filepath, format=file_format) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(csv_filepath, format=file_format, sample_size=CSV_SAMPLE_LINES) as stream:
+            with Stream(csv_filepath, format=file_format) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -72,7 +73,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows, sample_size=CSV_SAMPLE_LINES) as stream:
+        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
             stream.save(target=f_write.name, format='csv', encoding='utf-8',
                         delimiter=delimiter)
             csv_filepath = f_write.name
