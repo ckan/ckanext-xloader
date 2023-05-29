@@ -10,13 +10,13 @@ from decimal import Decimal
 
 import psycopg2
 from six.moves import zip
-from tabulator import Stream, TabulatorException
+from tabulator import config as tabulator_config, Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import XloaderCSVParser
+from .parser import CSV_SAMPLE_LINES, XloaderCSVParser
 from .utils import headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -28,6 +28,7 @@ create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
+tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):

@@ -12,7 +12,7 @@ from tabulator.parser import Parser
 
 from ckan.plugins.toolkit import config
 
-CSV_SAMPLE_LINES = 100
+CSV_SAMPLE_LINES = 1000
 
 
 class XloaderCSVParser(Parser):
