@@ -25,3 +25,9 @@ def xloader_status_description(status):
         return captions.get(status['status'], status['status'].capitalize())
     else:
         return _('Not Uploaded Yet')
+
+
+def is_xloader_format(resource_format):
+    from ckanext.xloader.plugin import XLoaderFormats
+
+    return XLoaderFormats.is_it_an_xloader_format(resource_format)
