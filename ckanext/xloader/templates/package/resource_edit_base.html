@@ -4,7 +4,7 @@
     {{ super() }}
     {%
       if (h.is_xloader_format(res.format) or res.datastore_active)
-      and res.url_type not in h.datastore_rw_resource_url_types()
+      and h.is_xloader_type(res.url_type)
     %}
       {{ h.build_nav_icon('xloader.resource_data', _('DataStore'), id=pkg.name, resource_id=res.id, icon='cloud-upload') }}
     {% endif %}
