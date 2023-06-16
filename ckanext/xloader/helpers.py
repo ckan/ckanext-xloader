@@ -1,4 +1,5 @@
 import ckan.plugins.toolkit as toolkit
+from ckanext.xloader.utils import XLoaderFormats
 
 
 def xloader_status(resource_id):
@@ -27,14 +28,15 @@ def xloader_status_description(status):
         return _('Not Uploaded Yet')
 
 
-def is_xloader_format(resource_format):
-    from ckanext.xloader.plugin import XLoaderFormats
-
-    return XLoaderFormats.is_it_an_xloader_format(resource_format)
-
-
-def is_xloader_type(resource_url_type):
+def is_resource_supported_by_xloader(res_dict, check_access = True):
+    is_supported_format = XLoaderFormats.is_it_an_xloader_format(res_dict.get('format'))
+    is_datastore_active = res_dict.get('datastore_active', False)
+    if check_access:
+        user_has_access = toolkit.h.check_access('package_update', {'id':res_dict.get('package_id')})
+    else:
+        user_has_access = True
     try:
-        return resource_url_type not in toolkit.h.datastore_rw_resource_url_types()
+        is_supported_url_type = res_dict.get('url_type') not in toolkit.h.datastore_rw_resource_url_types()
     except AttributeError:
-        return (resource_url_type == 'upload' or resource_url_type == '')
+        is_supported_url_type = (res_dict.get('url_type') == 'upload' or res_dict.get('url_type') == '')
+    return (is_supported_format or is_datastore_active) and user_has_access and is_supported_url_type

@@ -9,6 +9,36 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
+from ckan.plugins.toolkit import config
+
+# resource.formats accepted by ckanext-xloader. Must be lowercase here.
+DEFAULT_FORMATS = [
+    "csv",
+    "application/csv",
+    "xls",
+    "xlsx",
+    "tsv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ods",
+    "application/vnd.oasis.opendocument.spreadsheet",
+]
+
+
+class XLoaderFormats(object):
+    formats = None
+
+    @classmethod
+    def is_it_an_xloader_format(cls, format_):
+        if cls.formats is None:
+            cls._formats = config.get("ckanext.xloader.formats")
+            if cls._formats is not None:
+                cls._formats = cls._formats.lower().split()
+            else:
+                cls._formats = DEFAULT_FORMATS
+        if not format_:
+            return False
+        return format_.lower() in cls._formats
 
 
 def resource_data(id, resource_id):
