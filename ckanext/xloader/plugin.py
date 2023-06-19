@@ -6,7 +6,6 @@ from ckan import plugins
 from ckan.plugins import toolkit
 
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
 from ckanext.xloader.utils import XLoaderFormats
 
 try:

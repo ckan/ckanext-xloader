@@ -61,7 +61,25 @@
   {% if status.status and status.task_info and show_table %}
     <h3>{{ _('Upload Log') }}</h3>
     <ul class="activity">
-      {% for item in status.task_info.logs %}
+      {% set items = status.task_info.logs %}
+      {% set rows = rows or 50 %}
+      {% set skipped_rows = (items | length) - (rows * 2) %}
+      {% if skipped_rows > 1 %}
+        <li class="item no-avatar">
+          <i class="fa icon fa-exclamation"></i>
+          <p>
+            {{ skipped_rows }} out of {{ items | length }} logs will be hidden.
+            <br>
+            <span class="date">
+              <a href="?rows={{rows * 2}}">Show more</a>&nbsp; &nbsp;<a href="?rows={{ items | length }}">Show all</a>
+            </span>
+          </p>
+        </li>
+      {% endif %}
+      {% for item in items %}
+        {# Truncate very long loops, showing just the start and end #}
+        {% if loop.index <= rows or loop.revindex <= rows
+           or (loop.index == rows + 1 and loop.revindex == rows + 1) %}
         {% set icon = 'ok' if item.level == 'INFO' else 'exclamation' %}
         {% set class = ' failure' if icon == 'exclamation' else ' success' %}
         {% set popover_content = 'test' %}
@@ -77,6 +95,18 @@
             </span>
           </p>
         </li>
+        {% elif loop.index == rows + 1 %}
+          <li class="item no-avatar">
+            <i class="fa icon fa-exclamation"></i>
+            <p>
+              Skipping {{ skipped_rows }} logs...
+              <br>
+              <span class="date">
+                <a href="?rows={{rows * 2}}">Show more</a>&nbsp; &nbsp;<a href="?rows={{ items | length }}">Show all</a>
+              </span>
+            </p>
+          </li>
+        {% endif %}
       {% endfor %}
       <li class="item no-avatar">
         <i class="fa icon fa-info"></i>

@@ -41,7 +41,7 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
-def resource_data(id, resource_id):
+def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
         try:
@@ -74,13 +74,16 @@ def resource_data(id, resource_id):
     except p.toolkit.NotAuthorized:
         return p.toolkit.abort(403, p.toolkit._("Not authorized to see this page"))
 
+    extra_vars = {
+        "status": xloader_status,
+        "resource": resource,
+        "pkg_dict": pkg_dict,
+    }
+    if rows:
+        extra_vars["rows"] = rows
     return p.toolkit.render(
         "xloader/resource_data.html",
-        extra_vars={
-            "status": xloader_status,
-            "resource": resource,
-            "pkg_dict": pkg_dict,
-        },
+        extra_vars=extra_vars,
     )
 
 
@@ -205,10 +208,10 @@ def type_guess(rows, types=TYPES, strict=False):
             for ci, cell in enumerate(row):
                 if not cell:
                     continue
-                at_least_one_value[ci] = True
                 for type in list(guesses[ci].keys()):
                     if not isinstance(cell, type):
                         guesses[ci].pop(type)
+                at_least_one_value[ci] = True if guesses[ci] else False
         # no need to set guessing weights before this
         # because we only accept a type if it never fails
         for i, guess in enumerate(guesses):
