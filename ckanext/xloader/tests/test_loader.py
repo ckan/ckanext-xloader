@@ -64,8 +64,12 @@ class TestLoadBase(object):
         # SELECT column_name FROM information_schema.columns WHERE table_name='test1';
         c = Session.connection()
         sql = (
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name='{}';".format(table_name)
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name='{}'
+            ORDER BY ordinal_position;
+            """.format(table_name)
         )
         results = c.execute(sql)
         records = results.fetchall()
@@ -74,8 +78,12 @@ class TestLoadBase(object):
     def _get_column_types(self, Session, table_name):
         c = Session.connection()
         sql = (
-            "SELECT udt_name FROM information_schema.columns "
-            "WHERE table_name='{}';".format(table_name)
+            """
+            SELECT udt_name
+            FROM information_schema.columns
+            WHERE table_name='{}'
+            ORDER BY ordinal_position;
+            """.format(table_name)
         )
         results = c.execute(sql)
         records = results.fetchall()
