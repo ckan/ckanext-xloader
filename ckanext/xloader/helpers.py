@@ -28,11 +28,11 @@ def xloader_status_description(status):
         return _('Not Uploaded Yet')
 
 
-def is_resource_supported_by_xloader(res_dict, check_access = True):
+def is_resource_supported_by_xloader(res_dict, check_access=True):
     is_supported_format = XLoaderFormats.is_it_an_xloader_format(res_dict.get('format'))
     is_datastore_active = res_dict.get('datastore_active', False)
     if check_access:
-        user_has_access = toolkit.h.check_access('package_update', {'id':res_dict.get('package_id')})
+        user_has_access = toolkit.h.check_access('package_update', {'id': res_dict.get('package_id')})
     else:
         user_has_access = True
     try:
