@@ -64,8 +64,12 @@ class TestLoadBase(object):
         # SELECT column_name FROM information_schema.columns WHERE table_name='test1';
         c = Session.connection()
         sql = (
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name='{}';".format(table_name)
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name='{}'
+            ORDER BY ordinal_position;
+            """.format(table_name)
         )
         results = c.execute(sql)
         records = results.fetchall()
@@ -74,8 +78,12 @@ class TestLoadBase(object):
     def _get_column_types(self, Session, table_name):
         c = Session.connection()
         sql = (
-            "SELECT udt_name FROM information_schema.columns "
-            "WHERE table_name='{}';".format(table_name)
+            """
+            SELECT udt_name
+            FROM information_schema.columns
+            WHERE table_name='{}'
+            ORDER BY ordinal_position;
+            """.format(table_name)
         )
         results = c.execute(sql)
         records = results.fetchall()
@@ -85,8 +93,8 @@ class TestLoadBase(object):
 class TestLoadCsv(TestLoadBase):
     def test_simple(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -95,7 +103,7 @@ class TestLoadCsv(TestLoadBase):
         )
 
         assert self._get_records(
-            Session, "test1", limit=1, exclude_full_text_column=False
+            Session, resource_id, limit=1, exclude_full_text_column=False
         ) == [
             (
                 1,
@@ -105,7 +113,7 @@ class TestLoadCsv(TestLoadBase):
                 u"Galway",
             )
         ]
-        assert self._get_records(Session, "test1") == [
+        assert self._get_records(Session, resource_id) == [
             (1, u"2011-01-01", u"1", u"Galway"),
             (2, u"2011-01-02", u"-1", u"Galway"),
             (3, u"2011-01-03", u"0", u"Galway"),
@@ -113,14 +121,14 @@ class TestLoadCsv(TestLoadBase):
             (5, None, None, u"Berkeley"),
             (6, u"2011-01-03", u"5", None),
         ]
-        assert self._get_column_names(Session, "test1") == [
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"date",
             u"temperature",
             u"place",
         ]
-        assert self._get_column_types(Session, "test1") == [
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
             u"text",
@@ -130,8 +138,8 @@ class TestLoadCsv(TestLoadBase):
 
     def test_simple_with_indexing(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         fields = loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -144,7 +152,7 @@ class TestLoadCsv(TestLoadBase):
 
         assert (
             self._get_records(
-                Session, "test1", limit=1, exclude_full_text_column=False
+                Session, resource_id, limit=1, exclude_full_text_column=False
             )[0][1]
             == "'-01':2,3 '1':4 '2011':1 'galway':5"
         )
@@ -155,8 +163,8 @@ class TestLoadCsv(TestLoadBase):
         # to get the test file:
         # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv  # noqa
         csv_filepath = get_sample_filepath("boston_311.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         import time
 
         t0 = time.time()
@@ -179,8 +187,8 @@ class TestLoadCsv(TestLoadBase):
         # to create the test file:
         # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
         csv_filepath = get_sample_filepath("boston_311_sample5.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         import time
 
         t0 = time.time()
@@ -199,8 +207,8 @@ class TestLoadCsv(TestLoadBase):
 
     def test_boston_311(self, Session):
         csv_filepath = get_sample_filepath("boston_311_sample.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -208,7 +216,7 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        records = self._get_records(Session, "test1")
+        records = self._get_records(Session, resource_id)
         print(records)
         assert records == [
             (
@@ -308,8 +316,8 @@ class TestLoadCsv(TestLoadBase):
                 u"Citizens Connect App",
             ),
         ]  # noqa
-        print(self._get_column_names(Session, "test1"))
-        assert self._get_column_names(Session, "test1") == [
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"CASE_ENQUIRY_ID",
@@ -342,16 +350,16 @@ class TestLoadCsv(TestLoadBase):
             u"Longitude",
             u"Source",
         ]  # noqa
-        print(self._get_column_types(Session, "test1"))
-        assert self._get_column_types(Session, "test1") == [
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
     def test_brazilian(self, Session):
         csv_filepath = get_sample_filepath("brazilian_sample.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -359,7 +367,7 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        records = self._get_records(Session, "test1")
+        records = self._get_records(Session, resource_id)
         print(records)
         assert records[0] == (
             1,
@@ -459,8 +467,8 @@ class TestLoadCsv(TestLoadBase):
             None,
             None,
         )  # noqa
-        print(self._get_column_names(Session, "test1"))
-        assert self._get_column_names(Session, "test1") == [
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"NU_ANO_CENSO",
@@ -559,16 +567,16 @@ class TestLoadCsv(TestLoadBase):
             u"PROVA_MEAN_MAT_I_MUN",
             u"PROVA_MEAN_MAT_T_MUN",
         ]  # noqa
-        print(self._get_column_types(Session, "test1"))
-        assert self._get_column_types(Session, "test1") == [
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
     def test_german(self, Session):
         csv_filepath = get_sample_filepath("german_sample.csv")
-        resource_id = "test_german"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -576,7 +584,7 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        records = self._get_records(Session, "test_german")
+        records = self._get_records(Session, resource_id)
         print(records)
         assert records[0] == (
             1,
@@ -591,8 +599,8 @@ class TestLoadCsv(TestLoadBase):
             u"24221",
             u"672",
         )
-        print(self._get_column_names(Session, "test_german"))
-        assert self._get_column_names(Session, "test_german") == [
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"Stadtname",
@@ -606,16 +614,16 @@ class TestLoadCsv(TestLoadBase):
             u"Schuler_Berufsausbildung_2010/2011",
             u"Schuler_andere allgemeinbildende Schulen_2010/2011",
         ]
-        print(self._get_column_types(Session, "test_german"))
-        assert self._get_column_types(Session, "test_german") == [
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
     def test_reload(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -631,15 +639,15 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        assert len(self._get_records(Session, "test1")) == 6
-        assert self._get_column_names(Session, "test1") == [
+        assert len(self._get_records(Session, resource_id)) == 6
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"date",
             u"temperature",
             u"place",
         ]
-        assert self._get_column_types(Session, "test1") == [
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
             u"text",
@@ -653,8 +661,8 @@ class TestLoadCsv(TestLoadBase):
     )
     def test_reload_with_overridden_types(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -684,15 +692,15 @@ class TestLoadCsv(TestLoadBase):
             fields=fields, resource_id=resource_id, logger=logger
         )
 
-        assert len(self._get_records(Session, "test1")) == 6
-        assert self._get_column_names(Session, "test1") == [
+        assert len(self._get_records(Session, resource_id)) == 6
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"date",
             u"temperature",
             u"place",
         ]
-        assert self._get_column_types(Session, "test1") == [
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
             u"timestamp",
@@ -702,7 +710,7 @@ class TestLoadCsv(TestLoadBase):
 
         # check that rows with nulls are indexed correctly
         records = self._get_records(
-            Session, "test1", exclude_full_text_column=False
+            Session, resource_id, exclude_full_text_column=False
         )
         print(records)
         assert records[4][1] == "'berkeley':1"
@@ -727,8 +735,8 @@ class TestLoadCsv(TestLoadBase):
 
     def test_column_names(self, Session):
         csv_filepath = get_sample_filepath("column_names.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             csv_filepath,
             resource_id=resource_id,
@@ -736,12 +744,12 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        assert self._get_column_names(Session, "test1")[2:] == [
+        assert self._get_column_names(Session, resource_id)[2:] == [
             u"d@t$e",
             u"t^e&m*pe!r(a)t?u:r%%e",
             r"p\l/a[c{e%",
         ]
-        assert self._get_records(Session, "test1")[0] == (
+        assert self._get_records(Session, resource_id)[0] == (
             1,
             u"2011-01-01",
             u"1",
@@ -752,8 +760,8 @@ class TestLoadCsv(TestLoadBase):
 class TestLoadUnhandledTypes(TestLoadBase):
     def test_kml(self):
         filepath = get_sample_filepath("polling_locations.kml")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         with pytest.raises(LoaderError) as exception:
             loader.load_csv(
                 filepath,
@@ -769,8 +777,8 @@ class TestLoadUnhandledTypes(TestLoadBase):
 
     def test_geojson(self):
         filepath = get_sample_filepath("polling_locations.geojson")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         with pytest.raises(LoaderError) as exception:
             loader.load_csv(
                 filepath,
@@ -791,8 +799,8 @@ class TestLoadUnhandledTypes(TestLoadBase):
     )
     def test_shapefile_zip_python2(self):
         filepath = get_sample_filepath("polling_locations.shapefile.zip")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         with pytest.raises(LoaderError):
             loader.load_csv(
                 filepath,
@@ -811,8 +819,8 @@ class TestLoadUnhandledTypes(TestLoadBase):
         # finds, 'Polling_Locations.cpg'. This file only contains the
         # following data: `UTF-8`.
         filepath = get_sample_filepath("polling_locations.shapefile.zip")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_csv(
             filepath,
             resource_id=resource_id,
@@ -820,8 +828,8 @@ class TestLoadUnhandledTypes(TestLoadBase):
             logger=logger,
         )
 
-        assert self._get_records(Session, "test1") == []
-        assert self._get_column_names(Session, "test1") == [
+        assert self._get_records(Session, resource_id) == []
+        assert self._get_column_names(Session, resource_id) == [
             '_id',
             '_full_text',
             'UTF-8'
@@ -831,8 +839,8 @@ class TestLoadUnhandledTypes(TestLoadBase):
 class TestLoadTabulator(TestLoadBase):
     def test_simple(self, Session):
         csv_filepath = get_sample_filepath("simple.xls")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_table(
             csv_filepath,
             resource_id=resource_id,
@@ -843,7 +851,7 @@ class TestLoadTabulator(TestLoadBase):
         assert (
             "'galway':"
             in self._get_records(
-                Session, "test1", limit=1, exclude_full_text_column=False
+                Session, resource_id, limit=1, exclude_full_text_column=False
             )[0][1]
         )
         # Indexed record looks like this (depending on CKAN version?):
@@ -851,7 +859,7 @@ class TestLoadTabulator(TestLoadBase):
         #   "'-01':4,5 '00':6,7,8 '1':1 '2011':3 'galway':2"
         #   "'-01':2,3 '00':5,6 '1':7 '2011':1 'galway':8 't00':4"
 
-        assert self._get_records(Session, "test1") == [
+        assert self._get_records(Session, resource_id) == [
             (1, datetime.datetime(2011, 1, 1, 0, 0), Decimal("1"), u"Galway",),
             (
                 2,
@@ -879,14 +887,14 @@ class TestLoadTabulator(TestLoadBase):
                 u"Berkeley",
             ),
         ]
-        assert self._get_column_names(Session, "test1") == [
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"date",
             u"temperature",
             u"place",
         ]
-        assert self._get_column_types(Session, "test1") == [
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
             u"timestamp",
@@ -900,8 +908,8 @@ class TestLoadTabulator(TestLoadBase):
         # to get the test file:
         # curl -o ckanext/xloader/tests/samples/boston_311.csv https://data.boston.gov/dataset/8048697b-ad64-4bfc-b090-ee00169f2323/resource/2968e2c0-d479-49ba-a884-4ef523ada3c0/download/311.csv  # noqa
         csv_filepath = get_sample_filepath("boston_311.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         import time
 
         t0 = time.time()
@@ -924,8 +932,8 @@ class TestLoadTabulator(TestLoadBase):
         # to create the test file:
         # head -n 100001 ckanext/xloader/tests/samples/boston_311.csv > ckanext/xloader/tests/samples/boston_311_sample5.csv
         csv_filepath = get_sample_filepath("boston_311_sample5.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         import time
 
         t0 = time.time()
@@ -944,8 +952,8 @@ class TestLoadTabulator(TestLoadBase):
 
     def test_boston_311(self, Session):
         csv_filepath = get_sample_filepath("boston_311_sample.csv")
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         loader.load_table(
             csv_filepath,
             resource_id=resource_id,
@@ -953,7 +961,7 @@ class TestLoadTabulator(TestLoadBase):
             logger=logger,
         )
 
-        records = self._get_records(Session, "test1")
+        records = self._get_records(Session, resource_id)
         print(records)
         assert records == [
             (
@@ -1053,8 +1061,8 @@ class TestLoadTabulator(TestLoadBase):
                 u"Citizens Connect App",
             ),
         ]  # noqa
-        print(self._get_column_names(Session, "test1"))
-        assert self._get_column_names(Session, "test1") == [
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
             u"CASE_ENQUIRY_ID",
@@ -1087,8 +1095,8 @@ class TestLoadTabulator(TestLoadBase):
             u"Longitude",
             u"Source",
         ]  # noqa
-        print(self._get_column_types(Session, "test1"))
-        assert self._get_column_types(Session, "test1") == [
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
             u"int4",
             u"tsvector",
             u"numeric",
@@ -1126,8 +1134,8 @@ class TestLoadTabulator(TestLoadBase):
         csv_filepath = get_sample_filepath("no_entries.csv")
         # no datastore table is created - we need to except, or else
         # datastore_active will be set on a non-existent datastore table
-        resource_id = "test1"
-        factories.Resource(id=resource_id)
+        resource = factories.Resource()
+        resource_id = resource['id']
         with pytest.raises(LoaderError):
             loader.load_table(
                 csv_filepath,
