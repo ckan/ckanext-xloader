@@ -29,9 +29,7 @@ groups:
         default: 1_000_000_000
         example: 100000
         description: |
-            The connection string for the jobs database used by XLoader. The
-            default of an sqlite file is fine for development. For production use a
-            Postgresql database.
+            The maximum file size that XLoader will attempt to load.
         type: int
         required: false
       - key: ckanext.xloader.use_type_guessing
@@ -48,6 +46,15 @@ groups:
         type: bool
         required: false
         legacy_key: ckanext.xloader.just_load_with_messytables
+      - key: ckanext.xloader.max_type_guessing_length
+        default: 0
+        example: 100000
+        description: |
+            The maximum file size that will be passed to Tabulator if the
+            use_type_guessing flag is enabled. Larger files will use COPY even if
+            the flag is set. Defaults to 1/10 of the maximum content length.
+        type: int
+        required: false
       - key: ckanext.xloader.parse_dates_dayfirst
         default: False
         example: False
