@@ -212,7 +212,7 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info("'use_type_guessing' mode is: %s",
                 use_type_guessing)
     try:
-        if use_type_guessing:
+        if use_type_guessing and not loader.datastore_resource_exists(resource['id']):
             tabulator_load()
         else:
             try:
