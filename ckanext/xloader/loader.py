@@ -17,7 +17,7 @@ import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import CSV_SAMPLE_LINES, XloaderCSVParser
-from .utils import headers_guess, type_guess
+from .utils import datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
 
@@ -400,17 +400,6 @@ def send_resource_to_datastore(resource_id, headers, records):
     except p.toolkit.ValidationError as e:
         raise LoaderError('Validation error writing rows to db: {}'
                           .format(str(e)))
-
-
-def datastore_resource_exists(resource_id):
-    from ckan import model
-    context = {'model': model, 'ignore_auth': True}
-    try:
-        response = p.toolkit.get_action('datastore_search')(context, dict(
-            id=resource_id, limit=0))
-    except p.toolkit.ObjectNotFound:
-        return False
-    return response or {'fields': []}
 
 
 def delete_datastore_resource(resource_id):

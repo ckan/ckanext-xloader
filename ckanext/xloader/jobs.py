@@ -18,10 +18,9 @@ import sqlalchemy as sa
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 
-from . import loader
-from . import db
+from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
-from .utils import set_resource_metadata
+from .utils import set_resource_metadata, should_guess_types
 
 try:
     from ckan.lib.api_token import get_user_from_token
@@ -206,11 +205,8 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Loading CSV')
     # If ckanext.xloader.use_type_guessing is not configured, fall back to
     # deprecated ckanext.xloader.just_load_with_messytables
-    use_type_guessing = asbool(config.get(
-        'ckanext.xloader.use_type_guessing', config.get(
-            'ckanext.xloader.just_load_with_messytables', False)))
-    logger.info("'use_type_guessing' mode is: %s",
-                use_type_guessing)
+    use_type_guessing = should_guess_types(resource['id'])
+    logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
         if use_type_guessing:
             tabulator_load()

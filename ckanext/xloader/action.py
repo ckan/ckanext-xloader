@@ -153,6 +153,10 @@ def xloader_submit(context, data_dict):
         }
     }
     timeout = config.get('ckanext.xloader.job_timeout', '3600')
+    if not utils.datastore_resource_exists(res_id):
+        # Expand timeout for resources that have to be type-guessed
+        timeout = timeout * 3
+
     try:
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=timeout)
