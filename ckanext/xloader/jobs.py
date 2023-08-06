@@ -7,6 +7,7 @@ import time
 import tempfile
 import json
 import datetime
+import os
 import traceback
 import sys
 
@@ -20,7 +21,7 @@ from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
-from .utils import set_resource_metadata, should_guess_types
+from .utils import datastore_resource_exists, set_resource_metadata
 
 try:
     from ckan.lib.api_token import get_user_from_token
@@ -32,6 +33,8 @@ if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+# Don't try Tabulator load on large files
+MAX_TYPE_GUESSING_LENGTH = int(config.get('ckanext.xloader.max_type_guessing_length') or MAX_CONTENT_LENGTH / 10)
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
@@ -205,7 +208,11 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Loading CSV')
     # If ckanext.xloader.use_type_guessing is not configured, fall back to
     # deprecated ckanext.xloader.just_load_with_messytables
-    use_type_guessing = should_guess_types(resource['id'])
+    use_type_guessing = asbool(
+        config.get('ckanext.xloader.use_type_guessing', config.get(
+            'ckanext.xloader.just_load_with_messytables', False))) \
+        and datastore_resource_exists(resource['id']) \
+        and os.path.getsize(tmp_file.name) <= MAX_TYPE_GUESSING_LENGTH
     logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
         if use_type_guessing:

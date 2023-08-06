@@ -9,7 +9,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
-from ckan.plugins.toolkit import asbool, config
+from ckan.plugins.toolkit import config
 
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
 DEFAULT_FORMATS = [
@@ -255,10 +255,3 @@ def datastore_resource_exists(resource_id):
     except p.toolkit.ObjectNotFound:
         return False
     return response or {'fields': []}
-
-
-def should_guess_types(resource_id):
-    return asbool(
-        config.get('ckanext.xloader.use_type_guessing', config.get(
-            'ckanext.xloader.just_load_with_messytables', False))) \
-        and datastore_resource_exists(resource_id)
