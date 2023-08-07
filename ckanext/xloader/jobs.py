@@ -211,7 +211,7 @@ def xloader_data_into_datastore_(input, job_dict):
     use_type_guessing = asbool(
         config.get('ckanext.xloader.use_type_guessing', config.get(
             'ckanext.xloader.just_load_with_messytables', False))) \
-        and datastore_resource_exists(resource['id']) \
+        and not datastore_resource_exists(resource['id']) \
         and os.path.getsize(tmp_file.name) <= MAX_TYPE_GUESSING_LENGTH
     logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
