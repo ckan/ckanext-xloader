@@ -168,6 +168,8 @@ class TypeConverter:
 
 
 def to_number(value):
+    if isinstance(value, Decimal):
+        return value
     try:
         return Decimal(value)
     except InvalidOperation:
@@ -175,6 +177,8 @@ def to_number(value):
 
 
 def to_timestamp(value):
+    if isinstance(value, datetime.datetime):
+        return value
     try:
         i = isoparser()
         return i.isoparse(value)
