@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import csv
+import datetime
 from decimal import Decimal, InvalidOperation
 from itertools import chain
 
 from ckan.plugins.toolkit import asbool
-from dateutil.parser import isoparser, parser
-from dateutil.parser import ParserError
+from dateutil.parser import isoparser, parser, ParserError
 
 from tabulator import helpers
 from tabulator.parser import Parser
@@ -97,28 +97,7 @@ class XloaderCSVParser(Parser):
             if value in ('', None):
                 return ''
 
-            try:
-                return Decimal(value)
-            except InvalidOperation:
-                pass
-
-            try:
-                i = isoparser()
-                return i.isoparse(value)
-            except ValueError:
-                pass
-
-            try:
-                p = parser()
-                yearfirst = asbool(config.get(
-                    'ckanext.xloader.parse_dates_yearfirst', False))
-                dayfirst = asbool(config.get(
-                    'ckanext.xloader.parse_dates_dayfirst', False))
-                return p.parse(value, yearfirst=yearfirst, dayfirst=dayfirst)
-            except ParserError:
-                pass
-
-            return value
+            return to_number(value) or to_timestamp(value) or value
 
         sample, dialect = self.__prepare_dialect(self.__chars)
         items = csv.reader(chain(sample, self.__chars), dialect=dialect)
@@ -159,3 +138,51 @@ class XloaderCSVParser(Parser):
 
         self.__dialect = dialect
         return sample, dialect
+
+
+class TypeConverter:
+    """ Post-process table cells to convert strings into numbers and timestamps
+    as desired.
+    """
+
+    def __init__(self, types):
+        self.types = types
+
+    def convert_types(self, extended_rows):
+        """ Try converting cells to numbers or timestamps if applicable.
+        If a list of types was supplied, use that.
+        If not, then try converting each column to numeric first,
+        then to a timestamp. If both fail, just keep it as a string.
+        """
+        for row_number, headers, row in extended_rows:
+            for cell_index, cell_value in enumerate(row):
+                if cell_value is None:
+                    row[cell_index] = ''
+                if cell_value:
+                    cell_type = self.types[cell_index]
+                    if cell_type == Decimal:
+                        row[cell_index] = to_number(cell_value) or cell_value
+                    elif cell_type == datetime.datetime:
+                        row[cell_index] = to_timestamp(row[cell_index]) or cell_value
+            yield (row_number, headers, row)
+
+
+def to_number(value):
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        return None
+
+
+def to_timestamp(value):
+    try:
+        i = isoparser()
+        return i.isoparse(value)
+    except ValueError:
+        try:
+            p = parser()
+            yearfirst = asbool(config.get('ckanext.xloader.parse_dates_yearfirst', False))
+            dayfirst = asbool(config.get('ckanext.xloader.parse_dates_dayfirst', False))
+            return p.parse(value, yearfirst=yearfirst, dayfirst=dayfirst)
+        except ParserError:
+            return None

@@ -16,7 +16,7 @@ from unidecode import unidecode
 import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import CSV_SAMPLE_LINES, XloaderCSVParser
+from .parser import CSV_SAMPLE_LINES, XloaderCSVParser, TypeConverter
 from .utils import datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -279,9 +279,10 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for t, h in zip(types, headers)]
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
+    type_converter = TypeConverter(types=types)
 
     with Stream(table_filepath, format=file_format, skip_rows=skip_rows,
-                custom_parsers={'csv': XloaderCSVParser}) as stream:
+                post_parse=[type_converter.convert_types]) as stream:
         def row_iterator():
             for row in stream:
                 data_row = {}
