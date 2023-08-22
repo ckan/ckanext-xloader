@@ -16,7 +16,7 @@ from unidecode import unidecode
 import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import CSV_SAMPLE_LINES, XloaderCSVParser, TypeConverter
+from .parser import CSV_SAMPLE_LINES, TypeConverter
 from .utils import datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -238,13 +238,13 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     try:
         file_format = os.path.splitext(table_filepath)[1].strip('.')
         with Stream(table_filepath, format=file_format,
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+                    post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
             with Stream(table_filepath, format=file_format,
-                        custom_parsers={'csv': XloaderCSVParser}) as stream:
+                        post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
