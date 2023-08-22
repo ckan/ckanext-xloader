@@ -3,6 +3,8 @@ import csv
 import datetime
 from decimal import Decimal, InvalidOperation
 from itertools import chain
+import re
+import six
 
 from ckan.plugins.toolkit import asbool
 from dateutil.parser import isoparser, parser, ParserError
@@ -13,6 +15,7 @@ from tabulator.parser import Parser
 from ckan.plugins.toolkit import config
 
 CSV_SAMPLE_LINES = 1000
+DATE_REGEX = re.compile(r'''^\d{1,4}[-/.\s]\S+[-/.\s]\S+''')
 
 
 class XloaderCSVParser(Parser):
@@ -168,8 +171,8 @@ class TypeConverter:
 
 
 def to_number(value):
-    if isinstance(value, Decimal):
-        return value
+    if not isinstance(value, six.string_types):
+        return None
     try:
         return Decimal(value)
     except InvalidOperation:
@@ -177,8 +180,8 @@ def to_number(value):
 
 
 def to_timestamp(value):
-    if isinstance(value, datetime.datetime):
-        return value
+    if not isinstance(value, six.string_types) or not DATE_REGEX.search(value):
+        return None
     try:
         i = isoparser()
         return i.isoparse(value)
