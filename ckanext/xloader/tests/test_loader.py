@@ -1233,4 +1233,6 @@ class TestLoadTabulator(TestLoadBase):
              "8:00", "16:00", datetime.datetime(2018, 7, 19)),
             (2, "Aramac", 4726, Decimal("-22.971298"), Decimal("145.241481"),
              "9:00-13:00", "14:00-16:45", datetime.datetime(2018, 7, 17))
+            (3, "Barcaldine", 4725, Decimal("-23.55327901"), Decimal("145.289156"),
+             "9:00-12:30", "13:30-16:30", datetime.datetime(2018, 7, 20))
         ]
