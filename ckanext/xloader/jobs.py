@@ -28,6 +28,8 @@ try:
 except ImportError:
     get_user_from_token = None
 
+log = logging.getLogger(__name__)
+
 SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
@@ -82,7 +84,6 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
@@ -90,7 +91,6 @@ def xloader_data_into_datastore(input):
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     finally:
