@@ -9,9 +9,39 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
+from ckan.plugins.toolkit import config
+
+# resource.formats accepted by ckanext-xloader. Must be lowercase here.
+DEFAULT_FORMATS = [
+    "csv",
+    "application/csv",
+    "xls",
+    "xlsx",
+    "tsv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ods",
+    "application/vnd.oasis.opendocument.spreadsheet",
+]
 
 
-def resource_data(id, resource_id):
+class XLoaderFormats(object):
+    formats = None
+
+    @classmethod
+    def is_it_an_xloader_format(cls, format_):
+        if cls.formats is None:
+            cls._formats = config.get("ckanext.xloader.formats")
+            if cls._formats is not None:
+                cls._formats = cls._formats.lower().split()
+            else:
+                cls._formats = DEFAULT_FORMATS
+        if not format_:
+            return False
+        return format_.lower() in cls._formats
+
+
+def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
         try:
@@ -44,13 +74,16 @@ def resource_data(id, resource_id):
     except p.toolkit.NotAuthorized:
         return p.toolkit.abort(403, p.toolkit._("Not authorized to see this page"))
 
+    extra_vars = {
+        "status": xloader_status,
+        "resource": resource,
+        "pkg_dict": pkg_dict,
+    }
+    if rows:
+        extra_vars["rows"] = rows
     return p.toolkit.render(
         "xloader/resource_data.html",
-        extra_vars={
-            "status": xloader_status,
-            "resource": resource,
-            "pkg_dict": pkg_dict,
-        },
+        extra_vars=extra_vars,
     )
 
 
@@ -175,10 +208,10 @@ def type_guess(rows, types=TYPES, strict=False):
             for ci, cell in enumerate(row):
                 if not cell:
                     continue
-                at_least_one_value[ci] = True
                 for type in list(guesses[ci].keys()):
                     if not isinstance(cell, type):
                         guesses[ci].pop(type)
+                at_least_one_value[ci] = True if guesses[ci] else False
         # no need to set guessing weights before this
         # because we only accept a type if it never fails
         for i, guess in enumerate(guesses):
@@ -212,3 +245,13 @@ def type_guess(rows, types=TYPES, strict=False):
         guesses_tuples = [(t, guess[t]) for t in types if t in guess]
         _columns.append(max(guesses_tuples, key=lambda t_n: t_n[1])[0])
     return _columns
+
+
+def datastore_resource_exists(resource_id):
+    context = {'model': model, 'ignore_auth': True}
+    try:
+        response = p.toolkit.get_action('datastore_search')(context, dict(
+            id=resource_id, limit=0))
+    except p.toolkit.ObjectNotFound:
+        return False
+    return response or {'fields': []}
