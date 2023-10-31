@@ -30,6 +30,8 @@ _drop_indexes = datastore_db._drop_indexes
 MAX_COLUMN_LENGTH = 63
 tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
+ISO_8859_ENCODING = 'latin1'
+
 
 class UnknownEncodingStream(object):
     """ Provides a context manager that wraps a Tabulator stream
@@ -51,7 +53,7 @@ class UnknownEncodingStream(object):
                                  **self.stream_args).__enter__()
         except (EncodingError, UnicodeDecodeError):
             self.stream = Stream(self.filepath, format=self.file_format,
-                                 encoding='latin1', **self.stream_args).__enter__()
+                                 encoding=ISO_8859_ENCODING, **self.stream_args).__enter__()
         return self.stream
 
     def __exit__(self, *args):
@@ -100,11 +102,16 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with UnknownEncodingStream(csv_filepath, file_format,
-                                   skip_rows=skip_rows) as stream:
-            stream.save(target=f_write.name, format='csv', encoding='utf-8',
-                        delimiter=delimiter)
-            csv_filepath = f_write.name
+        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+        try:
+            with UnknownEncodingStream(csv_filepath, file_format,
+                                       skip_rows=skip_rows) as stream:
+                stream.save(**save_args)
+        except (EncodingError, UnicodeDecodeError):
+            with Stream(csv_filepath, format=file_format, encoding=ISO_8859_ENCODING,
+                        skip_rows=skip_rows) as stream:
+                stream.save(**save_args)
+        csv_filepath = f_write.name
 
         # datastore db connection
         engine = get_write_engine()
