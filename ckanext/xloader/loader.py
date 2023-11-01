@@ -30,7 +30,7 @@ _drop_indexes = datastore_db._drop_indexes
 MAX_COLUMN_LENGTH = 63
 tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
-ISO_8859_ENCODING = 'latin1'
+SINGLE_BYTE_ENCODING = 'cp1252'
 
 
 class UnknownEncodingStream(object):
@@ -53,7 +53,7 @@ class UnknownEncodingStream(object):
                                  **self.stream_args).__enter__()
         except (EncodingError, UnicodeDecodeError):
             self.stream = Stream(self.filepath, format=self.file_format,
-                                 encoding=ISO_8859_ENCODING, **self.stream_args).__enter__()
+                                 encoding=SINGLE_BYTE_ENCODING, **self.stream_args).__enter__()
         return self.stream
 
     def __exit__(self, *args):
@@ -108,7 +108,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                        skip_rows=skip_rows) as stream:
                 stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
-            with Stream(csv_filepath, format=file_format, encoding=ISO_8859_ENCODING,
+            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
                 stream.save(**save_args)
         csv_filepath = f_write.name
