@@ -10,14 +10,13 @@ from decimal import Decimal
 
 import psycopg2
 from six.moves import zip
-from tabulator import Stream, TabulatorException
+from tabulator import config as tabulator_config, EncodingError, Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-import ckan.plugins.toolkit as tk
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import XloaderCSVParser
+from .parser import CSV_SAMPLE_LINES, TypeConverter
 from .utils import datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -29,6 +28,34 @@ create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
+tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
+
+
+class UnknownEncodingStream(object):
+    """ Provides a context manager that wraps a Tabulator stream
+    and tries multiple encodings if one fails.
+
+    This is particularly relevant in cases like Latin-1 encoding,
+    which is usually ASCII and thus the sample could be sniffed as UTF-8,
+    only to run into problems later in the file.
+    """
+
+    def __init__(self, filepath, file_format, **kwargs):
+        self.filepath = filepath
+        self.file_format = file_format
+        self.stream_args = kwargs
+
+    def __enter__(self):
+        try:
+            self.stream = Stream(self.filepath, format=self.file_format,
+                                 **self.stream_args).__enter__()
+        except (EncodingError, UnicodeDecodeError):
+            self.stream = Stream(self.filepath, format=self.file_format,
+                                 encoding='latin1', **self.stream_args).__enter__()
+        return self.stream
+
+    def __exit__(self, *args):
+        return self.stream.__exit__(*args)
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -37,12 +64,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with Stream(csv_filepath, format=file_format) as stream:
+        with UnknownEncodingStream(csv_filepath, file_format) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(csv_filepath, format=file_format) as stream:
+            with UnknownEncodingStream(csv_filepath, file_format) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -73,7 +100,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
+        with UnknownEncodingStream(csv_filepath, file_format,
+                                   skip_rows=skip_rows) as stream:
             stream.save(target=f_write.name, format='csv', encoding='utf-8',
                         delimiter=delimiter)
             csv_filepath = f_write.name
@@ -237,14 +265,14 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Determining column names and types')
     try:
         file_format = os.path.splitext(table_filepath)[1].strip('.')
-        with Stream(table_filepath, format=file_format,
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+        with UnknownEncodingStream(table_filepath, file_format,
+                                   post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(table_filepath, format=file_format,
-                        custom_parsers={'csv': XloaderCSVParser}) as stream:
+            with UnknownEncodingStream(table_filepath, file_format,
+                                       post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -279,9 +307,11 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for t, h in zip(types, headers)]
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
+    type_converter = TypeConverter(types=types)
 
-    with Stream(table_filepath, format=file_format, skip_rows=skip_rows,
-                custom_parsers={'csv': XloaderCSVParser}) as stream:
+    with UnknownEncodingStream(table_filepath, file_format,
+                               skip_rows=skip_rows,
+                               post_parse=[type_converter.convert_types]) as stream:
         def row_iterator():
             for row in stream:
                 data_row = {}

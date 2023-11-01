@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from tabulator import Stream
-from ckanext.xloader.parser import XloaderCSVParser
+from ckanext.xloader.parser import TypeConverter
 
 csv_filepath = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "samples", "date_formats.csv")
@@ -16,7 +16,7 @@ csv_filepath = os.path.abspath(
 class TestParser(object):
     def test_simple(self):
         with Stream(csv_filepath, format='csv',
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+                    post_parse=[TypeConverter().convert_types]) as stream:
             assert stream.sample == [
                 [
                     'date',
@@ -49,7 +49,7 @@ class TestParser(object):
     def test_dayfirst(self):
         print('test_dayfirst')
         with Stream(csv_filepath, format='csv',
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+                    post_parse=[TypeConverter().convert_types]) as stream:
             assert stream.sample == [
                 [
                     'date',
@@ -82,7 +82,7 @@ class TestParser(object):
     def test_yearfirst(self):
         print('test_yearfirst')
         with Stream(csv_filepath, format='csv',
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+                    post_parse=[TypeConverter().convert_types]) as stream:
             assert stream.sample == [
                 [
                     'date',
@@ -115,7 +115,7 @@ class TestParser(object):
     @pytest.mark.ckan_config("ckanext.xloader.parse_dates_yearfirst", True)
     def test_yearfirst_dayfirst(self):
         with Stream(csv_filepath, format='csv',
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+                    post_parse=[TypeConverter().convert_types]) as stream:
             assert stream.sample == [
                 [
                     'date',
