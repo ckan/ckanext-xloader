@@ -75,7 +75,7 @@ def detect_encoding(file_path):
             if detector.done:
                 break
     detector.close()
-    return detector.result  # i.e. {'encoding': 'EUC-JP', 'confidence': 0.99}
+    return detector.result  # e.g. {'encoding': 'EUC-JP', 'confidence': 0.99}
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -86,12 +86,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with UnknownEncodingStream(csv_filepath, file_format, decoding_result=decoding_result) as stream:
+        with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with UnknownEncodingStream(csv_filepath, file_format, decoding_result=decoding_result) as stream:
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -124,7 +124,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     try:
         save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
         try:
-            with UnknownEncodingStream(csv_filepath, file_format, decoding_result=decoding_result,
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
                 stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
@@ -294,13 +294,13 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info("load_table: Decoded encoding: %s", decoding_result)
     try:
         file_format = os.path.splitext(table_filepath)[1].strip('.')
-        with UnknownEncodingStream(table_filepath, file_format, decoding_result=decoding_result,
+        with UnknownEncodingStream(table_filepath, file_format, decoding_result,
                                    post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with UnknownEncodingStream(table_filepath, file_format, decoding_result=decoding_result,
+            with UnknownEncodingStream(table_filepath, file_format, decoding_result,
                                        post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
@@ -338,8 +338,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
     type_converter = TypeConverter(types=types)
 
-    with UnknownEncodingStream(table_filepath, file_format,
-                               skip_rows=skip_rows, decoding_result=decoding_result,
+    with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                               skip_rows=skip_rows,
                                post_parse=[type_converter.convert_types]) as stream:
         def row_iterator():
             for row in stream:
