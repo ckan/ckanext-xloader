@@ -1204,6 +1204,18 @@ class TestLoadTabulator(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 3
 
+    def test_with_iso_8859_1(self, Session):
+        csv_filepath = get_sample_filepath("non_utf8_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 266
+
     def test_with_mixed_quotes(self, Session):
         csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")
         resource = factories.Resource()
