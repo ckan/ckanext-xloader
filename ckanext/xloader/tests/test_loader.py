@@ -620,6 +620,54 @@ class TestLoadCsv(TestLoadBase):
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
 
+    def test_with_blanks(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_blanks.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 3
+
+    def test_with_quoted_commas(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 3
+
+    def test_with_mixed_quotes(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 2
+
+    def test_with_mixed_types(self, Session):
+        csv_filepath = get_sample_filepath("mixed_numeric_string_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 2
+
     def test_reload(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
         resource = factories.Resource()
@@ -1143,3 +1191,60 @@ class TestLoadTabulator(TestLoadBase):
                 mimetype="csv",
                 logger=logger,
             )
+
+    def test_with_quoted_commas(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 3
+
+    def test_with_iso_8859_1(self, Session):
+        csv_filepath = get_sample_filepath("non_utf8_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 266
+
+    def test_with_mixed_quotes(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 2
+
+    def test_preserving_time_ranges(self, Session):
+        """ Time ranges should not be treated as timestamps
+        """
+        csv_filepath = get_sample_filepath("non_timestamp_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert self._get_records(Session, resource_id) == [
+            (1, "Adavale", 4474, Decimal("-25.9092582"), Decimal("144.5975769"),
+             "8:00", "16:00", datetime.datetime(2018, 7, 19)),
+            (2, "Aramac", 4726, Decimal("-22.971298"), Decimal("145.241481"),
+             "9:00-13:00", "14:00-16:45", datetime.datetime(2018, 7, 17)),
+            (3, "Barcaldine", 4725, Decimal("-23.55327901"), Decimal("145.289156"),
+             "9:00-12:30", "13:30-16:30", datetime.datetime(2018, 7, 20))
+        ]
