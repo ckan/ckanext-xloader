@@ -9,16 +9,16 @@ import tempfile
 from decimal import Decimal
 
 import psycopg2
+from chardet.universaldetector import UniversalDetector
 from six.moves import zip
-from tabulator import Stream, TabulatorException
+from tabulator import config as tabulator_config, EncodingError, Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-import ckan.plugins.toolkit as tk
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import XloaderCSVParser
-from .utils import headers_guess, type_guess
+from .parser import CSV_SAMPLE_LINES, TypeConverter
+from .utils import datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
 
@@ -29,20 +29,69 @@ create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
+tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
+
+SINGLE_BYTE_ENCODING = 'cp1252'
+
+
+class UnknownEncodingStream(object):
+    """ Provides a context manager that wraps a Tabulator stream
+    and tries multiple encodings if one fails.
+
+    This is particularly relevant in cases like Latin-1 encoding,
+    which is usually ASCII and thus the sample could be sniffed as UTF-8,
+    only to run into problems later in the file.
+    """
+
+    def __init__(self, filepath, file_format, decoding_result, **kwargs):
+        self.filepath = filepath
+        self.file_format = file_format
+        self.stream_args = kwargs
+        self.decoding_result = decoding_result  # {'encoding': 'EUC-JP', 'confidence': 0.99}
+
+    def __enter__(self):
+        try:
+
+            if (self.decoding_result and self.decoding_result['confidence'] and self.decoding_result['confidence'] > 0.7):
+                self.stream = Stream(self.filepath, format=self.file_format, encoding=self.decoding_result['encoding'],
+                                     ** self.stream_args).__enter__()
+            else:
+                self.stream = Stream(self.filepath, format=self.file_format, ** self.stream_args).__enter__()
+
+        except (EncodingError, UnicodeDecodeError):
+            self.stream = Stream(self.filepath, format=self.file_format,
+                                 encoding=SINGLE_BYTE_ENCODING, **self.stream_args).__enter__()
+        return self.stream
+
+    def __exit__(self, *args):
+        return self.stream.__exit__(*args)
+
+
+def detect_encoding(file_path):
+    detector = UniversalDetector()
+    with open(file_path, 'rb') as file:
+        for line in file:
+            detector.feed(line)
+            if detector.done:
+                break
+    detector.close()
+    return detector.result  # e.g. {'encoding': 'EUC-JP', 'confidence': 0.99}
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
+    decoding_result = detect_encoding(csv_filepath)
+    logger.info("load_csv: Decoded encoding: %s", decoding_result)
     # Determine the header row
     try:
         file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with Stream(csv_filepath, format=file_format) as stream:
+        with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(csv_filepath, format=file_format) as stream:
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -73,10 +122,16 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with Stream(csv_filepath, format=file_format, skip_rows=skip_rows) as stream:
-            stream.save(target=f_write.name, format='csv', encoding='utf-8',
-                        delimiter=delimiter)
-            csv_filepath = f_write.name
+        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+        try:
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
+                                       skip_rows=skip_rows) as stream:
+                stream.save(**save_args)
+        except (EncodingError, UnicodeDecodeError):
+            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
+                        skip_rows=skip_rows) as stream:
+                stream.save(**save_args)
+        csv_filepath = f_write.name
 
         # datastore db connection
         engine = get_write_engine()
@@ -235,16 +290,18 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # Determine the header row
     logger.info('Determining column names and types')
+    decoding_result = detect_encoding(table_filepath)
+    logger.info("load_table: Decoded encoding: %s", decoding_result)
     try:
         file_format = os.path.splitext(table_filepath)[1].strip('.')
-        with Stream(table_filepath, format=file_format,
-                    custom_parsers={'csv': XloaderCSVParser}) as stream:
+        with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                   post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with Stream(table_filepath, format=file_format,
-                        custom_parsers={'csv': XloaderCSVParser}) as stream:
+            with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                       post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -279,9 +336,11 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for t, h in zip(types, headers)]
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
+    type_converter = TypeConverter(types=types)
 
-    with Stream(table_filepath, format=file_format, skip_rows=skip_rows,
-                custom_parsers={'csv': XloaderCSVParser}) as stream:
+    with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                               skip_rows=skip_rows,
+                               post_parse=[type_converter.convert_types]) as stream:
         def row_iterator():
             for row in stream:
                 data_row = {}
@@ -318,9 +377,16 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Copying to database...')
         count = 0
+        # Some types cannot be stored as empty strings and must be converted to None,
+        # https://github.com/ckan/ckanext-xloader/issues/182
+        non_empty_types = ['timestamp', 'numeric']
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
             logger.info('Saving chunk {number}'.format(number=i))
+            for row in records:
+                for column_index, column_name in enumerate(row):
+                    if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
+                        row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 
@@ -393,17 +459,6 @@ def send_resource_to_datastore(resource_id, headers, records):
     except p.toolkit.ValidationError as e:
         raise LoaderError('Validation error writing rows to db: {}'
                           .format(str(e)))
-
-
-def datastore_resource_exists(resource_id):
-    from ckan import model
-    context = {'model': model, 'ignore_auth': True}
-    try:
-        response = p.toolkit.get_action('datastore_search')(context, dict(
-            id=resource_id, limit=0))
-    except p.toolkit.ObjectNotFound:
-        return False
-    return response or {'fields': []}
 
 
 def delete_datastore_resource(resource_id):
