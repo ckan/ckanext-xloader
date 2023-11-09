@@ -207,8 +207,8 @@ def _should_remove_unsupported_resource_from_datastore(res_dict):
     return (not XLoaderFormats.is_it_an_xloader_format(res_dict.get('format', u''))
             and (res_dict.get('url_type') == 'upload'
                 or res_dict.get('url_type') == '')
-            and (res_dict.get('datastore_active', False)
-                or res_dict.get('extras', {}).get('datastore_active', False)))
+            and (toolkit.asbool(res_dict.get('datastore_active', False))
+                or toolkit.asbool(res_dict.get('extras', {}).get('datastore_active', False))))
 
 
 def _remove_unsupported_resource_from_datastore(resource_id):
@@ -222,16 +222,16 @@ def _remove_unsupported_resource_from_datastore(resource_id):
     try:
         res = toolkit.get_action('resource_show')(context, {"id": resource_id})
     except toolkit.ObjectNotFound:
-        log.error('Resource %s does not exist.' % res['id'])
+        log.error('Resource %s does not exist.', res['id'])
         return
 
     if _should_remove_unsupported_resource_from_datastore(res):
-        log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s'
-            % (res.get(u'format', u'').lower(), res['id']))
+        log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s',
+            res.get(u'format', u'').lower(), res['id'])
         try:
             toolkit.get_action('datastore_delete')(context, {
                 "resource_id": res['id'],
                 "force": True})
-            log.info('Datastore table dropped for resource %s' % res['id'])
+            log.info('Datastore table dropped for resource %s', res['id'])
         except toolkit.ObjectNotFound:
-            log.error('Datastore table for resource %s does not exist' % res['id'])
+            log.error('Datastore table for resource %s does not exist', res['id'])
