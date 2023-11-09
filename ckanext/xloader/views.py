@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 from ckanapi import LocalCKAN
-from ckan.plugins.toolkit import _, h, g, render, request, abort, NotAuthorized
+from ckan.plugins.toolkit import _, h, g, render, request, abort, NotAuthorized, get_action
 
 import ckanext.xloader.utils as utils
 
@@ -24,13 +24,12 @@ def delete_datastore_table(id, resource_id):
         return h.redirect_to(u'xloader.resource_data', id=id, resource_id=resource_id)
 
     if request.method == 'POST':
-        lc = LocalCKAN(username=g.user)
+        context = {"user": g.user}
 
         try:
-            lc.action.datastore_delete(
-                resource_id=resource_id,
-                force=True,
-            )
+            get_action('datastore_delete')(context, {
+                "resource_id": resource_id,
+                "force": True})
         except NotAuthorized:
             return abort(403, _(u'Unauthorized to delete resource %s') % resource_id)
 
