@@ -18,7 +18,7 @@ def resource_data(id, resource_id):
     return utils.resource_data(id, resource_id)
 
 
-@xloader.route("/dataset/<id>/delete-datastore-table/<resource_id>", methods=("GET", "POST"))
+@xloader.route("/dataset/<id>/delete-datastore/<resource_id>", methods=("GET", "POST"))
 def delete_datastore_table(id, resource_id):
     if u'cancel' in request.form:
         return h.redirect_to(u'xloader.resource_data', id=id, resource_id=resource_id)
@@ -34,7 +34,7 @@ def delete_datastore_table(id, resource_id):
         except NotAuthorized:
             return abort(403, _(u'Unauthorized to delete resource %s') % resource_id)
 
-        h.flash_notice(_(u'DataStore table and Data Dictionary deleted for resource %s') % resource_id)
+        h.flash_notice(_(u'DataStore and Data Dictionary deleted for resource %s') % resource_id)
 
         return h.redirect_to(
             'xloader.resource_data',
