@@ -7,8 +7,6 @@ from ckan.plugins import toolkit
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 
-import ckanapi
-
 from . import action, auth, helpers as xloader_helpers, utils
 from ckanext.xloader.utils import XLoaderFormats
 
