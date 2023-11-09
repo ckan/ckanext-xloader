@@ -81,9 +81,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if operation != DomainObjectOperation.changed or not isinstance(entity, Resource):
             return
 
-        if _should_remove_unsupported_resource_from_datastore(entity):
-            toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
-
         context = {
             "ignore_auth": True,
         }
@@ -93,6 +90,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 "id": entity.id,
             },
         )
+
+        if _should_remove_unsupported_resource_from_datastore(resource_dict):
+            toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
+
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
@@ -202,17 +203,14 @@ class xloaderPlugin(plugins.SingletonPlugin):
         }
 
 
-def _should_remove_unsupported_resource_from_datastore(res_dict_or_obj):
+def _should_remove_unsupported_resource_from_datastore(res_dict):
     if not toolkit.asbool(toolkit.config.get('ckanext.xloader.clean_datastore_tables', False)):
         return False
-    if isinstance(res_dict_or_obj, Resource):
-        res_dict_or_obj = res_dict_or_obj.__dict__
-    return ((not XLoaderFormats.is_it_an_xloader_format(res_dict_or_obj.get('format', u''))
-                or res_dict_or_obj.get('url_changed', False))
-            and (res_dict_or_obj.get('url_type') == 'upload'
-                or res_dict_or_obj.get('url_type') == '')
-            and (res_dict_or_obj.get('datastore_active', False)
-                or res_dict_or_obj.get('extras', {}).get('datastore_active', False)))
+    return (not XLoaderFormats.is_it_an_xloader_format(res_dict.get('format', u''))
+            and (res_dict.get('url_type') == 'upload'
+                or res_dict.get('url_type') == '')
+            and (res_dict.get('datastore_active', False)
+                or res_dict.get('extras', {}).get('datastore_active', False)))
 
 
 def _remove_unsupported_resource_from_datastore(resource_id):
@@ -222,18 +220,20 @@ def _remove_unsupported_resource_from_datastore(resource_id):
     Double check the resource format. Only supported Xloader formats should have datastore tables.
     If the resource format is not supported, we should delete the datastore tables.
     """
-    lc = ckanapi.LocalCKAN()
+    context = {"ignore_auth": True}
     try:
-        res = lc.action.resource_show(id=resource_id)
+        res = toolkit.get_action('resource_show')(context, {"id": resource_id})
     except toolkit.ObjectNotFound:
         log.error('Resource %s does not exist.' % res['id'])
         return
 
     if _should_remove_unsupported_resource_from_datastore(res):
-        log.info('Unsupported resource format "{}". Deleting datastore tables for resource {}'
-            .format(res.get(u'format', u'').lower(), res['id']))
+        log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s'
+            % (res.get(u'format', u'').lower(), res['id']))
         try:
-            lc.action.datastore_delete(resource_id=res['id'], force=True)
+            toolkit.get_action('datastore_delete')(context, {
+                "resource_id": res['id'],
+                "force": True})
             log.info('Datastore table dropped for resource %s' % res['id'])
         except toolkit.ObjectNotFound:
             log.error('Datastore table for resource %s does not exist' % res['id'])
