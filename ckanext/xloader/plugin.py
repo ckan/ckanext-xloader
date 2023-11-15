@@ -204,14 +204,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
 def _should_remove_unsupported_resource_from_datastore(res_dict):
     if not toolkit.asbool(toolkit.config.get('ckanext.xloader.clean_datastore_tables', False)):
         return False
-    has_url_type = True
-    try:
-        has_url_type = toolkit.asbool(res_dict.get('url_type'))
-    except ValueError:
-        pass
     return (not XLoaderFormats.is_it_an_xloader_format(res_dict.get('format', u''))
             and (res_dict.get('url_type') == 'upload'
-                or not has_url_type)
+                or not res_dict.get('url_type'))
             and (toolkit.asbool(res_dict.get('datastore_active', False))
                 or toolkit.asbool(res_dict.get('extras', {}).get('datastore_active', False))))
 
@@ -227,12 +222,12 @@ def _remove_unsupported_resource_from_datastore(resource_id):
     try:
         res = toolkit.get_action('resource_show')(context, {"id": resource_id})
     except toolkit.ObjectNotFound:
-        log.error('Resource %s does not exist.', res['id'])
+        log.error('Resource %s does not exist.', resource_id)
         return
 
     if _should_remove_unsupported_resource_from_datastore(res):
         log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s',
-            res.get(u'format', u'').lower(), res['id'])
+            res.get(u'format', u''), res['id'])
         try:
             toolkit.get_action('datastore_delete')(context, {
                 "resource_id": res['id'],
