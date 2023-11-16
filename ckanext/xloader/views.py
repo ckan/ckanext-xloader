@@ -1,7 +1,6 @@
 from flask import Blueprint
 
-from ckanapi import LocalCKAN
-from ckan.plugins.toolkit import _, h, g, render, request, abort, NotAuthorized, get_action
+from ckan.plugins.toolkit import _, h, g, render, request, abort, NotAuthorized, get_action, ObjectNotFound
 
 import ckanext.xloader.utils as utils
 
@@ -22,6 +21,13 @@ def resource_data(id, resource_id):
 def delete_datastore_table(id, resource_id):
     if u'cancel' in request.form:
         return h.redirect_to(u'xloader.resource_data', id=id, resource_id=resource_id)
+
+    try:
+        res_dict = get_action('resource_show')(context, {"id": resource_id})
+        if res_dict.get('package_id') != id:
+            raise ObjectNotFound
+    except ObjectNotFound:
+        return abort(404, _(u'Resource not found'))
 
     if request.method == 'POST':
         context = {"user": g.user}
