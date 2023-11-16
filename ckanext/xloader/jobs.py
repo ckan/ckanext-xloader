@@ -7,6 +7,7 @@ import time
 import tempfile
 import json
 import datetime
+import os
 import traceback
 import sys
 
@@ -16,23 +17,26 @@ from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
+from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
 
-from . import loader
-from . import db
+from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
-from .utils import set_resource_metadata
+from .utils import datastore_resource_exists, set_resource_metadata
 
 try:
     from ckan.lib.api_token import get_user_from_token
 except ImportError:
     get_user_from_token = None
 
+log = logging.getLogger(__name__)
+
 SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+# Don't try Tabulator load on large files
+MAX_TYPE_GUESSING_LENGTH = int(config.get('ckanext.xloader.max_type_guessing_length') or MAX_CONTENT_LENGTH / 10)
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
@@ -80,7 +84,6 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
@@ -88,7 +91,6 @@ def xloader_data_into_datastore(input):
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     finally:
@@ -206,11 +208,12 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.info('Loading CSV')
     # If ckanext.xloader.use_type_guessing is not configured, fall back to
     # deprecated ckanext.xloader.just_load_with_messytables
-    use_type_guessing = asbool(config.get(
-        'ckanext.xloader.use_type_guessing', config.get(
-            'ckanext.xloader.just_load_with_messytables', False)))
-    logger.info("'use_type_guessing' mode is: %s",
-                use_type_guessing)
+    use_type_guessing = asbool(
+        config.get('ckanext.xloader.use_type_guessing', config.get(
+            'ckanext.xloader.just_load_with_messytables', False))) \
+        and not datastore_resource_exists(resource['id']) \
+        and os.path.getsize(tmp_file.name) <= MAX_TYPE_GUESSING_LENGTH
+    logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
         if use_type_guessing:
             tabulator_load()

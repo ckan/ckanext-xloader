@@ -9,7 +9,7 @@ from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
+from ckanext.xloader.utils import XLoaderFormats
 
 try:
     config_declarations = toolkit.blanket.config_declarations
@@ -20,36 +20,6 @@ except AttributeError:
         return cls
 
 log = logging.getLogger(__name__)
-
-
-# resource.formats accepted by ckanext-xloader. Must be lowercase here.
-DEFAULT_FORMATS = [
-    "csv",
-    "application/csv",
-    "xls",
-    "xlsx",
-    "tsv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "ods",
-    "application/vnd.oasis.opendocument.spreadsheet",
-]
-
-
-class XLoaderFormats(object):
-    formats = None
-
-    @classmethod
-    def is_it_an_xloader_format(cls, format_):
-        if cls.formats is None:
-            cls._formats = toolkit.config.get("ckanext.xloader.formats")
-            if cls._formats is not None:
-                cls._formats = cls._formats.lower().split()
-            else:
-                cls._formats = DEFAULT_FORMATS
-        if not format_:
-            return False
-        return format_.lower() in cls._formats
 
 
 @config_declarations
@@ -223,4 +193,5 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             "xloader_status": xloader_helpers.xloader_status,
             "xloader_status_description": xloader_helpers.xloader_status_description,
+            "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
