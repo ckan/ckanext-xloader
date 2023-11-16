@@ -30,6 +30,8 @@ def delete_datastore_table(id, resource_id):
     if u'cancel' in request.form:
         return h.redirect_to(u'xloader.resource_data', id=id, resource_id=resource_id)
 
+    context = {"user": g.user}
+
     try:
         res_dict = get_action('resource_show')(context, {"id": resource_id})
         if res_dict.get('package_id') != id:
@@ -38,8 +40,6 @@ def delete_datastore_table(id, resource_id):
         return abort(404, _(u'Resource not found'))
 
     if request.method == 'POST':
-        context = {"user": g.user}
-
         try:
             get_action('datastore_delete')(context, {
                 "resource_id": resource_id,
