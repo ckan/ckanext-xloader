@@ -119,6 +119,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if toolkit.h.plugin_loaded('validation') and \
         toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
             if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
+                log.debug("Skipping xloading resource %s because "
+                          "resource did not pass validation yet.", entity.id)
                 return
         elif not getattr(entity, 'url_changed', False):
             return
@@ -140,6 +142,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if toolkit.h.plugin_loaded('validation') and \
         toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
         resource_dict.get('validation_status', None) != 'success':
+            log.debug("Skipping xloading resource %s because "
+                          "resource did not pass validation yet.", resource_dict.get('id'))
             return
         self._submit_to_xloader(resource_dict)
 
