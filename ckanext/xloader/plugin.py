@@ -116,7 +116,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         # extension will call resource_patch and this method should
         # be called again. However, url_changed will not be in the entity
         # once Validation does the patch.
-        if toolkit.h.plugin_loaded('validation') and \
+        if 'validation' in toolkit.config.get('ckan.plugins', []) and \
         toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
             if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
                 log.debug("Skipping xloading resource %s because "
@@ -139,7 +139,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IResourceController
 
     def after_resource_create(self, context, resource_dict):
-        if toolkit.h.plugin_loaded('validation') and \
+        if 'validation' in toolkit.config.get('ckan.plugins', []) and \
         toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
         resource_dict.get('validation_status', None) != 'success':
             log.debug("Skipping xloading resource %s because "
