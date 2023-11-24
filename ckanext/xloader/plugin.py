@@ -5,6 +5,9 @@ import logging
 from ckan import plugins
 from ckan.plugins import toolkit
 
+from ckan.model.domain_object import DomainObjectOperation
+from ckan.model.resource import Resource
+
 from . import action, auth, helpers as xloader_helpers, utils
 from .loader import fulltext_function_exists, get_write_engine
 
@@ -53,7 +56,7 @@ class XLoaderFormats(object):
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IResourceUrlChange)
+    plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.ITemplateHelpers)
@@ -94,16 +97,39 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
-    # IResourceUrlChange
+    # IDomainObjectModification
 
-    def notify(self, resource):
+    def notify(self, entity, operation):
+        # type: (ckan.model.Package|ckan.model.Resource, DomainObjectOperation) -> None
+        """
+        Runs before_commit to database for Packages and Resources.
+        We only want to check for changed Resources for this.
+        We want to check if values have changed, namely the url.
+        See: ckan/model/modification.py.DomainObjectModificationExtension
+        """
+        if operation != DomainObjectOperation.changed \
+        or not isinstance(entity, Resource):
+            return
+
+        # If the resource requires validation, stop here if validation
+        # has not been performed or did not succeed. The Validation
+        # extension will call resource_patch and this method should
+        # be called again. However, url_changed will not be in the entity
+        # once Validation does the patch.
+        if toolkit.h.plugin_loaded('validation') and \
+        toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
+            if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
+                return
+        elif not getattr(entity, 'url_changed', False):
+            return
+
         context = {
             "ignore_auth": True,
         }
         resource_dict = toolkit.get_action("resource_show")(
             context,
             {
-                "id": resource.id,
+                "id": entity.id,
             },
         )
         self._submit_to_xloader(resource_dict)
@@ -111,6 +137,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IResourceController
 
     def after_resource_create(self, context, resource_dict):
+        if toolkit.h.plugin_loaded('validation') and \
+        toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
+        resource_dict.get('validation_status', None) != 'success':
+            return
         self._submit_to_xloader(resource_dict)
 
     def before_resource_show(self, resource_dict):

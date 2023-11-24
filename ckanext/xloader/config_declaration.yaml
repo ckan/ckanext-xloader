@@ -112,5 +112,13 @@ groups:
             to True.
         type: bool
         required: false
+      - key: ckanext.xloader.requires_validation
+        default: False
+        example: True
+        description: |
+            Resources are required to pass validation from the ckanext-validation
+            plugin to be able to get xloadered.
+        type: bool
+        required: false
 
 
