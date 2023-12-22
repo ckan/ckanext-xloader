@@ -107,6 +107,15 @@ def _fields_match(fields, existing_fields, logger):
     return True
 
 
+def _clear_datastore_resource(resource_id):
+    engine = get_write_engine()
+    connection = engine.connect()
+    try:
+        connection.execute('TRUNCATE TABLE "{}"'.format(resource_id))
+    finally:
+        connection.close()
+
+
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
@@ -196,11 +205,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             '''
             if _fields_match(fields, existing_fields, logger):
                 logger.info('Clearing records for "%s" from DataStore.', resource_id)
-                connection = engine.connect()
-                try:
-                    connection.execute('TRUNCATE TABLE "{}"'.format(resource_id))
-                finally:
-                    connection.close()
+                _clear_datastore_resource(resource_id)
             else:
                 logger.info('Deleting "%s" from DataStore.', resource_id)
                 delete_datastore_resource(resource_id)
@@ -431,12 +436,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         if existing:
             if _fields_match(headers_dicts, existing_fields, logger):
                 logger.info('Clearing records for "%s" from DataStore.', resource_id)
-                engine = get_write_engine()
-                connection = engine.connect()
-                try:
-                    connection.execute('TRUNCATE TABLE "{}"'.format(resource_id))
-                finally:
-                    connection.close()
+                _clear_datastore_resource(resource_id)
             else:
                 logger.info('Deleting "%s" from datastore.', resource_id)
                 delete_datastore_resource(resource_id)
