@@ -79,17 +79,22 @@ def detect_encoding(file_path):
 
 
 def _fields_match(fields, existing_fields, logger):
+    ''' Check whether all columns have the same names and types as previously,
+    independent of ordering.
+    '''
     # drop the generated '_id' field
     for index in range(len(existing_fields)):
         if existing_fields[index]['id'] == '_id':
             existing_fields.pop(index)
             break
 
+    # fail fast if number of fields doesn't match
     field_count = len(fields)
     if field_count != len(existing_fields):
         logger.info("Fields do not match; there are now %s fields but previously %s", field_count, len(existing_fields))
         return False
 
+    # ensure each field is present in both collections with the same type
     for index in range(field_count):
         field_id = fields[index]['id']
         for existing_index in range(field_count):
@@ -108,6 +113,8 @@ def _fields_match(fields, existing_fields, logger):
 
 
 def _clear_datastore_resource(resource_id):
+    ''' Delete all records from the datastore table, without dropping the table itself.
+    '''
     engine = get_write_engine()
     connection = engine.connect()
     try:
