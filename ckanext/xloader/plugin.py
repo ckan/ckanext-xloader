@@ -78,8 +78,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
         if operation != DomainObjectOperation.changed \
-        or not isinstance(entity, Resource) \
-        or not getattr(entity, 'url_changed', False):
+                or not isinstance(entity, Resource) \
+                or not getattr(entity, 'url_changed', False):
             return
         context = {
             "ignore_auth": True,
