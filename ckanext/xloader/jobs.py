@@ -335,6 +335,10 @@ def _download_resource_data(resource, data, api_key, logger):
     '''
     # check scheme
     url = resource.get('url')
+    
+    # Rewrite the URL if configured
+    url = _rewrite_resource_download_url(url)
+
     url_parts = urlsplit(url)
     scheme = url_parts.scheme
     if scheme not in ('http', 'https', 'ftp'):
