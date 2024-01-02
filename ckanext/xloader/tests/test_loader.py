@@ -949,6 +949,14 @@ class TestLoadTabulator(TestLoadBase):
             u"numeric",
             u"text",
         ]
+        # Check that the sniffed types have been recorded as overrides
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        assert fields[0].get("info", {}).get("type_override", "") == "timestamp"
+        assert fields[1].get("info", {}).get("type_override", "") == "numeric"
+        assert fields[2].get("info", {}).get("type_override", "") == ""
 
     # test disabled by default to avoid adding large file to repo and slow test
     @pytest.mark.skip
