@@ -24,6 +24,7 @@ import openpyxl
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config, check_ckan_version
 
+import ckanext.xloader.helpers as xloader_helpers
 from . import loader
 from . import db
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError

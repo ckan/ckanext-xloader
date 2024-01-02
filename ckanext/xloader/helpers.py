@@ -1,3 +1,5 @@
+import os
+
 import ckan.plugins.toolkit as toolkit
 
 
@@ -25,3 +27,9 @@ def xloader_status_description(status):
         return captions.get(status['status'], status['status'].capitalize())
     else:
         return _('Not Uploaded Yet')
+
+
+def get_rewrite_url():
+    if os.getenv('CKANEXT__XLOADER__REWRITE_SITE_URL'):
+        return os.getenv('CKANEXT__XLOADER__REWRITE_SITE_URL')
+    return toolkit.config.get('ckanext.xloader.rewrite_site_url')
