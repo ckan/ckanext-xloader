@@ -311,6 +311,14 @@ def xloader_data_into_datastore_(input, job_dict):
 
     logger.info('Express Load completed')
 
+def _rewrite_resource_download_url(resource_url):
+    xloader_ckan_site_url = config.get('ckanext.xloader.rewrite_site_url')
+    if not xloader_ckan_site_url:
+        return resource_url
+    site_url = config.get('ckan.site_url')
+    if resource_url.lower().startswith(site_url.lower()):
+        return xloader_ckan_site_url + resource_url[len(site_url):]
+    return resource_url
 
 def _download_resource_data(resource, data, api_key, logger):
     '''Downloads the resource['url'] as a tempfile.
