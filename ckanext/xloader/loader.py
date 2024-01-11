@@ -116,11 +116,9 @@ def _clear_datastore_resource(resource_id):
     ''' Delete all records from the datastore table, without dropping the table itself.
     '''
     engine = get_write_engine()
-    connection = engine.connect()
-    try:
-        connection.execute('TRUNCATE TABLE "{}"'.format(resource_id))
-    finally:
-        connection.close()
+    with engine.begin() as conn:
+        conn.execute("SET LOCAL lock_timeout = '5s'")
+        conn.execute('TRUNCATE TABLE "{}"'.format(resource_id))
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
