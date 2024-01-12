@@ -541,8 +541,7 @@ class StoringHandler(logging.Handler):
         self.input = input
 
     def emit(self, record):
-        conn = db.ENGINE.connect()
-        try:
+        with db.ENGINE.connect() as conn:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
             message = str(record.getMessage())
@@ -558,8 +557,6 @@ class StoringHandler(logging.Handler):
                 module=module,
                 funcName=funcName,
                 lineno=record.lineno))
-        finally:
-            conn.close()
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):
