@@ -48,6 +48,14 @@ groups:
         type: bool
         required: false
         legacy_key: ckanext.xloader.just_load_with_messytables
+      - key: ckanext.xloader.strict_type_guessing
+        default: True
+        example: False
+        description: |
+            Use with ckanext.xloader.use_type_guessing to set strict true or false
+            for type guessing. If set to False, the types will always fallback to string type.
+        type: bool
+        required: false
       - key: ckanext.xloader.parse_dates_dayfirst
         default: False
         example: False
