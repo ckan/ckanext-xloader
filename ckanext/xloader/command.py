@@ -3,6 +3,7 @@
 import sys
 import logging
 import ckan.plugins.toolkit as tk
+from ckanext.xloader.utils import XLoaderFormats
 
 
 class XloaderCmd:
@@ -84,8 +85,6 @@ class XloaderCmd:
         '''resource: resource dictionary
         '''
         indentation = ' ' * indent
-        # import here, so that that loggers are setup
-        from ckanext.xloader.plugin import XLoaderFormats
 
         if not XLoaderFormats.is_it_an_xloader_format(resource['format']):
             print(indentation

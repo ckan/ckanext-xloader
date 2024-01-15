@@ -5,8 +5,11 @@ import logging
 from ckan import plugins
 from ckan.plugins import toolkit
 
+from ckan.model.domain_object import DomainObjectOperation
+from ckan.model.resource import Resource
+
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
+from ckanext.xloader.utils import XLoaderFormats
 
 try:
     config_declarations = toolkit.blanket.config_declarations
@@ -19,41 +22,11 @@ except AttributeError:
 log = logging.getLogger(__name__)
 
 
-# resource.formats accepted by ckanext-xloader. Must be lowercase here.
-DEFAULT_FORMATS = [
-    "csv",
-    "application/csv",
-    "xls",
-    "xlsx",
-    "tsv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "ods",
-    "application/vnd.oasis.opendocument.spreadsheet",
-]
-
-
-class XLoaderFormats(object):
-    formats = None
-
-    @classmethod
-    def is_it_an_xloader_format(cls, format_):
-        if cls.formats is None:
-            cls._formats = toolkit.config.get("ckanext.xloader.formats")
-            if cls._formats is not None:
-                cls._formats = cls._formats.lower().split()
-            else:
-                cls._formats = DEFAULT_FORMATS
-        if not format_:
-            return False
-        return format_.lower() in cls._formats
-
-
 @config_declarations
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IResourceUrlChange)
+    plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.ITemplateHelpers)
@@ -94,16 +67,27 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
-    # IResourceUrlChange
+    # IDomainObjectModification
 
-    def notify(self, resource):
+    def notify(self, entity, operation):
+        # type: (ckan.model.Package|ckan.model.Resource, DomainObjectOperation) -> None
+        """
+        Runs before_commit to database for Packages and Resources.
+        We only want to check for changed Resources for this.
+        We want to check if values have changed, namely the url.
+        See: ckan/model/modification.py.DomainObjectModificationExtension
+        """
+        if operation != DomainObjectOperation.changed \
+                or not isinstance(entity, Resource) \
+                or not getattr(entity, 'url_changed', False):
+            return
         context = {
             "ignore_auth": True,
         }
         resource_dict = toolkit.get_action("resource_show")(
             context,
             {
-                "id": resource.id,
+                "id": entity.id,
             },
         )
         self._submit_to_xloader(resource_dict)
@@ -211,4 +195,5 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             "xloader_status": xloader_helpers.xloader_status,
             "xloader_status_description": xloader_helpers.xloader_status_description,
+            "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
