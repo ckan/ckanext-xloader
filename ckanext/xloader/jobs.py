@@ -11,13 +11,14 @@ import os
 import traceback
 import sys
 
+from psycopg2 import errors
 from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
+from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
@@ -40,6 +41,15 @@ MAX_TYPE_GUESSING_LENGTH = int(config.get('ckanext.xloader.max_type_guessing_len
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
+
+RETRYABLE_ERRORS = (
+    errors.DeadlockDetected,
+    errors.LockNotAvailable,
+    errors.ObjectInUse,
+)
+# Retries can only occur in cases where the datastore entry exists,
+# so use the standard timeout
+RETRIED_JOB_TIMEOUT = config.get('ckanext.xloader.job_timeout', '3600')
 
 
 # input = {
@@ -87,6 +97,19 @@ def xloader_data_into_datastore(input):
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
+        if isinstance(e, RETRYABLE_ERRORS):
+            tries = job_dict['metadata'].get('tries', 0)
+            if tries == 0:
+                log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
+                job_dict['status'] = 'pending'
+                job_dict['metadata']['tries'] = tries + 1
+                enqueue_job(
+                    xloader_data_into_datastore,
+                    [input],
+                    rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
+                )
+                return None
+
         db.mark_job_as_errored(
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
@@ -541,8 +564,7 @@ class StoringHandler(logging.Handler):
         self.input = input
 
     def emit(self, record):
-        conn = db.ENGINE.connect()
-        try:
+        with db.ENGINE.connect() as conn:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
             message = str(record.getMessage())
@@ -558,8 +580,6 @@ class StoringHandler(logging.Handler):
                 module=module,
                 funcName=funcName,
                 lineno=record.lineno))
-        finally:
-            conn.close()
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):

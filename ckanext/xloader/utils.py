@@ -113,6 +113,7 @@ def set_resource_metadata(update_dict):
     # better fix
 
     q = model.Session.query(model.Resource). \
+        with_for_update(of=model.Resource). \
         filter(model.Resource.id == update_dict['resource_id'])
     resource = q.one()
 
