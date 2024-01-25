@@ -191,6 +191,11 @@ Configuration:
 
 See the extension's `config_declaration.yaml <ckanext/xloader/config_declaration.yaml>`_ file.
 
+You may also wish to configure the database to use your preferred date input style on COPY.
+For example, to make [PostgreSQL](https://www.postgresql.org/docs/current/runtime-config-client.html#RUNTIME-CONFIG-CLIENT-FORMAT)
+expect European (day-first) dates, you could add to ``postgresql.conf``:
+
+    datestyle=ISO,DMY
 
 ------------------------
 Developer installation
