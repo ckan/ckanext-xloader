@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import datetime
 import itertools
+from six import text_type as str, binary_type
 import os
 import os.path
 import tempfile
@@ -388,7 +389,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     skip_rows = list(range(1, header_offset + 2))
 
     TYPES, TYPE_MAPPING = get_types()
-    types = type_guess(stream.sample[1:], types=TYPES, strict=True)
+    strict_guessing = p.toolkit.asbool(
+        config.get('ckanext.xloader.strict_type_guessing', True))
+    types = type_guess(stream.sample[1:], types=TYPES, strict=strict_guessing)
 
     # override with types user requested
     if existing_info:
@@ -469,12 +472,17 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
 
 _TYPE_MAPPING = {
+    "<type 'str'>": 'text',
     "<type 'unicode'>": 'text',
+    "<type 'bytes'>": 'text',
     "<type 'bool'>": 'text',
     "<type 'int'>": 'numeric',
     "<type 'float'>": 'numeric',
     "<class 'decimal.Decimal'>": 'numeric',
+    "<type 'datetime.datetime'>": 'timestamp',
     "<class 'str'>": 'text',
+    "<class 'unicode'>": 'text',
+    "<class 'bytes'>": 'text',
     "<class 'bool'>": 'text',
     "<class 'int'>": 'numeric',
     "<class 'float'>": 'numeric',
@@ -483,7 +491,7 @@ _TYPE_MAPPING = {
 
 
 def get_types():
-    _TYPES = [int, bool, str, datetime.datetime, float, Decimal]
+    _TYPES = [int, bool, str, binary_type, datetime.datetime, float, Decimal]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
