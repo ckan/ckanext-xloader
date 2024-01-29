@@ -10,14 +10,13 @@ from decimal import Decimal
 
 import psycopg2
 from six.moves import zip
-from tabulator import Stream, TabulatorException
+from tabulator import config as tabulator_config, Stream, TabulatorException
 from unidecode import unidecode
 
 import ckan.plugins as p
-import ckan.plugins.toolkit as tk
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
-from .parser import XloaderCSVParser
+from .parser import CSV_SAMPLE_LINES, XloaderCSVParser
 from .utils import headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
@@ -29,6 +28,7 @@ create_indexes = datastore_db.create_indexes
 _drop_indexes = datastore_db._drop_indexes
 
 MAX_COLUMN_LENGTH = 63
+tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -318,9 +318,16 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
         logger.info('Copying to database...')
         count = 0
+        # Some types cannot be stored as empty strings and must be converted to None,
+        # https://github.com/ckan/ckanext-xloader/issues/182
+        non_empty_types = ['timestamp', 'numeric']
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
             logger.info('Saving chunk {number}'.format(number=i))
+            for row in records:
+                for column_index, column_name in enumerate(row):
+                    if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
+                        row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
         logger.info('...copying done')
 

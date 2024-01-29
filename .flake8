@@ -17,8 +17,4 @@ max-line-length=127
 
 # List ignore rules one per line.
 ignore =
-    E501
-    C901
     W503
-    F401
-    F403

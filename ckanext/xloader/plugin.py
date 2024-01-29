@@ -7,8 +7,10 @@ from ckan.plugins import toolkit
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 
+from ckan.model.domain_object import DomainObjectOperation
+from ckan.model.resource import Resource
+
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
 
 try:
     config_declarations = toolkit.blanket.config_declarations
@@ -106,7 +108,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
         We want to check if values have changed, namely the url and the format.
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
-        if operation != DomainObjectOperation.changed or not isinstance(entity, Resource):
+        if operation != DomainObjectOperation.changed \
+        or not isinstance(entity, Resource):
             return
 
         context = {
@@ -121,6 +124,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
+            
+        if not getattr(entity, 'url_changed', False):
+            # do not submit to xloader if the url has not changed.
+            return
 
         self._submit_to_xloader(resource_dict)
 
