@@ -10,16 +10,16 @@ import datetime
 import traceback
 import sys
 
+from psycopg2 import errors
 from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, ObjectNotFound, config
+from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config
 
-from . import loader
-from . import db
+from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 from .utils import set_resource_metadata
 
@@ -27,6 +27,8 @@ try:
     from ckan.lib.api_token import get_user_from_token
 except ImportError:
     get_user_from_token = None
+
+log = logging.getLogger(__name__)
 
 SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
@@ -36,6 +38,13 @@ MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9
 MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
+
+RETRYABLE_ERRORS = (
+    errors.DeadlockDetected,
+    errors.LockNotAvailable,
+    errors.ObjectInUse,
+)
+RETRIED_JOB_TIMEOUT = config.get('ckanext.xloader.job_timeout', '3600')
 
 
 # input = {
@@ -80,15 +89,26 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     except Exception as e:
+        if isinstance(e, RETRYABLE_ERRORS):
+            tries = job_dict['metadata'].get('tries', 0)
+            if tries == 0:
+                log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
+                job_dict['status'] = 'pending'
+                job_dict['metadata']['tries'] = tries + 1
+                enqueue_job(
+                    xloader_data_into_datastore,
+                    [input],
+                    rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
+                )
+                return None
+
         db.mark_job_as_errored(
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log = logging.getLogger(__name__)
         log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
         errored = True
     finally:
