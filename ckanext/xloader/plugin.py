@@ -249,11 +249,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
 def _is_validation_plugin_loaded():
     """
-    Checks the existance of a logic action from the ckanext-validation
+    Checks the existence of a logic action from the ckanext-validation
     plugin, thus supporting any extending of the Validation Plugin class.
     """
     try:
         toolkit.get_action('resource_validation_show')
+        return True
     except KeyError:
         return False
-    return True
