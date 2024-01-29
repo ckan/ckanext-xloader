@@ -9,11 +9,29 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
+from ckan.plugins.toolkit import config, h, _
 
 
 def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
+        if is_validation_plugin_loaded() and \
+          p.toolkit.asbool(p.toolkit.config.get('ckanext.xloader.requires_validation')):
+            context = {
+                "ignore_auth": True,
+            }
+            resource_dict = p.toolkit.get_action("resource_show")(
+                context,
+                {
+                    "id": resource_id,
+                },
+            )
+            if resource_dict.get('validation_status', None) != 'success':
+                h.flash_error(_("Cannot upload resource %s to the DataStore "
+                                  "because the resource did not pass validation yet.") % resource_id)
+                return p.toolkit.redirect_to(
+                    "xloader.resource_data", id=id, resource_id=resource_id
+                )
         try:
             p.toolkit.get_action("xloader_submit")(
                 None,
@@ -215,3 +233,15 @@ def type_guess(rows, types=TYPES, strict=False):
         guesses_tuples = [(t, guess[t]) for t in types if t in guess]
         _columns.append(max(guesses_tuples, key=lambda t_n: t_n[1])[0])
     return _columns
+
+
+def is_validation_plugin_loaded():
+    """
+    Checks the existence of a logic action from the ckanext-validation
+    plugin, thus supporting any extending of the Validation Plugin class.
+    """
+    try:
+        p.toolkit.get_action('resource_validation_show')
+        return True
+    except KeyError:
+        return False
