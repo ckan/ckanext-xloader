@@ -54,6 +54,8 @@ groups:
         description: |
             Use with ckanext.xloader.use_type_guessing to set strict true or false
             for type guessing. If set to False, the types will always fallback to string type.
+
+            Strict means that a type will not be guessed if parsing fails for a single cell in the column.
         type: bool
         required: false
       - key: ckanext.xloader.parse_dates_dayfirst
