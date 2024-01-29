@@ -178,10 +178,10 @@ def type_guess(rows, types=TYPES, strict=False):
             for ci, cell in enumerate(row):
                 if not cell:
                     continue
-                at_least_one_value[ci] = True
                 for type in list(guesses[ci].keys()):
                     if not isinstance(cell, type):
                         guesses[ci].pop(type)
+                at_least_one_value[ci] = True if guesses[ci] else False
         # no need to set guessing weights before this
         # because we only accept a type if it never fails
         for i, guess in enumerate(guesses):

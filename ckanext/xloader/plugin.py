@@ -9,7 +9,6 @@ from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
 
 try:
     config_declarations = toolkit.blanket.config_declarations
