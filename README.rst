@@ -92,6 +92,16 @@ can access the CKAN config, db and logging directly and avoids many HTTP calls.
 This simplification makes sense because the xloader job doesn't need to do much
 processing - mainly it is streaming the CSV file from disk into PostgreSQL.
 
+It is still entirely possible to run the XLoader worker on a separate server,
+if that is desired. The worker needs the following:
+
+- A copy of CKAN installed in the same Python virtualenv (but not running).
+- A copy of the CKAN config file.
+- Access to the Redis instance that the running CKAN app uses to store jobs.
+- Access to the database.
+
+You can then run it via `ckan jobs worker` as below.
+
 Caveat - column types
 ---------------------
 
@@ -181,6 +191,10 @@ Configuration:
 
 See the extension's `config_declaration.yaml <ckanext/xloader/config_declaration.yaml>`_ file.
 
+This plugin also supports the `ckan.download_proxy` setting, to use a proxy server when downloading files.
+This setting is shared with other plugins that download resource files, such as ckanext-archiver. Eg:
+
+    ckan.download_proxy = http://my-proxy:1234/
 
 ------------------------
 Developer installation

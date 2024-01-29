@@ -5,8 +5,10 @@ import logging
 from ckan import plugins
 from ckan.plugins import toolkit
 
+from ckan.model.domain_object import DomainObjectOperation
+from ckan.model.resource import Resource
+
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
 from ckanext.xloader.utils import XLoaderFormats
 
 try:
@@ -24,7 +26,7 @@ log = logging.getLogger(__name__)
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IResourceUrlChange)
+    plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.ITemplateHelpers)
@@ -65,16 +67,27 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
-    # IResourceUrlChange
+    # IDomainObjectModification
 
-    def notify(self, resource):
+    def notify(self, entity, operation):
+        # type: (ckan.model.Package|ckan.model.Resource, DomainObjectOperation) -> None
+        """
+        Runs before_commit to database for Packages and Resources.
+        We only want to check for changed Resources for this.
+        We want to check if values have changed, namely the url.
+        See: ckan/model/modification.py.DomainObjectModificationExtension
+        """
+        if operation != DomainObjectOperation.changed \
+        or not isinstance(entity, Resource) \
+        or not getattr(entity, 'url_changed', False):
+            return
         context = {
             "ignore_auth": True,
         }
         resource_dict = toolkit.get_action("resource_show")(
             context,
             {
-                "id": resource.id,
+                "id": entity.id,
             },
         )
         self._submit_to_xloader(resource_dict)

@@ -1,5 +1,5 @@
 try:
-    from ckan.tests.pytest_ckan.ckan_setup import *
+    from ckan.tests.pytest_ckan.ckan_setup import *  # noqa
 except ImportError:
     import pkg_resources
     from paste.deploy import loadapp
