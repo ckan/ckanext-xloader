@@ -191,6 +191,10 @@ Configuration:
 
 See the extension's `config_declaration.yaml <ckanext/xloader/config_declaration.yaml>`_ file.
 
+This plugin also supports the `ckan.download_proxy` setting, to use a proxy server when downloading files.
+This setting is shared with other plugins that download resource files, such as ckanext-archiver. Eg:
+
+    ckan.download_proxy = http://my-proxy:1234/
 
 ------------------------
 Developer installation
