@@ -21,7 +21,7 @@ def mock_toolkit_config(request):
 
 @pytest.fixture
 def mock_xloader_formats(request):
-    with mock.patch('ckanext.xloader.utils.XLoaderFormats.is_it_an_xloader_format') as mock_is_xloader_format:
+    with mock.patch('ckanext.xloader.plugin.XLoaderFormats.is_it_an_xloader_format') as mock_is_xloader_format:
         mock_is_xloader_format.return_value = request.param
         yield mock_is_xloader_format
 
