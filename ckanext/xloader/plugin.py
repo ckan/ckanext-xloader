@@ -4,11 +4,10 @@ import logging
 
 from ckan import plugins
 from ckan.plugins import toolkit
-from ckan.model.domain_object import DomainObjectOperation
-from ckan.model.resource import Resource
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
+from ckan.model.package import Package
 
 from . import action, auth, helpers as xloader_helpers, utils
 
@@ -101,7 +100,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IDomainObjectModification
 
     def notify(self, entity, operation):
-        # type: (ckan.model.Package|ckan.model.Resource, DomainObjectOperation) -> None
+        # type: (Package|Resource, DomainObjectOperation) -> None
         """
         Runs before_commit to database for Packages and Resources.
         We only want to check for changed Resources for this.
@@ -109,7 +108,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
         if operation != DomainObjectOperation.changed \
-        or not isinstance(entity, Resource):
+                or not isinstance(entity, Resource):
             return
 
         context = {
@@ -124,7 +123,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
-            
+
         if not getattr(entity, 'url_changed', False):
             # do not submit to xloader if the url has not changed.
             return
@@ -242,9 +241,9 @@ def _should_remove_unsupported_resource_from_datastore(res_dict):
         return False
     return (not XLoaderFormats.is_it_an_xloader_format(res_dict.get('format', u''))
             and (res_dict.get('url_type') == 'upload'
-                or not res_dict.get('url_type'))
+                 or not res_dict.get('url_type'))
             and (toolkit.asbool(res_dict.get('datastore_active', False))
-                or toolkit.asbool(res_dict.get('extras', {}).get('datastore_active', False))))
+                 or toolkit.asbool(res_dict.get('extras', {}).get('datastore_active', False))))
 
 
 def _remove_unsupported_resource_from_datastore(resource_id):
@@ -263,7 +262,7 @@ def _remove_unsupported_resource_from_datastore(resource_id):
 
     if _should_remove_unsupported_resource_from_datastore(res):
         log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s',
-            res.get(u'format', u''), res['id'])
+                 res.get(u'format', u''), res['id'])
         try:
             toolkit.get_action('datastore_delete')(context, {
                 "resource_id": res['id'],
