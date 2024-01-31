@@ -33,6 +33,7 @@ class XLoaderFormats(object):
         if cls.formats is None:
             cls._formats = config.get("ckanext.xloader.formats")
             if cls._formats is not None:
+                # use config value. preserves empty list as well.
                 cls._formats = cls._formats.lower().split()
             else:
                 cls._formats = DEFAULT_FORMATS
