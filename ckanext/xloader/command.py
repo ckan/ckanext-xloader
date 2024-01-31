@@ -25,7 +25,7 @@ class XloaderCmd:
         logger.setLevel(logging.DEBUG)
         logger.propagate = False  # in case the config
 
-    def _submit_all_existing(self, sync=False):
+    def _submit_all_existing(self, sync=False, queue=None):
         from ckanext.datastore.backend \
             import get_all_resources_ids_in_datastore
         resource_ids = get_all_resources_ids_in_datastore()
@@ -40,9 +40,9 @@ class XloaderCmd:
                 print('  Skipping resource {} found in datastore but not in '
                       'metadata'.format(resource_id))
                 continue
-            self._submit_resource(resource_dict, user, indent=2, sync=sync)
+            self._submit_resource(resource_dict, user, indent=2, sync=sync, queue=queue)
 
-    def _submit_all(self, sync=False):
+    def _submit_all(self, sync=False, queue=None):
         # submit every package
         # for each package in the package list,
         #   submit each resource w/ _submit_package
@@ -53,9 +53,9 @@ class XloaderCmd:
         user = tk.get_action('get_site_user')(
             {'ignore_auth': True}, {})
         for p_id in package_list:
-            self._submit_package(p_id, user, indent=2, sync=sync)
+            self._submit_package(p_id, user, indent=2, sync=sync, queue=queue)
 
-    def _submit_package(self, pkg_id, user=None, indent=0, sync=False):
+    def _submit_package(self, pkg_id, user=None, indent=0, sync=False, queue=None):
         indentation = ' ' * indent
         if not user:
             user = tk.get_action('get_site_user')(
@@ -75,7 +75,7 @@ class XloaderCmd:
         for resource in pkg['resources']:
             try:
                 resource['package_name'] = pkg['name']  # for debug output
-                self._submit_resource(resource, user, indent=indent + 2, sync=sync)
+                self._submit_resource(resource, user, indent=indent + 2, sync=sync, queue=queue)
             except Exception as e:
                 self.error_occured = True
                 print(str(e))
@@ -83,7 +83,7 @@ class XloaderCmd:
                     resource['id']))
                 continue
 
-    def _submit_resource(self, resource, user, indent=0, sync=False):
+    def _submit_resource(self, resource, user, indent=0, sync=False, queue=None):
         '''resource: resource dictionary
         '''
         indentation = ' ' * indent
@@ -122,6 +122,8 @@ class XloaderCmd:
             logger = logging.getLogger('ckanext.xloader.cli')
             xloader_data_into_datastore_(input_dict, None, logger)
         else:
+            if queue:
+                data_dict['queue'] = queue
             success = tk.get_action('xloader_submit')({'user': user['name']}, data_dict)
             if success:
                 print(indentation + '...ok')
