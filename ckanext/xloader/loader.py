@@ -78,6 +78,49 @@ def detect_encoding(file_path):
     return detector.result  # e.g. {'encoding': 'EUC-JP', 'confidence': 0.99}
 
 
+def _fields_match(fields, existing_fields, logger):
+    ''' Check whether all columns have the same names and types as previously,
+    independent of ordering.
+    '''
+    # drop the generated '_id' field
+    for index in range(len(existing_fields)):
+        if existing_fields[index]['id'] == '_id':
+            existing_fields.pop(index)
+            break
+
+    # fail fast if number of fields doesn't match
+    field_count = len(fields)
+    if field_count != len(existing_fields):
+        logger.info("Fields do not match; there are now %s fields but previously %s", field_count, len(existing_fields))
+        return False
+
+    # ensure each field is present in both collections with the same type
+    for index in range(field_count):
+        field_id = fields[index]['id']
+        for existing_index in range(field_count):
+            existing_field_id = existing_fields[existing_index]['id']
+            if field_id == existing_field_id:
+                if fields[index]['type'] == existing_fields[existing_index]['type']:
+                    break
+                else:
+                    logger.info("Fields do not match; new type for %s field is %s but existing type is %s",
+                                field_id, fields[index]["type"], existing_fields[existing_index]['type'])
+                    return False
+        else:
+            logger.info("Fields do not match; no existing entry found for %s", field_id)
+            return False
+    return True
+
+
+def _clear_datastore_resource(resource_id):
+    ''' Delete all records from the datastore table, without dropping the table itself.
+    '''
+    engine = get_write_engine()
+    with engine.begin() as conn:
+        conn.execute("SET LOCAL lock_timeout = '5s'")
+        conn.execute('TRUNCATE TABLE "{}"'.format(resource_id))
+
+
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
@@ -140,33 +183,42 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         existing = datastore_resource_exists(resource_id)
         existing_info = {}
         if existing:
+            existing_fields = existing.get('fields', [])
             existing_info = dict((f['id'], f['info'])
-                                 for f in existing.get('fields', [])
+                                 for f in existing_fields
                                  if 'info' in f)
 
-            '''
-            Delete existing datastore table before proceeding. Otherwise
-            the COPY will append to the existing table. And if
-            the fields have significantly changed, it may also fail.
-            '''
-            logger.info('Deleting "{res_id}" from DataStore.'.format(
-                res_id=resource_id))
-            delete_datastore_resource(resource_id)
+            # Column types are either set (overridden) in the Data Dictionary page
+            # or default to text type (which is robust)
+            fields = [
+                {'id': header_name,
+                 'type': existing_info.get(header_name, {})
+                    .get('type_override') or 'text',
+                 }
+                for header_name in headers]
 
-        # Columns types are either set (overridden) in the Data Dictionary page
-        # or default to text type (which is robust)
-        fields = [
-            {'id': header_name,
-             'type': existing_info.get(header_name, {})
-                .get('type_override') or 'text',
-             }
-            for header_name in headers]
-
-        # Maintain data dictionaries from matching column names
-        if existing_info:
+            # Maintain data dictionaries from matching column names
             for f in fields:
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
+
+            '''
+            Delete or truncate existing datastore table before proceeding,
+            depending on whether any fields have changed.
+            Otherwise the COPY will append to the existing table.
+            And if the fields have significantly changed, it may also fail.
+            '''
+            if _fields_match(fields, existing_fields, logger):
+                logger.info('Clearing records for "%s" from DataStore.', resource_id)
+                _clear_datastore_resource(resource_id)
+            else:
+                logger.info('Deleting "%s" from DataStore.', resource_id)
+                delete_datastore_resource(resource_id)
+        else:
+            fields = [
+                {'id': header_name,
+                 'type': 'text'}
+                for header_name in headers]
 
         logger.info('Fields: %s', fields)
 
@@ -281,6 +333,18 @@ def create_column_indexes(fields, resource_id, logger):
     logger.info('...column indexes created.')
 
 
+def _save_type_overrides(headers_dicts):
+    # copy 'type' to 'type_override' if it's not the default type (text)
+    # and there isn't already an override in place
+    for h in headers_dicts:
+        if h['type'] != 'text':
+            if 'info' in h:
+                if 'type_override' not in h['info']:
+                    h['info']['type_override'] = h['type']
+            else:
+                h['info'] = {'type_override': h['type']}
+
+
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads an Excel file (or other tabular data recognized by tabulator)
     into Datastore and creates indexes.
@@ -311,9 +375,10 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     existing = datastore_resource_exists(resource_id)
     existing_info = None
     if existing:
+        existing_fields = existing.get('fields', [])
         existing_info = dict(
             (f['id'], f['info'])
-            for f in existing.get('fields', []) if 'info' in f)
+            for f in existing_fields if 'info' in f)
 
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
@@ -349,16 +414,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 yield data_row
         result = row_iterator()
 
-        '''
-        Delete existing datstore resource before proceeding. Otherwise
-        'datastore_create' will append to the existing datastore. And if
-        the fields have significantly changed, it may also fail.
-        '''
-        if existing:
-            logger.info('Deleting "{res_id}" from datastore.'.format(
-                res_id=resource_id))
-            delete_datastore_resource(resource_id)
-
         headers_dicts = [dict(id=field[0], type=TYPE_MAPPING[str(field[1])])
                          for field in zip(headers, types)]
 
@@ -372,8 +427,24 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
 
-        logger.info('Determined headers and types: {headers}'.format(
-            headers=headers_dicts))
+        # preserve any types that we have sniffed unless told otherwise
+        _save_type_overrides(headers_dicts)
+
+        logger.info('Determined headers and types: %s', headers_dicts)
+
+        '''
+        Delete or truncate existing datastore table before proceeding,
+        depending on whether any fields have changed.
+        Otherwise 'datastore_create' will append to the existing datastore.
+        And if the fields have significantly changed, it may also fail.
+        '''
+        if existing:
+            if _fields_match(headers_dicts, existing_fields, logger):
+                logger.info('Clearing records for "%s" from DataStore.', resource_id)
+                _clear_datastore_resource(resource_id)
+            else:
+                logger.info('Deleting "%s" from datastore.', resource_id)
+                delete_datastore_resource(resource_id)
 
         logger.info('Copying to database...')
         count = 0
@@ -382,7 +453,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         non_empty_types = ['timestamp', 'numeric']
         for i, records in enumerate(chunky(result, 250)):
             count += len(records)
-            logger.info('Saving chunk {number}'.format(number=i))
+            logger.info('Saving chunk %s', i)
             for row in records:
                 for column_index, column_name in enumerate(row):
                     if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
@@ -391,8 +462,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.info('...copying done')
 
     if count:
-        logger.info('Successfully pushed {n} entries to "{res_id}".'.format(
-                    n=count, res_id=resource_id))
+        logger.info('Successfully pushed %s entries to "%s".', count, resource_id)
     else:
         # no datastore table is created
         raise LoaderError('No entries found - nothing to load')

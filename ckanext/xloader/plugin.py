@@ -95,6 +95,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
 
+        if not getattr(entity, 'url_changed', False):
+            return
+
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
