@@ -36,7 +36,9 @@ class TypeConverter:
                 cell_type = self.types[cell_index] if self.types else None
                 if cell_type in [Decimal, None]:
                     converted_value = to_number(cell_value)
-                    if converted_value:
+                    # Can't do a simple truthiness check,
+                    # because 0 is a valid numeric result.
+                    if converted_value is not None:
                         row[cell_index] = converted_value
                         continue
                 if cell_type in [datetime.datetime, None]:
