@@ -86,15 +86,36 @@ def xloader_data_into_datastore(input):
 
     job_id = get_current_job().id
     errored = False
+
+    # Set-up logging to the db
+    handler = StoringHandler(job_id, input)
+    level = logging.DEBUG
+    handler.setLevel(level)
+    logger = logging.getLogger(job_id)
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(handler)
+    # also show logs on stderr
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+
+    db.init(config)
     try:
-        xloader_data_into_datastore_(input, job_dict)
+        # Store details of the job in the db
+        db.add_pending_job(job_id, **input)
+        xloader_data_into_datastore_(input, job_dict, logger)
         job_dict['status'] = 'complete'
         db.mark_job_as_completed(job_id, job_dict)
+    except sa.exc.IntegrityError as e:
+        db.mark_job_as_errored(job_id, str(e))
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
+        log.error('xloader error: job_id %s already exists', job_id)
+        errored = True
     except JobError as e:
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
         errored = True
     except Exception as e:
         if isinstance(e, RETRYABLE_ERRORS):
@@ -114,7 +135,7 @@ def xloader_data_into_datastore(input):
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
         errored = True
     finally:
         # job_dict is defined in xloader_hook's docstring
@@ -125,7 +146,7 @@ def xloader_data_into_datastore(input):
     return 'error' if errored else None
 
 
-def xloader_data_into_datastore_(input, job_dict):
+def xloader_data_into_datastore_(input, job_dict, logger):
     '''This function:
     * downloads the resource (metadata) from CKAN
     * downloads the data
@@ -134,26 +155,6 @@ def xloader_data_into_datastore_(input, job_dict):
 
     (datapusher called this function 'push_to_datastore')
     '''
-    job_id = get_current_job().id
-    db.init(config)
-
-    # Store details of the job in the db
-    try:
-        db.add_pending_job(job_id, **input)
-    except sa.exc.IntegrityError:
-        raise JobError('job_id {} already exists'.format(job_id))
-
-    # Set-up logging to the db
-    handler = StoringHandler(job_id, input)
-    level = logging.DEBUG
-    handler.setLevel(level)
-    logger = logging.getLogger(job_id)
-    handler.setFormatter(logging.Formatter('%(message)s'))
-    logger.addHandler(handler)
-    # also show logs on stderr
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.DEBUG)
-
     validate_input(input)
 
     data = input['metadata']
@@ -197,10 +198,11 @@ def xloader_data_into_datastore_(input, job_dict):
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, logger)
-        job_dict['status'] = 'running_but_viewable'
-        callback_xloader_hook(result_url=input['result_url'],
-                              api_key=api_key,
-                              job_dict=job_dict)
+        if 'result_url' in input:
+            job_dict['status'] = 'running_but_viewable'
+            callback_xloader_hook(result_url=input['result_url'],
+                                  api_key=api_key,
+                                  job_dict=job_dict)
         logger.info('Data now available to users: %s', resource_ckan_url)
         loader.create_column_indexes(
             fields=fields,
