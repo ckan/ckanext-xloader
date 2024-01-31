@@ -7,6 +7,7 @@ from ckan.plugins import toolkit
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
+from ckan.model.package import Package
 
 from . import action, auth, helpers as xloader_helpers, utils
 
@@ -99,7 +100,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IDomainObjectModification
 
     def notify(self, entity, operation):
-        # type: (ckan.model.Package|ckan.model.Resource, DomainObjectOperation) -> None
+        # type: (Package|Resource, DomainObjectOperation) -> None
         """
         Runs before_commit to database for Packages and Resources.
         We only want to check for changed Resources for this.
@@ -107,7 +108,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
         if operation != DomainObjectOperation.changed \
-        or not isinstance(entity, Resource):
+                or not isinstance(entity, Resource):
             return
 
         # If the resource requires validation, stop here if validation
@@ -116,11 +117,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
         # be called again. However, url_changed will not be in the entity
         # once Validation does the patch.
         if utils.is_validation_plugin_loaded() and \
-          toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
+                toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
+
             if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
                 log.debug("Skipping xloading resource %s because the "
                           "resource did not pass validation yet.", entity.id)
                 return
+
         elif not getattr(entity, 'url_changed', False):
             return
 
@@ -139,11 +142,13 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def after_resource_create(self, context, resource_dict):
         if utils.is_validation_plugin_loaded() and \
-          toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
-          resource_dict.get('validation_status', None) != 'success':
+                toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
+                resource_dict.get('validation_status', None) != 'success':
+
             log.debug("Skipping xloading resource %s because the "
-                          "resource did not pass validation yet.", resource_dict.get('id'))
+                      "resource did not pass validation yet.", resource_dict.get('id'))
             return
+
         self._submit_to_xloader(resource_dict)
 
     def before_resource_show(self, resource_dict):

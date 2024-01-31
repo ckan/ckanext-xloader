@@ -9,14 +9,15 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
-from ckan.plugins.toolkit import config, h, _
+from ckan.plugins.toolkit import h, _
 
 
 def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
         if is_validation_plugin_loaded() and \
-          p.toolkit.asbool(p.toolkit.config.get('ckanext.xloader.requires_validation')):
+                p.toolkit.asbool(p.toolkit.config.get('ckanext.xloader.requires_validation')):
+
             context = {
                 "ignore_auth": True,
             }
@@ -28,7 +29,7 @@ def resource_data(id, resource_id, rows=None):
             )
             if resource_dict.get('validation_status', None) != 'success':
                 h.flash_error(_("Cannot upload resource %s to the DataStore "
-                                  "because the resource did not pass validation yet.") % resource_id)
+                                "because the resource did not pass validation yet.") % resource_id)
                 return p.toolkit.redirect_to(
                     "xloader.resource_data", id=id, resource_id=resource_id
                 )
@@ -187,7 +188,7 @@ def type_guess(rows, types=TYPES, strict=False):
         at_least_one_value = []
         for ri, row in enumerate(rows):
             diff = len(row) - len(guesses)
-            for _ in range(diff):
+            for _i in range(diff):
                 typesdict = {}
                 for type in types:
                     typesdict[type] = 0
@@ -213,7 +214,7 @@ def type_guess(rows, types=TYPES, strict=False):
     else:
         for i, row in enumerate(rows):
             diff = len(row) - len(guesses)
-            for _ in range(diff):
+            for _i in range(diff):
                 guesses.append(defaultdict(int))
             for i, cell in enumerate(row):
                 # add string guess so that we have at least one guess
