@@ -15,14 +15,14 @@ from ckanext.xloader.plugin import _should_remove_unsupported_resource_from_data
 @pytest.fixture
 def mock_toolkit_config(request):
     with mock.patch('ckan.plugins.toolkit.config.get') as mock_get:
-        mock_get.return_value = request.param
+        mock_get.return_value = request.params
         yield mock_get
 
 
 @pytest.fixture
 def mock_xloader_formats(request):
     with mock.patch('ckanext.xloader.plugin.XLoaderFormats.is_it_an_xloader_format') as mock_is_xloader_format:
-        mock_is_xloader_format.return_value = request.param
+        mock_is_xloader_format.return_value = request.params
         yield mock_is_xloader_format
 
 
