@@ -122,12 +122,15 @@ def xloader_data_into_datastore(input):
         if isinstance(e, RETRYABLE_ERRORS):
             tries = job_dict['metadata'].get('tries', 0)
             if tries < MAX_RETRIES:
+                tries = tries + 1
                 log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
                 job_dict['status'] = 'pending'
-                job_dict['metadata']['tries'] = tries + 1
+                job_dict['metadata']['tries'] = tries
                 enqueue_job(
                     xloader_data_into_datastore,
                     [input],
+                    title="Retrying XLoad of resource {} into datastore, attempt {}".format(
+                        job_dict['metadata']['resource_id'], tries),
                     rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
                 )
                 return None
