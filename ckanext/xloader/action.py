@@ -165,7 +165,7 @@ def xloader_submit(context, data_dict):
     try:
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data], queue=custom_queue,
-            title="XLoading resource {} into datastore".format(res_id),
+            title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
             rq_kwargs=dict(timeout=timeout)
         )
     except Exception:

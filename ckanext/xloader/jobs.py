@@ -129,7 +129,7 @@ def xloader_data_into_datastore(input):
                 enqueue_job(
                     xloader_data_into_datastore,
                     [input],
-                    title="Retrying XLoad of resource {} into datastore, attempt {}".format(
+                    title="retry xloader_data_into_datastore: resource: {} attempt {}".format(
                         job_dict['metadata']['resource_id'], tries),
                     rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
                 )
