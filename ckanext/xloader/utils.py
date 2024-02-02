@@ -76,10 +76,12 @@ def awaiting_validation(res_dict):
         log.warning('ckanext.xloader.validation.requires_successful_report requires the ckanext-validation plugin to be activated.')
         return False
 
-    if p.toolkit.asbool(config.get('ckanext.xloader.validation.enforce_schema', True)) \
-            and res_dict.get('validation_status', None) != 'success':
-        # validation.enforce_schema is turned on, and there is no successful report.
-        return True
+    if p.toolkit.asbool(config.get('ckanext.xloader.validation.enforce_schema', True)):
+        # validation.enforce_schema is turned on, explicitly check for the `validation_status`
+        if res_dict.get('validation_status', None) != 'success':
+            return True
+        else:
+            return False
 
     elif res_dict.get('schema', None) and res_dict.get('validation_status', None) != 'success':
         # validation.enforce_schema is turned off, and there is a Validation Schema and no successful report.
