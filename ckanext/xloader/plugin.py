@@ -116,7 +116,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         # extension will call resource_patch and this method should
         # be called again. However, url_changed will not be in the entity
         # once Validation does the patch.
-        if utils.is_validation_plugin_loaded() and \
+        if utils.awaiting_validation() and \
                 toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
 
             if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
@@ -136,15 +136,26 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 "id": entity.id,
             },
         )
+
+        if utils.awaiting_validation(resource_dict):
+            # If the resource requires validation, stop here if validation
+            # has not been performed or did not succeed. The Validation
+            # extension will call resource_patch and this method should
+            # be called again. However, url_changed will not be in the entity
+            # once Validation does the patch.
+            log.debug("Skipping xloading resource %s because the "
+                      "resource did not pass validation yet.", entity.id)
+            return
+        elif not getattr(entity, 'url_changed', False):
+            # do not submit to xloader if the url has not changed.
+            return
+
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
 
     def after_resource_create(self, context, resource_dict):
-        if utils.is_validation_plugin_loaded() and \
-                toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')) and \
-                resource_dict.get('validation_status', None) != 'success':
-
+        if utils.awaiting_validation(resource_dict):
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", resource_dict.get('id'))
             return
