@@ -82,22 +82,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 or not isinstance(entity, Resource):
             return
 
-        # If the resource requires validation, stop here if validation
-        # has not been performed or did not succeed. The Validation
-        # extension will call resource_patch and this method should
-        # be called again. However, url_changed will not be in the entity
-        # once Validation does the patch.
-        if utils.awaiting_validation() and \
-                toolkit.asbool(toolkit.config.get('ckanext.xloader.requires_validation')):
-
-            if entity.__dict__.get('extras', {}).get('validation_status', None) != 'success':
-                log.debug("Skipping xloading resource %s because the "
-                          "resource did not pass validation yet.", entity.id)
-                return
-
-        elif not getattr(entity, 'url_changed', False):
-            return
-
         context = {
             "ignore_auth": True,
         }
