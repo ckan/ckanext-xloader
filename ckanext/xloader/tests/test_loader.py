@@ -975,7 +975,6 @@ class TestLoadTabulator(TestLoadBase):
             u"text",
         ]
 
-
     # test disabled by default to avoid adding large file to repo and slow test
     @pytest.mark.skip
     def test_boston_311_complete(self):

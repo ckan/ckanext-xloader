@@ -42,6 +42,7 @@ MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
+MAX_RETRIES = 1
 RETRYABLE_ERRORS = (
     errors.DeadlockDetected,
     errors.LockNotAvailable,
@@ -120,7 +121,7 @@ def xloader_data_into_datastore(input):
     except Exception as e:
         if isinstance(e, RETRYABLE_ERRORS):
             tries = job_dict['metadata'].get('tries', 0)
-            if tries == 0:
+            if tries < MAX_RETRIES:
                 log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
                 job_dict['status'] = 'pending'
                 job_dict['metadata']['tries'] = tries + 1
