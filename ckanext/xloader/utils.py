@@ -33,6 +33,7 @@ class XLoaderFormats(object):
         if cls.formats is None:
             cls._formats = config.get("ckanext.xloader.formats")
             if cls._formats is not None:
+                # use config value. preserves empty list as well.
                 cls._formats = cls._formats.lower().split()
             else:
                 cls._formats = DEFAULT_FORMATS
@@ -113,6 +114,7 @@ def set_resource_metadata(update_dict):
     # better fix
 
     q = model.Session.query(model.Resource). \
+        with_for_update(of=model.Resource). \
         filter(model.Resource.id == update_dict['resource_id'])
     resource = q.one()
 
