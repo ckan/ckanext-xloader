@@ -13,6 +13,8 @@ from decimal import Decimal
 import ckan.plugins as p
 from ckan.plugins.toolkit import config
 
+from .job_exceptions import JobError
+
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
 DEFAULT_FORMATS = [
     "csv",
@@ -25,8 +27,6 @@ DEFAULT_FORMATS = [
     "ods",
     "application/vnd.oasis.opendocument.spreadsheet",
 ]
-
-from .job_exceptions import JobError
 
 
 class XLoaderFormats(object):

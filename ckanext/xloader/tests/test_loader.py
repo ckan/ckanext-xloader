@@ -962,7 +962,7 @@ class TestLoadTabulator(TestLoadBase):
         csv_filepath = get_sample_filepath("simple-large.csv")
         resource = factories.Resource()
         resource_id = resource['id']
-        fields = loader.load_table(
+        loader.load_table(
             csv_filepath,
             resource_id=resource_id,
             mimetype="text/csv",
@@ -974,7 +974,6 @@ class TestLoadTabulator(TestLoadBase):
             u"numeric",
             u"text",
         ]
-
 
     # test disabled by default to avoid adding large file to repo and slow test
     @pytest.mark.skip
