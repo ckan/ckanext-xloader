@@ -196,6 +196,12 @@ This setting is shared with other plugins that download resource files, such as 
 
     ckan.download_proxy = http://my-proxy:1234/
 
+You may also wish to configure the database to use your preferred date input style on COPY.
+For example, to make [PostgreSQL](https://www.postgresql.org/docs/current/runtime-config-client.html#RUNTIME-CONFIG-CLIENT-FORMAT)
+expect European (day-first) dates, you could add to ``postgresql.conf``:
+
+    datestyle=ISO,DMY
+
 ------------------------
 Developer installation
 ------------------------
