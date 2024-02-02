@@ -191,9 +191,7 @@ def add_pending_job(job_id, job_type, api_key,
     if not metadata:
         metadata = {}
 
-    conn = ENGINE.connect()
-    trans = conn.begin()
-    try:
+    with ENGINE.begin() as conn:
         conn.execute(JOBS_TABLE.insert().values(
             job_id=job_id,
             job_type=job_type,
@@ -225,12 +223,6 @@ def add_pending_job(job_id, job_type, api_key,
             )
         if inserts:
             conn.execute(METADATA_TABLE.insert(), inserts)
-        trans.commit()
-    except Exception:
-        trans.rollback()
-        raise
-    finally:
-        conn.close()
 
 
 class InvalidErrorObjectError(Exception):

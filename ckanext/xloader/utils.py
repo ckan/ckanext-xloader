@@ -9,12 +9,42 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
-from ckan.plugins.toolkit import h, _
+from ckan.plugins.toolkit import config, h, _
 
 from logging import getLogger
 
 
 log = getLogger(__name__)
+
+# resource.formats accepted by ckanext-xloader. Must be lowercase here.
+DEFAULT_FORMATS = [
+    "csv",
+    "application/csv",
+    "xls",
+    "xlsx",
+    "tsv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ods",
+    "application/vnd.oasis.opendocument.spreadsheet",
+]
+
+
+class XLoaderFormats(object):
+    formats = None
+
+    @classmethod
+    def is_it_an_xloader_format(cls, format_):
+        if cls.formats is None:
+            cls._formats = config.get("ckanext.xloader.formats")
+            if cls._formats is not None:
+                # use config value. preserves empty list as well.
+                cls._formats = cls._formats.lower().split()
+            else:
+                cls._formats = DEFAULT_FORMATS
+        if not format_:
+            return False
+        return format_.lower() in cls._formats
 
 
 def awaiting_validation(res_dict):
@@ -28,7 +58,7 @@ def awaiting_validation(res_dict):
     Checks ckanext.xloader.validation.enforce_schema config
     option value. Then checks the Resource's validation_status.
     """
-    if not p.toolkit.asbool(p.toolkit.config.get('ckanext.xloader.validation.requires_successful_report', False)):
+    if not p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False)):
         # validation.requires_successful_report is turned off, return right away
         return False
 
@@ -46,7 +76,7 @@ def awaiting_validation(res_dict):
         log.warning('ckanext.xloader.validation.requires_successful_report requires the ckanext-validation plugin to be activated.')
         return False
 
-    if p.toolkit.asbool(p.toolkit.config.get('ckanext.xloader.validation.enforce_schema', True)):
+    if p.toolkit.asbool(config.get('ckanext.xloader.validation.enforce_schema', True)):
         # validation.enforce_schema is turned on, so we will always look for `validation_status`
         if res_dict.get('validation_status', None) != 'success':
             return True
@@ -147,6 +177,7 @@ def set_resource_metadata(update_dict):
     # better fix
 
     q = model.Session.query(model.Resource). \
+        with_for_update(of=model.Resource). \
         filter(model.Resource.id == update_dict['resource_id'])
     resource = q.one()
 
@@ -279,3 +310,13 @@ def type_guess(rows, types=TYPES, strict=False):
         guesses_tuples = [(t, guess[t]) for t in types if t in guess]
         _columns.append(max(guesses_tuples, key=lambda t_n: t_n[1])[0])
     return _columns
+
+
+def datastore_resource_exists(resource_id):
+    context = {'model': model, 'ignore_auth': True}
+    try:
+        response = p.toolkit.get_action('datastore_search')(context, dict(
+            id=resource_id, limit=0))
+    except p.toolkit.ObjectNotFound:
+        return False
+    return response or {'fields': []}
