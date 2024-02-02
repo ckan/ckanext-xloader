@@ -42,6 +42,7 @@ MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
+MAX_RETRIES = 1
 RETRYABLE_ERRORS = (
     errors.DeadlockDetected,
     errors.LockNotAvailable,
@@ -86,62 +87,6 @@ def xloader_data_into_datastore(input):
 
     job_id = get_current_job().id
     errored = False
-    try:
-        xloader_data_into_datastore_(input, job_dict)
-        job_dict['status'] = 'complete'
-        db.mark_job_as_completed(job_id, job_dict)
-    except JobError as e:
-        db.mark_job_as_errored(job_id, str(e))
-        job_dict['status'] = 'error'
-        job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
-        errored = True
-    except Exception as e:
-        if isinstance(e, RETRYABLE_ERRORS):
-            tries = job_dict['metadata'].get('tries', 0)
-            if tries == 0:
-                log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
-                job_dict['status'] = 'pending'
-                job_dict['metadata']['tries'] = tries + 1
-                enqueue_job(
-                    xloader_data_into_datastore,
-                    [input],
-                    rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
-                )
-                return None
-
-        db.mark_job_as_errored(
-            job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
-        job_dict['status'] = 'error'
-        job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
-        errored = True
-    finally:
-        # job_dict is defined in xloader_hook's docstring
-        is_saved_ok = callback_xloader_hook(result_url=input['result_url'],
-                                            api_key=input['api_key'],
-                                            job_dict=job_dict)
-        errored = errored or not is_saved_ok
-    return 'error' if errored else None
-
-
-def xloader_data_into_datastore_(input, job_dict):
-    '''This function:
-    * downloads the resource (metadata) from CKAN
-    * downloads the data
-    * calls the loader to load the data into DataStore
-    * calls back to CKAN with the new status
-
-    (datapusher called this function 'push_to_datastore')
-    '''
-    job_id = get_current_job().id
-    db.init(config)
-
-    # Store details of the job in the db
-    try:
-        db.add_pending_job(job_id, **input)
-    except sa.exc.IntegrityError:
-        raise JobError('job_id {} already exists'.format(job_id))
 
     # Set-up logging to the db
     handler = StoringHandler(job_id, input)
@@ -154,6 +99,66 @@ def xloader_data_into_datastore_(input, job_dict):
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
 
+    db.init(config)
+    try:
+        # Store details of the job in the db
+        db.add_pending_job(job_id, **input)
+        xloader_data_into_datastore_(input, job_dict, logger)
+        job_dict['status'] = 'complete'
+        db.mark_job_as_completed(job_id, job_dict)
+    except sa.exc.IntegrityError as e:
+        db.mark_job_as_errored(job_id, str(e))
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
+        log.error('xloader error: job_id %s already exists', job_id)
+        errored = True
+    except JobError as e:
+        db.mark_job_as_errored(job_id, str(e))
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
+        errored = True
+    except Exception as e:
+        if isinstance(e, RETRYABLE_ERRORS):
+            tries = job_dict['metadata'].get('tries', 0)
+            if tries < MAX_RETRIES:
+                tries = tries + 1
+                log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
+                job_dict['status'] = 'pending'
+                job_dict['metadata']['tries'] = tries
+                enqueue_job(
+                    xloader_data_into_datastore,
+                    [input],
+                    title="retry xloader_data_into_datastore: resource: {} attempt {}".format(
+                        job_dict['metadata']['resource_id'], tries),
+                    rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
+                )
+                return None
+
+        db.mark_job_as_errored(
+            job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
+        job_dict['status'] = 'error'
+        job_dict['error'] = str(e)
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
+        errored = True
+    finally:
+        # job_dict is defined in xloader_hook's docstring
+        is_saved_ok = callback_xloader_hook(result_url=input['result_url'],
+                                            api_key=input['api_key'],
+                                            job_dict=job_dict)
+        errored = errored or not is_saved_ok
+    return 'error' if errored else None
+
+
+def xloader_data_into_datastore_(input, job_dict, logger):
+    '''This function:
+    * downloads the resource (metadata) from CKAN
+    * downloads the data
+    * calls the loader to load the data into DataStore
+    * calls back to CKAN with the new status
+
+    (datapusher called this function 'push_to_datastore')
+    '''
     validate_input(input)
 
     data = input['metadata']
@@ -197,10 +202,11 @@ def xloader_data_into_datastore_(input, job_dict):
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
         set_datastore_active(data, resource, logger)
-        job_dict['status'] = 'running_but_viewable'
-        callback_xloader_hook(result_url=input['result_url'],
-                              api_key=api_key,
-                              job_dict=job_dict)
+        if 'result_url' in input:
+            job_dict['status'] = 'running_but_viewable'
+            callback_xloader_hook(result_url=input['result_url'],
+                                  api_key=api_key,
+                                  job_dict=job_dict)
         logger.info('Data now available to users: %s', resource_ckan_url)
         loader.create_column_indexes(
             fields=fields,
