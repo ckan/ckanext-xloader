@@ -950,6 +950,23 @@ class TestLoadTabulator(TestLoadBase):
             u"text",
         ]
 
+    def test_simple_large_file(self, Session):
+        csv_filepath = get_sample_filepath("simple-large.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+            u"numeric",
+            u"text",
+        ]
+
     # test disabled by default to avoid adding large file to repo and slow test
     @pytest.mark.skip
     def test_boston_311_complete(self):

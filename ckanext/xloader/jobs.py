@@ -42,6 +42,7 @@ MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
+MAX_RETRIES = 1
 RETRYABLE_ERRORS = (
     errors.DeadlockDetected,
     errors.LockNotAvailable,
@@ -92,18 +93,21 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
         errored = True
     except Exception as e:
         if isinstance(e, RETRYABLE_ERRORS):
             tries = job_dict['metadata'].get('tries', 0)
-            if tries == 0:
+            if tries < MAX_RETRIES:
+                tries = tries + 1
                 log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
                 job_dict['status'] = 'pending'
-                job_dict['metadata']['tries'] = tries + 1
+                job_dict['metadata']['tries'] = tries
                 enqueue_job(
                     xloader_data_into_datastore,
                     [input],
+                    title="retry xloader_data_into_datastore: resource: {} attempt {}".format(
+                        job_dict['metadata']['resource_id'], tries),
                     rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
                 )
                 return None
@@ -112,7 +116,7 @@ def xloader_data_into_datastore(input):
             job_id, traceback.format_tb(sys.exc_info()[2])[-1] + repr(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log.error('xloader error: {0}, {1}'.format(e, traceback.format_exc()))
+        log.error('xloader error: %s, %s', e, traceback.format_exc())
         errored = True
     finally:
         # job_dict is defined in xloader_hook's docstring
@@ -562,8 +566,7 @@ class StoringHandler(logging.Handler):
         self.input = input
 
     def emit(self, record):
-        conn = db.ENGINE.connect()
-        try:
+        with db.ENGINE.connect() as conn:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
             message = str(record.getMessage())
@@ -579,8 +582,6 @@ class StoringHandler(logging.Handler):
                 module=module,
                 funcName=funcName,
                 lineno=record.lineno))
-        finally:
-            conn.close()
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):

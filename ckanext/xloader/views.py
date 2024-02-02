@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint
 
 from ckan.plugins.toolkit import _, h, g, render, request, abort, NotAuthorized, get_action, ObjectNotFound
 
