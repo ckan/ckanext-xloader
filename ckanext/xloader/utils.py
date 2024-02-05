@@ -79,7 +79,7 @@ def awaiting_validation(res_dict):
     if (p.toolkit.asbool(config.get('ckanext.xloader.validation.enforce_schema', True))
             or res_dict.get('schema', None)) and res_dict.get('validation_status', None) != 'success':
 
-        # either validation.enforce_schema is turned on or it is off and there is not schema to enfroce,
+        # either validation.enforce_schema is turned on or it is off and there is a schema,
         # we then explicitly check for the `validation_status` report to be `success``
         return True
 
