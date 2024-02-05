@@ -138,6 +138,12 @@ groups:
 
             See https://github.com/frictionlessdata/ckanext-validation?tab=readme-ov-file#data-schema
             for more details.
+      - key: ckanext.xloader.clean_datastore_tables
+        default: False
+        example: True
+        description: |
+          Enqueue jobs to remove Datastore tables from Resources that have a format
+          that is not in ckanext.xloader.formats after a Resource is updated.
         type: bool
         required: false
 
