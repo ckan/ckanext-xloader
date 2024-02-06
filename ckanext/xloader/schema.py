@@ -29,6 +29,7 @@ def xloader_submit_schema():
         'id': [ignore_missing],
         'set_url_type': [ignore_missing, boolean_validator],
         'ignore_hash': [ignore_missing, boolean_validator],
+        'sync_mode': [ignore_missing, boolean_validator],
         '__junk': [empty],
         '__before': [dsschema.rename('id', 'resource_id')]
     }

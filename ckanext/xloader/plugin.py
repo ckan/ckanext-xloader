@@ -104,6 +104,12 @@ class xloaderPlugin(plugins.SingletonPlugin):
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", entity.id)
             return
+        elif utils.do_chain_after_validation(resource_dict.get('id')):
+            # At this point, the Resource has passed validation requirements,
+            # and chainging is turned on. We will execute XLoader right away,
+            # instead of enqueueing a job.
+            self._submit_to_xloader(resource_dict, sync_mode=True)
+            return
         elif not getattr(entity, 'url_changed', False):
             # do not submit to xloader if the url has not changed.
             return
@@ -116,6 +122,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if utils.awaiting_validation(resource_dict):
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", resource_dict.get('id'))
+            return
+
+        if utils.do_chain_after_validation(resource_dict.get('id')):
+            self._submit_to_xloader(resource_dict, sync_mode=True)
             return
 
         self._submit_to_xloader(resource_dict)
@@ -160,7 +170,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         def after_update(self, context, resource_dict):
             self.after_resource_update(context, resource_dict)
 
-    def _submit_to_xloader(self, resource_dict):
+    def _submit_to_xloader(self, resource_dict, sync_mode=False):
         context = {"ignore_auth": True, "defer_commit": True}
         if not XLoaderFormats.is_it_an_xloader_format(resource_dict["format"]):
             log.debug(
@@ -187,6 +197,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
                 {
                     "resource_id": resource_dict["id"],
                     "ignore_hash": self.ignore_hash,
+                    "sync_mode": sync_mode,
                 },
             )
         except toolkit.ValidationError as e:

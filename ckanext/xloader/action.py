@@ -40,6 +40,10 @@ def xloader_submit(context, data_dict):
     :param ignore_hash: If set to True, the xloader will reload the file
         even if it haven't changed. (optional, default: False)
     :type ignore_hash: bool
+    :param sync_mode: If set to True, the xloader callback will be executed right
+        away, instead of a job being enqueued. It will also delete any existing jobs
+        for the given resource. (optional, default: False)
+    :type sync_mode: bool
 
     Returns ``True`` if the job has been submitted and ``False`` if the job
     has not been submitted, i.e. when ckanext-xloader is not configured.
@@ -52,6 +56,9 @@ def xloader_submit(context, data_dict):
         raise p.toolkit.ValidationError(errors)
 
     p.toolkit.check_access('xloader_submit', context, data_dict)
+
+    sync_mode = data_dict.pop('sync_mode', False)
+    #TODO: implement the sync_mode logic
 
     res_id = data_dict['resource_id']
     try:

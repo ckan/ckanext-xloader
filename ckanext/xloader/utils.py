@@ -2,6 +2,7 @@
 
 import json
 import datetime
+from rq import get_current_job
 
 from ckan import model
 from ckan.lib import search
@@ -48,6 +49,7 @@ class XLoaderFormats(object):
 
 
 def awaiting_validation(res_dict):
+    # type: (dict) -> bool
     """
     Checks the existence of a logic action from the ckanext-validation
     plugin, thus supporting any extending of the Validation Plugin class.
@@ -86,6 +88,39 @@ def awaiting_validation(res_dict):
     # at this point, we can assume that the Resource is not waiting for Validation.
     # or that the Resource does not have a Validation Schema and we are not enforcing schemas.
     return False
+
+
+def do_chain_after_validation(resource_id):
+    # type: (str) -> bool
+    if not p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False)):
+        # we are not requiring resources to pass validation
+        return False
+
+    if not p.toolkit.asbool(config.get('ckanext.xloader.validation.chain_xloader', True)):
+        # we are not chaining validation to xloader
+        return False
+
+    current_job = get_current_job()
+
+    if not current_job:
+        # we are outside of the job context, thus not running a job
+        return False
+
+    if current_job.func_name != 'ckanext.validation.jobs.run_validation_job':
+        # the current running job is not the ckanext-validation validate job
+        #FIXME: how to do a better check for the caller in the stack??
+        return False
+
+    try:
+        job_rid = current_job.args[0].get('id', None)
+    except (KeyError):
+        job_rid = None
+    if resource_id != job_rid:
+        # the current running job's Resource ID is not
+        # the same as the passed Resource ID
+        return False
+
+    return True
 
 
 def resource_data(id, resource_id, rows=None):
