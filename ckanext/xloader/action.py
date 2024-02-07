@@ -165,26 +165,22 @@ def xloader_submit(context, data_dict):
     log.debug("Timeout for XLoading resource %s is %s", res_id, timeout)
 
     try:
-        if sync:
-            jobs.xloader_data_into_datastore(data)
-        else:
-            job = enqueue_job(
-                jobs.xloader_data_into_datastore, [data],
-                title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
-                rq_kwargs=dict(timeout=timeout)
-            )
+        job = enqueue_job(
+            jobs.xloader_data_into_datastore, [data],
+            title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
+            rq_kwargs=dict(timeout=timeout, at_front=sync)
+        )
     except Exception:
         if sync:
             log.exception('Unable to xloader res_id=%s', res_id)
         else:
             log.exception('Unable to enqueued xloader res_id=%s', res_id)
         return False
+    log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
+    value = json.dumps({'job_id': job.id})
+
     if sync:
-        log.debug('Ran xloader in sync mode res_id=%s', res_id)
-        value = json.dumps({'job_id': 'sync.%s' % res_id})
-    else:
-        log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
-        value = json.dumps({'job_id': job.id})
+        log.debug('Pushed xloader sync mode job=%s res_id=%s to front of queue', job.id, res_id)
 
     task['value'] = value
     task['state'] = 'pending'

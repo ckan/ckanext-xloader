@@ -105,13 +105,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
                       "resource did not pass validation yet.", entity.id)
             return
         elif utils.do_chain_after_validation(resource_dict):
-            #FIXME: when validation does resource_patch, the url_changed will
-            # always be false. But if we do the sync submit here, we will always
-            # be in a loop...
-
             # At this point, the Resource has passed validation requirements,
-            # and chainging is turned on. We will execute XLoader right away,
-            # instead of enqueueing a job.
+            # and chaining is turned on. We will execute XLoader right away,
+            # inside of the Validation job, instead of enqueueing a job.
             self._submit_to_xloader(resource_dict, sync=True)
             return
         elif not getattr(entity, 'url_changed', False):

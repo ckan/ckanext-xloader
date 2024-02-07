@@ -115,7 +115,7 @@ def do_chain_after_validation(res_dict):
         job_rid = None
     if res_dict.get('id', None) != job_rid:
         # the current running job's Resource ID is not
-        # the same as the passed Resource ID
+        # the same as the passed Resource's ID
         return False
 
     return True
