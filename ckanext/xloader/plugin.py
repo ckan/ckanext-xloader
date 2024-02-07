@@ -104,11 +104,15 @@ class xloaderPlugin(plugins.SingletonPlugin):
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", entity.id)
             return
-        elif utils.do_chain_after_validation(resource_dict.get('id')):
+        elif utils.do_chain_after_validation(resource_dict):
+            #FIXME: when validation does resource_patch, the url_changed will
+            # always be false. But if we do the sync submit here, we will always
+            # be in a loop...
+
             # At this point, the Resource has passed validation requirements,
             # and chainging is turned on. We will execute XLoader right away,
             # instead of enqueueing a job.
-            self._submit_to_xloader(resource_dict, sync_mode=True)
+            self._submit_to_xloader(resource_dict, sync=True)
             return
         elif not getattr(entity, 'url_changed', False):
             # do not submit to xloader if the url has not changed.
@@ -124,8 +128,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
                       "resource did not pass validation yet.", resource_dict.get('id'))
             return
 
-        if utils.do_chain_after_validation(resource_dict.get('id')):
-            self._submit_to_xloader(resource_dict, sync_mode=True)
+        if utils.do_chain_after_validation(resource_dict):
+            self._submit_to_xloader(resource_dict, sync=True)
             return
 
         self._submit_to_xloader(resource_dict)
@@ -170,7 +174,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         def after_update(self, context, resource_dict):
             self.after_resource_update(context, resource_dict)
 
-    def _submit_to_xloader(self, resource_dict, sync_mode=False):
+    def _submit_to_xloader(self, resource_dict, sync=False):
         context = {"ignore_auth": True, "defer_commit": True}
         if not XLoaderFormats.is_it_an_xloader_format(resource_dict["format"]):
             log.debug(
@@ -189,15 +193,20 @@ class xloaderPlugin(plugins.SingletonPlugin):
             return
 
         try:
-            log.debug(
-                "Submitting resource %s to be xloadered", resource_dict["id"]
-            )
+            if sync:
+                log.debug(
+                    "xloadering resource %s in sync mode", resource_dict["id"]
+                )
+            else:
+                log.debug(
+                    "Submitting resource %s to be xloadered", resource_dict["id"]
+                )
             toolkit.get_action("xloader_submit")(
                 context,
                 {
                     "resource_id": resource_dict["id"],
                     "ignore_hash": self.ignore_hash,
-                    "sync_mode": sync_mode,
+                    "sync": sync,
                 },
             )
         except toolkit.ValidationError as e:
