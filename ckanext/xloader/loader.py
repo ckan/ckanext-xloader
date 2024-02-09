@@ -146,7 +146,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1.
-    skip_rows = list(range(1, header_offset + 1), {'type': 'preset', 'value': 'blank'})
+    skip_rows = list(range(1, header_offset + 1))
+    skip_rows.append({'type': 'preset', 'value': 'blank'})
 
     # Get the delimiter used in the file
     delimiter = stream.dialect.get('delimiter')
@@ -375,7 +376,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1. We also want to skip the header row.
-    skip_rows = list(range(1, header_offset + 2), {'type': 'preset', 'value': 'blank'})
+    skip_rows = list(range(1, header_offset + 2))
+    skip_rows.append({'type': 'preset', 'value': 'blank'})
 
     TYPES, TYPE_MAPPING = get_types()
     types = type_guess(stream.sample[1:], types=TYPES, strict=True)
