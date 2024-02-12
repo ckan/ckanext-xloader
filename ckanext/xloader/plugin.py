@@ -5,8 +5,12 @@ import logging
 from ckan import plugins
 from ckan.plugins import toolkit
 
+from ckan.model.domain_object import DomainObjectOperation
+from ckan.model.resource import Resource
+from ckan.model.package import Package
+
 from . import action, auth, helpers as xloader_helpers, utils
-from .loader import fulltext_function_exists, get_write_engine
+from ckanext.xloader.utils import XLoaderFormats
 
 try:
     config_declarations = toolkit.blanket.config_declarations
@@ -19,41 +23,11 @@ except AttributeError:
 log = logging.getLogger(__name__)
 
 
-# resource.formats accepted by ckanext-xloader. Must be lowercase here.
-DEFAULT_FORMATS = [
-    "csv",
-    "application/csv",
-    "xls",
-    "xlsx",
-    "tsv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "ods",
-    "application/vnd.oasis.opendocument.spreadsheet",
-]
-
-
-class XLoaderFormats(object):
-    formats = None
-
-    @classmethod
-    def is_it_an_xloader_format(cls, format_):
-        if cls.formats is None:
-            cls._formats = toolkit.config.get("ckanext.xloader.formats")
-            if cls._formats is not None:
-                cls._formats = cls._formats.lower().split()
-            else:
-                cls._formats = DEFAULT_FORMATS
-        if not format_:
-            return False
-        return format_.lower() in cls._formats
-
-
 @config_declarations
 class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable)
-    plugins.implements(plugins.IResourceUrlChange)
+    plugins.implements(plugins.IDomainObjectModification)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IAuthFunctions)
     plugins.implements(plugins.ITemplateHelpers)
@@ -94,18 +68,37 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
-    # IResourceUrlChange
+    # IDomainObjectModification
 
-    def notify(self, resource):
+    def notify(self, entity, operation):
+        # type: (Package|Resource, DomainObjectOperation) -> None
+        """
+        Runs before_commit to database for Packages and Resources.
+        We only want to check for changed Resources for this.
+        We want to check if values have changed, namely the url and the format.
+        See: ckan/model/modification.py.DomainObjectModificationExtension
+        """
+        if operation != DomainObjectOperation.changed \
+                or not isinstance(entity, Resource):
+            return
+
         context = {
             "ignore_auth": True,
         }
         resource_dict = toolkit.get_action("resource_show")(
             context,
             {
-                "id": resource.id,
+                "id": entity.id,
             },
         )
+
+        if _should_remove_unsupported_resource_from_datastore(resource_dict):
+            toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
+
+        if not getattr(entity, 'url_changed', False):
+            # do not submit to xloader if the url has not changed.
+            return
+
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
@@ -211,4 +204,41 @@ class xloaderPlugin(plugins.SingletonPlugin):
         return {
             "xloader_status": xloader_helpers.xloader_status,
             "xloader_status_description": xloader_helpers.xloader_status_description,
+            "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
+
+
+def _should_remove_unsupported_resource_from_datastore(res_dict):
+    if not toolkit.asbool(toolkit.config.get('ckanext.xloader.clean_datastore_tables', False)):
+        return False
+    return (not XLoaderFormats.is_it_an_xloader_format(res_dict.get('format', u''))
+            and (res_dict.get('url_type') == 'upload'
+                 or not res_dict.get('url_type'))
+            and (toolkit.asbool(res_dict.get('datastore_active', False))
+                 or toolkit.asbool(res_dict.get('extras', {}).get('datastore_active', False))))
+
+
+def _remove_unsupported_resource_from_datastore(resource_id):
+    """
+    Callback to remove unsupported datastore tables.
+    Controlled by config value: ckanext.xloader.clean_datastore_tables.
+    Double check the resource format. Only supported Xloader formats should have datastore tables.
+    If the resource format is not supported, we should delete the datastore tables.
+    """
+    context = {"ignore_auth": True}
+    try:
+        res = toolkit.get_action('resource_show')(context, {"id": resource_id})
+    except toolkit.ObjectNotFound:
+        log.error('Resource %s does not exist.', resource_id)
+        return
+
+    if _should_remove_unsupported_resource_from_datastore(res):
+        log.info('Unsupported resource format "%s". Deleting datastore tables for resource %s',
+                 res.get(u'format', u''), res['id'])
+        try:
+            toolkit.get_action('datastore_delete')(context, {
+                "resource_id": res['id'],
+                "force": True})
+            log.info('Datastore table dropped for resource %s', res['id'])
+        except toolkit.ObjectNotFound:
+            log.error('Datastore table for resource %s does not exist', res['id'])

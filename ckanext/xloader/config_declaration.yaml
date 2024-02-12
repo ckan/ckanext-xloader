@@ -29,9 +29,7 @@ groups:
         default: 1_000_000_000
         example: 100000
         description: |
-            The connection string for the jobs database used by XLoader. The
-            default of an sqlite file is fine for development. For production use a
-            Postgresql database.
+            The maximum file size that XLoader will attempt to load.
         type: int
         required: false
       - key: ckanext.xloader.use_type_guessing
@@ -57,6 +55,14 @@ groups:
 
             Strict means that a type will not be guessed if parsing fails for a single cell in the column.
         type: bool
+      - key: ckanext.xloader.max_type_guessing_length
+        default: 0
+        example: 100000
+        description: |
+            The maximum file size that will be passed to Tabulator if the
+            use_type_guessing flag is enabled. Larger files will use COPY even if
+            the flag is set. Defaults to 1/10 of the maximum content length.
+        type: int
         required: false
       - key: ckanext.xloader.parse_dates_dayfirst
         default: False
@@ -120,6 +126,14 @@ groups:
             Requests verifies SSL certificates for HTTPS requests. Setting verify to
             False should only be enabled during local development or testing. Default
             to True.
+        type: bool
+        required: false
+      - key: ckanext.xloader.clean_datastore_tables
+        default: False
+        example: True
+        description: |
+          Enqueue jobs to remove Datastore tables from Resources that have a format
+          that is not in ckanext.xloader.formats after a Resource is updated.
         type: bool
         required: false
 
