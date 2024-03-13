@@ -7,6 +7,7 @@ try:
 except ImportError:
     import mock
 from six import text_type as str
+
 from ckan.tests import helpers, factories
 from ckan.logic import _actions
 from ckanext.xloader.plugin import _should_remove_unsupported_resource_from_datastore

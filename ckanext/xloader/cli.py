@@ -26,7 +26,10 @@ def status():
 @click.argument(u'dataset-spec')
 @click.option('-y', is_flag=True, default=False, help='Always answer yes to questions')
 @click.option('--dry-run', is_flag=True, default=False, help='Don\'t actually submit any resources')
-def submit(dataset_spec, y, dry_run):
+@click.option('--queue', help='Queue name for asynchronous processing, unused if executing immediately')
+@click.option('--sync', is_flag=True, default=False,
+              help='Execute immediately instead of enqueueing for asynchronous processing')
+def submit(dataset_spec, y, dry_run, queue, sync):
     """
         xloader submit [options] <dataset-spec>
     """
@@ -34,15 +37,15 @@ def submit(dataset_spec, y, dry_run):
 
     if dataset_spec == 'all':
         cmd._setup_xloader_logger()
-        cmd._submit_all()
+        cmd._submit_all(sync=sync, queue=queue)
     elif dataset_spec == 'all-existing':
         _confirm_or_abort(y, dry_run)
         cmd._setup_xloader_logger()
-        cmd._submit_all_existing()
+        cmd._submit_all_existing(sync=sync, queue=queue)
     else:
         pkg_name_or_id = dataset_spec
         cmd._setup_xloader_logger()
-        cmd._submit_package(pkg_name_or_id)
+        cmd._submit_package(pkg_name_or_id, sync=sync, queue=queue)
 
     if cmd.error_occured:
         print('Finished but saw errors - see above for details')
