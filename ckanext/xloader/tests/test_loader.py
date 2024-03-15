@@ -632,6 +632,18 @@ class TestLoadCsv(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 3
 
+    def test_with_empty_lines(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_empty_lines.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 6
+
     def test_with_quoted_commas(self, Session):
         csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
         resource = factories.Resource()

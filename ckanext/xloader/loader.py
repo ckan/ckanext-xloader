@@ -148,6 +148,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1.
     skip_rows = list(range(1, header_offset + 1))
+    skip_rows.append({'type': 'preset', 'value': 'blank'})
 
     # Get the delimiter used in the file
     delimiter = stream.dialect.get('delimiter')
@@ -360,12 +361,14 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     try:
         file_format = os.path.splitext(table_filepath)[1].strip('.')
         with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                   skip_rows=[{'type': 'preset', 'value': 'blank'}],
                                    post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
             with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                       skip_rows=[{'type': 'preset', 'value': 'blank'}],
                                        post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
@@ -387,6 +390,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1. We also want to skip the header row.
     skip_rows = list(range(1, header_offset + 2))
+    skip_rows.append({'type': 'preset', 'value': 'blank'})
 
     TYPES, TYPE_MAPPING = get_types()
     strict_guessing = p.toolkit.asbool(
