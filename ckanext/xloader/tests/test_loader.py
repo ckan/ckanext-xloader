@@ -632,6 +632,18 @@ class TestLoadCsv(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 3
 
+    def test_with_empty_lines(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_empty_lines.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 6
+
     def test_with_quoted_commas(self, Session):
         csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
         resource = factories.Resource()
@@ -1217,6 +1229,30 @@ class TestLoadTabulator(TestLoadBase):
                 logger=logger,
             )
 
+    def test_with_blanks(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_blanks.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 3
+
+    def test_with_empty_lines(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_empty_lines.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 6
+
     def test_with_quoted_commas(self, Session):
         csv_filepath = get_sample_filepath("sample_with_quoted_commas.csv")
         resource = factories.Resource()
@@ -1240,6 +1276,18 @@ class TestLoadTabulator(TestLoadBase):
             logger=logger,
         )
         assert len(self._get_records(Session, resource_id)) == 266
+
+    def test_with_extra_blank_cells(self, Session):
+        csv_filepath = get_sample_filepath("sample_with_extra_blank_cells.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 1
 
     def test_with_mixed_quotes(self, Session):
         csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")
