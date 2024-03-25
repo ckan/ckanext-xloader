@@ -40,6 +40,10 @@ def xloader_submit(context, data_dict):
     :param ignore_hash: If set to True, the xloader will reload the file
         even if it haven't changed. (optional, default: False)
     :type ignore_hash: bool
+    :param sync: If set to True, the xloader callback will be executed right
+        away, instead of a job being enqueued. It will also delete any existing jobs
+        for the given resource. (optional, default: False)
+    :type sync: bool
 
     Returns ``True`` if the job has been submitted and ``False`` if the job
     has not been submitted, i.e. when ckanext-xloader is not configured.
@@ -52,6 +56,8 @@ def xloader_submit(context, data_dict):
         raise p.toolkit.ValidationError(errors)
 
     p.toolkit.check_access('xloader_submit', context, data_dict)
+
+    sync = data_dict.pop('sync', False)
 
     res_id = data_dict['resource_id']
     try:
@@ -162,14 +168,19 @@ def xloader_submit(context, data_dict):
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data],
             title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
-            rq_kwargs=dict(timeout=timeout)
+            rq_kwargs=dict(timeout=timeout, at_front=sync)
         )
     except Exception:
-        log.exception('Unable to enqueued xloader res_id=%s', res_id)
+        if sync:
+            log.exception('Unable to xloader res_id=%s', res_id)
+        else:
+            log.exception('Unable to enqueued xloader res_id=%s', res_id)
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
-
     value = json.dumps({'job_id': job.id})
+
+    if sync:
+        log.debug('Pushed xloader sync mode job=%s res_id=%s to front of queue', job.id, res_id)
 
     task['value'] = value
     task['state'] = 'pending'
