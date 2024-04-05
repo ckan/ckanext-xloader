@@ -4,6 +4,7 @@ try:
 except ImportError:
     import mock
 
+from ckan.plugins.toolkit import NotAuthorized
 from ckan.tests import helpers, factories
 
 from ckanext.xloader.utils import get_xloader_user_apitoken
@@ -29,6 +30,25 @@ class TestAction(object):
                 resource_id=res["id"],
             )
             assert 1 == enqueue_mock.call_count
+
+    def test_submit_to_custom_queue_without_auth(self):
+        # check that xloader_submit doesn't allow regular users to change queues
+        user = factories.User()
+        with pytest.raises(NotAuthorized):
+            helpers.call_auth(
+                "xloader_submit",
+                context=dict(user=user["name"], model=None),
+                queue='foo',
+            )
+
+    def test_submit_to_custom_queue_as_sysadmin(self):
+        # check that xloader_submit allows sysadmins to change queues
+        user = factories.Sysadmin()
+        assert helpers.call_auth(
+            "xloader_submit",
+            context=dict(user=user["name"], model=None),
+            queue='foo',
+        ) is True
 
     def test_duplicated_submits(self):
         def submit(res, user):
