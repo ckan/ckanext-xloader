@@ -124,6 +124,7 @@ def xloader_data_into_datastore(input):
             if tries < MAX_RETRIES:
                 tries = tries + 1
                 log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
+                logger.info("Job failed due to temporary error [%s], retrying", e)
                 job_dict['status'] = 'pending'
                 job_dict['metadata']['tries'] = tries
                 enqueue_job(

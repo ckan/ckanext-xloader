@@ -118,7 +118,7 @@ def _clear_datastore_resource(resource_id):
     '''
     engine = get_write_engine()
     with engine.begin() as conn:
-        conn.execute("SET LOCAL lock_timeout = '5s'")
+        conn.execute("SET LOCAL lock_timeout = '15s'")
         conn.execute('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id))
 
 
