@@ -447,7 +447,6 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             logger.info('Saving chunk %s', i)
             for row in records:
                 for column_index, column_name in enumerate(row):
-                    row[column_name] = str(row[column_name]).strip()  # strip white space around cell values
                     if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
                         row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
