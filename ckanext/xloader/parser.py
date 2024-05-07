@@ -31,8 +31,8 @@ class TypeConverter:
             for cell_index, cell_value in enumerate(row):
                 if cell_value is None:
                     row[cell_index] = ''
-                cell_value = cell_value.strip()  # strip white space around cell values
-                row[cell_index] = cell_value.strip()  # strip white space around cell values
+                cell_value = str(cell_value).strip()  # strip white space around cell values
+                row[cell_index] = str(cell_value).strip()  # strip white space around cell values
                 if not cell_value:
                     continue
                 cell_type = self.types[cell_index] if self.types else None
