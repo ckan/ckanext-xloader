@@ -169,11 +169,17 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         try:
             with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
-                stream.save(**save_args)
+                for row in stream:
+                    for _index, _cell in enumerate(row):
+                        row[_index] = str(_cell).strip()  # strip white space around cell values
+                    stream.save(**save_args)  # have to save inside of the tabulator stream iterator
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
-                stream.save(**save_args)
+                for row in stream:
+                    for _index, _cell in enumerate(row):
+                        row[_index] = str(_cell).strip()  # strip white space around cell values
+                    stream.save(**save_args)  # have to save inside of the tabulator stream iterator
         csv_filepath = f_write.name
 
         # datastore db connection
@@ -441,6 +447,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             logger.info('Saving chunk %s', i)
             for row in records:
                 for column_index, column_name in enumerate(row):
+                    row[column_name] = str(row[column_name]).strip()  # strip white space around cell values
                     if headers_dicts[column_index]['type'] in non_empty_types and row[column_name] == '':
                         row[column_name] = None
             send_resource_to_datastore(resource_id, headers_dicts, records)
