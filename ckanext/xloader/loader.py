@@ -174,6 +174,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         try:
             with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
+                stream.save(**save_args)  # have to save headers
                 for row in stream:
                     for _index, _cell in enumerate(row):
                         if isinstance(_cell, str):
@@ -184,6 +185,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
+                stream.save(**save_args)  # have to save headers
                 for row in stream:
                     for _index, _cell in enumerate(row):
                         if isinstance(_cell, str):
