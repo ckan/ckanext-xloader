@@ -171,14 +171,20 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                                        skip_rows=skip_rows) as stream:
                 for row in stream:
                     for _index, _cell in enumerate(row):
-                        row[_index] = str(_cell).strip()  # strip white space around cell values
+                        if isinstance(_cell, str):
+                            # strip white space around cell values
+                            #TODO: condition behind DataDictionary option??
+                            row[_index] = _cell.strip()
                     stream.save(**save_args)  # have to save inside of the tabulator stream iterator
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
                 for row in stream:
                     for _index, _cell in enumerate(row):
-                        row[_index] = str(_cell).strip()  # strip white space around cell values
+                        if isinstance(_cell, str):
+                            # strip white space around cell values
+                            #TODO: condition behind DataDictionary option??
+                            row[_index] = _cell.strip()
                     stream.save(**save_args)  # have to save inside of the tabulator stream iterator
         csv_filepath = f_write.name
 
