@@ -174,25 +174,27 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         try:
             with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
-                stream.save(**save_args)  # have to save headers
-                for row in stream:
-                    for _index, _cell in enumerate(row):
-                        if isinstance(_cell, str):
-                            # strip white space around cell values
-                            #TODO: condition behind DataDictionary option??
-                            row[_index] = _cell.strip()
-                    stream.save(**save_args)  # have to save inside of the tabulator stream iterator
+                super_iter = stream.iter
+                def strip_white_space_iter():
+                    for row in super_iter():
+                        for _index, _cell in enumerate(row):
+                            if isinstance(_cell, str):
+                                row[_index] = _cell.strip()
+                        yield row
+                stream.iter = strip_white_space_iter
+                stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
-                stream.save(**save_args)  # have to save headers
-                for row in stream:
-                    for _index, _cell in enumerate(row):
-                        if isinstance(_cell, str):
-                            # strip white space around cell values
-                            #TODO: condition behind DataDictionary option??
-                            row[_index] = _cell.strip()
-                    stream.save(**save_args)  # have to save inside of the tabulator stream iterator
+                super_iter = stream.iter
+                def strip_white_space_iter():
+                    for row in super_iter():
+                        for _index, _cell in enumerate(row):
+                            if isinstance(_cell, str):
+                                row[_index] = _cell.strip()
+                        yield row
+                stream.iter = strip_white_space_iter
+                stream.save(**save_args)
         csv_filepath = f_write.name
 
         # datastore db connection
