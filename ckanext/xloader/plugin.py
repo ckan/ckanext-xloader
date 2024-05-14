@@ -4,12 +4,13 @@ import logging
 
 from ckan import plugins
 from ckan.plugins import toolkit
+from ckanext.datastore.interfaces import IDataDictionaryForm
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 from ckan.model.package import Package
 
-from . import action, auth, helpers as xloader_helpers, utils
+from . import action, auth, helpers as xloader_helpers, utils, validators
 from ckanext.xloader.utils import XLoaderFormats
 
 try:
@@ -34,6 +35,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    plugins.implements(plugins.IValidators)
+    plugins.implements(IDataDictionaryForm, inherit=True)
 
     # IClick
     def get_commands(self):
@@ -206,6 +209,18 @@ class xloaderPlugin(plugins.SingletonPlugin):
             "xloader_status_description": xloader_helpers.xloader_status_description,
             "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
+
+    # IValidators
+
+    def get_validators(self):
+        return {'xloader_datastore_fields_validator': validators.datastore_fields_validator}
+
+    # IDataDictionaryForm
+
+    def update_datastore_create_schema(self, schema):
+        info_validator = toolkit.get_validator('xloader_datastore_fields_validator')
+        schema['fields']['info'] = [info_validator] + schema['fields']['info']
+        return schema
 
 
 def _should_remove_unsupported_resource_from_datastore(res_dict):

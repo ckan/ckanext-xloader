@@ -18,8 +18,9 @@ class TypeConverter:
     as desired.
     """
 
-    def __init__(self, types=None):
+    def __init__(self, types=None, info=None):
         self.types = types
+        self.info = info
 
     def convert_types(self, extended_rows):
         """ Try converting cells to numbers or timestamps if applicable.
@@ -31,11 +32,11 @@ class TypeConverter:
             for cell_index, cell_value in enumerate(row):
                 if cell_value is None:
                     row[cell_index] = ''
-                if isinstance(cell_value, str):
-                    # strip white space around cell values
-                    #TODO: condition behind DataDictionary option??
-                    cell_value = cell_value.strip()
-                    row[cell_index] = cell_value.strip()
+                if self.info:
+                    # only strip white space if strip_extra_white is True
+                    if self.info[cell_index].get('strip_extra_white', True) and isinstance(cell_value, str):
+                        cell_value = cell_value.strip()
+                        row[cell_index] = cell_value.strip()
                 if not cell_value:
                     continue
                 cell_type = self.types[cell_index] if self.types else None

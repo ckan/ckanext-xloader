@@ -1,0 +1,11 @@
+{% ckan_extends %}
+{% import 'macros/form.html' as form %}
+
+{% block additional_fields %}
+  {{ super() }}
+  {{ form.select('info__' ~ position ~ '__strip_extra_white',
+    label=_('Strip Extra Leading and Trailing White Space'), options=[
+    {'text': 'Yes', 'value': true},
+    {'text': 'No', 'value': false},
+    ], selected=field.get('info', {}).get('strip_extra_white')) }}
+{% endblock %}

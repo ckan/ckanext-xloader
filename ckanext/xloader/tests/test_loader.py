@@ -227,7 +227,7 @@ class TestLoadCsv(TestLoadBase):
                 None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Street Light Outages",
                 u"Public Works Department",
                 u"Street Lights",
@@ -259,14 +259,14 @@ class TestLoadCsv(TestLoadBase):
                 None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
                 u"Graffiti Removal",
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # strip white spaces
                 None,
                 u"522 Saratoga St  East Boston  MA  02128",
                 u"1",
@@ -291,14 +291,14 @@ class TestLoadCsv(TestLoadBase):
                 None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
                 u"Graffiti Removal",
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # strip white spaces
                 None,
                 u"965 Bennington St  East Boston  MA  02128",
                 u"1",
@@ -1088,7 +1088,7 @@ class TestLoadTabulator(TestLoadBase):
                 u"Graffiti Removal",
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
-                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",   # strip white spaces
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # strip white spaces
                 u"",
                 u"522 Saratoga St  East Boston  MA  02128",
                 Decimal("1"),

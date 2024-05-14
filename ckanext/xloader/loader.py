@@ -170,33 +170,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
-        try:
-            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
-                                       skip_rows=skip_rows) as stream:
-                super_iter = stream.iter
-                def strip_white_space_iter():
-                    for row in super_iter():
-                        for _index, _cell in enumerate(row):
-                            if isinstance(_cell, str):
-                                row[_index] = _cell.strip()
-                        yield row
-                stream.iter = strip_white_space_iter
-                stream.save(**save_args)
-        except (EncodingError, UnicodeDecodeError):
-            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
-                        skip_rows=skip_rows) as stream:
-                super_iter = stream.iter
-                def strip_white_space_iter():
-                    for row in super_iter():
-                        for _index, _cell in enumerate(row):
-                            if isinstance(_cell, str):
-                                row[_index] = _cell.strip()
-                        yield row
-                stream.iter = strip_white_space_iter
-                stream.save(**save_args)
-        csv_filepath = f_write.name
-
         # datastore db connection
         engine = get_write_engine()
 
@@ -238,10 +211,39 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         else:
             fields = [
                 {'id': header_name,
-                 'type': 'text'}
+                 'type': 'text',}
                 for header_name in headers]
 
         logger.info('Fields: %s', fields)
+
+        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+        try:
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
+                                       skip_rows=skip_rows) as stream:
+                super_iter = stream.iter
+                def strip_white_space_iter():
+                    for row in super_iter():
+                        for _index, _cell in enumerate(row):
+                            # only strip white space if strip_extra_white is True
+                            if fields[_index].get('info', {}).get('strip_extra_white', True) and isinstance(_cell, str):
+                                row[_index] = _cell.strip()
+                        yield row
+                stream.iter = strip_white_space_iter
+                stream.save(**save_args)
+        except (EncodingError, UnicodeDecodeError):
+            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
+                        skip_rows=skip_rows) as stream:
+                super_iter = stream.iter
+                def strip_white_space_iter():
+                    for row in super_iter():
+                        for _index, _cell in enumerate(row):
+                            # only strip white space if strip_extra_white is True
+                            if fields[_index].get('info', {}).get('strip_extra_white', True) and isinstance(_cell, str):
+                                row[_index] = _cell.strip()
+                        yield row
+                stream.iter = strip_white_space_iter
+                stream.save(**save_args)
+        csv_filepath = f_write.name
 
         # Create table
         from ckan import model
@@ -401,6 +403,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     TYPES, TYPE_MAPPING = get_types()
     types = type_guess(stream.sample[1:], types=TYPES, strict=True)
+    info = []
 
     # override with types user requested
     if existing_info:
@@ -411,9 +414,12 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 'timestamp': datetime.datetime,
             }.get(existing_info.get(h, {}).get('type_override'), t)
             for t, h in zip(types, headers)]
+        for h in headers:
+            info.append(existing_info.get(h, {}))
+
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    type_converter = TypeConverter(types=types)
+    type_converter = TypeConverter(types=types, info=info)
 
     with UnknownEncodingStream(table_filepath, file_format, decoding_result,
                                skip_rows=skip_rows,
