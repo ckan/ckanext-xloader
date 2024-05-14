@@ -230,7 +230,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                     for row in super_iter():
                         for _index, _cell in enumerate(row):
                             # only strip white space if strip_extra_white is True
-                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                            if fields and fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
                                 row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
@@ -243,7 +243,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                     for row in super_iter():
                         for _index, _cell in enumerate(row):
                             # only strip white space if strip_extra_white is True
-                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                            if fields and fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
                                 row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
@@ -424,6 +424,10 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for t, h in zip(types, headers)]
         for h in headers:
             fields.append(existing_fields_by_headers.get(h, {}))
+    else:
+        # default strip_extra_white
+        for h in headers:
+            fields.append({'strip_extra_white': True})
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
     type_converter = TypeConverter(types=types, fields=fields)
@@ -452,6 +456,10 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     type_override = existing_info[h['id']].get('type_override')
                     if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
+        else:
+            # default strip_extra_white
+            for h in headers_dicts:
+                h['strip_extra_white'] = True
 
         logger.info('Determined headers and types: %s', headers_dicts)
 
