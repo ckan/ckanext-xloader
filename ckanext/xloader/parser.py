@@ -18,9 +18,9 @@ class TypeConverter:
     as desired.
     """
 
-    def __init__(self, types=None, info=None):
+    def __init__(self, types=None, fields=None):
         self.types = types
-        self.info = info
+        self.fields = fields
 
     def convert_types(self, extended_rows):
         """ Try converting cells to numbers or timestamps if applicable.
@@ -32,9 +32,9 @@ class TypeConverter:
             for cell_index, cell_value in enumerate(row):
                 if cell_value is None:
                     row[cell_index] = ''
-                if self.info:
+                if self.fields:
                     # only strip white space if strip_extra_white is True
-                    if self.info[cell_index].get('strip_extra_white', True) and isinstance(cell_value, str):
+                    if self.fields[cell_index].get('strip_extra_white', True) and isinstance(cell_value, str):
                         cell_value = cell_value.strip()
                         row[cell_index] = cell_value.strip()
                 if not cell_value:

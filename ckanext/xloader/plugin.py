@@ -10,7 +10,7 @@ from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 from ckan.model.package import Package
 
-from . import action, auth, helpers as xloader_helpers, utils, validators
+from . import action, auth, helpers as xloader_helpers, utils
 from ckanext.xloader.utils import XLoaderFormats
 
 try:
@@ -35,7 +35,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
-    plugins.implements(plugins.IValidators)
     plugins.implements(IDataDictionaryForm, inherit=True)
 
     # IClick
@@ -210,17 +209,19 @@ class xloaderPlugin(plugins.SingletonPlugin):
             "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
 
-    # IValidators
-
-    def get_validators(self):
-        return {'xloader_datastore_fields_validator': validators.datastore_fields_validator}
-
     # IDataDictionaryForm
 
     def update_datastore_create_schema(self, schema):
-        info_validator = toolkit.get_validator('xloader_datastore_fields_validator')
-        schema['fields']['info'] = [info_validator] + schema['fields']['info']
+        default = toolkit.get_validator('default')
+        boolean_validator = toolkit.get_validator('boolean_validator')
+        to_datastore_plugin_data = toolkit.get_validator('to_datastore_plugin_data')
+        schema['fields']['strip_extra_white'] = [default(True), boolean_validator, to_datastore_plugin_data('xloader')]
         return schema
+
+    def update_datastore_info_field(self, field, plugin_data):
+        # expose all our non-secret plugin data in the field
+        field.update(plugin_data.get('xloader', {}))
+        return field
 
 
 def _should_remove_unsupported_resource_from_datastore(res_dict):

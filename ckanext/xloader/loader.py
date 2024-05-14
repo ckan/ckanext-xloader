@@ -177,10 +177,13 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         existing = datastore_resource_exists(resource_id)
         existing_info = {}
         if existing:
-            existing_fields = existing.get('fields', [])
+            ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
+            existing_fields = ds_info.get('fields', [])
             existing_info = dict((f['id'], f['info'])
                                  for f in existing_fields
                                  if 'info' in f)
+            existing_fields_by_headers = dict((f['id'], f)
+                                              for f in existing_fields)
 
             # Column types are either set (overridden) in the Data Dictionary page
             # or default to text type (which is robust)
@@ -195,6 +198,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             for f in fields:
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
+                    f['strip_extra_white'] = existing_fields_by_headers[f['id']].get('strip_extra_white', True)
 
             '''
             Delete or truncate existing datastore table before proceeding,
@@ -211,7 +215,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         else:
             fields = [
                 {'id': header_name,
-                 'type': 'text',}
+                 'type': 'text',
+                 'strip_extra_white': True,}
                 for header_name in headers]
 
         logger.info('Fields: %s', fields)
@@ -225,7 +230,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                     for row in super_iter():
                         for _index, _cell in enumerate(row):
                             # only strip white space if strip_extra_white is True
-                            if fields[_index].get('info', {}).get('strip_extra_white', True) and isinstance(_cell, str):
+                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
                                 row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
@@ -238,7 +243,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                     for row in super_iter():
                         for _index, _cell in enumerate(row):
                             # only strip white space if strip_extra_white is True
-                            if fields[_index].get('info', {}).get('strip_extra_white', True) and isinstance(_cell, str):
+                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
                                 row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
@@ -388,10 +393,13 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     existing = datastore_resource_exists(resource_id)
     existing_info = None
     if existing:
-        existing_fields = existing.get('fields', [])
+        ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
+        existing_fields = ds_info.get('fields', [])
         existing_info = dict(
             (f['id'], f['info'])
             for f in existing_fields if 'info' in f)
+        existing_fields_by_headers = dict((f['id'], f)
+                                          for f in existing_fields)
 
     # Some headers might have been converted from strings to floats and such.
     headers = encode_headers(headers)
@@ -403,7 +411,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
     TYPES, TYPE_MAPPING = get_types()
     types = type_guess(stream.sample[1:], types=TYPES, strict=True)
-    info = []
+    fields = []
 
     # override with types user requested
     if existing_info:
@@ -415,11 +423,10 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             }.get(existing_info.get(h, {}).get('type_override'), t)
             for t, h in zip(types, headers)]
         for h in headers:
-            info.append(existing_info.get(h, {}))
-
+            fields.append(existing_fields_by_headers.get(h, {}))
 
     headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
-    type_converter = TypeConverter(types=types, info=info)
+    type_converter = TypeConverter(types=types, fields=fields)
 
     with UnknownEncodingStream(table_filepath, file_format, decoding_result,
                                skip_rows=skip_rows,
@@ -440,6 +447,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for h in headers_dicts:
                 if h['id'] in existing_info:
                     h['info'] = existing_info[h['id']]
+                    h['strip_extra_white'] = existing_fields_by_headers[h['id']].get('strip_extra_white', True)
                     # create columns with types user requested
                     type_override = existing_info[h['id']].get('type_override')
                     if type_override in list(_TYPE_MAPPING.values()):
