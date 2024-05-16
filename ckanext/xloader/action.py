@@ -50,6 +50,8 @@ def xloader_submit(context, data_dict):
 
     :rtype: bool
     '''
+    p.toolkit.check_access('xloader_submit', context, data_dict)
+    custom_queue = data_dict.pop('queue', rq_jobs.DEFAULT_QUEUE_NAME)
     schema = context.get('schema', ckanext.xloader.schema.xloader_submit_schema())
     data_dict, errors = _validate(data_dict, schema, context)
     if errors:
@@ -58,7 +60,6 @@ def xloader_submit(context, data_dict):
     p.toolkit.check_access('xloader_submit', context, data_dict)
 
     sync = data_dict.pop('sync', False)
-
     res_id = data_dict['resource_id']
     try:
         resource_dict = p.toolkit.get_action('resource_show')(context, {
@@ -158,6 +159,10 @@ def xloader_submit(context, data_dict):
             'original_url': resource_dict.get('url'),
         }
     }
+    if custom_queue != rq_jobs.DEFAULT_QUEUE_NAME:
+        # Don't automatically retry if it's a custom run
+        data['metadata']['tries'] = jobs.MAX_RETRIES
+
     # Expand timeout for resources that have to be type-guessed
     timeout = config.get(
         'ckanext.xloader.job_timeout',
@@ -166,7 +171,7 @@ def xloader_submit(context, data_dict):
 
     try:
         job = enqueue_job(
-            jobs.xloader_data_into_datastore, [data],
+            jobs.xloader_data_into_datastore, [data], queue=custom_queue,
             title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
             rq_kwargs=dict(timeout=timeout, at_front=sync)
         )
