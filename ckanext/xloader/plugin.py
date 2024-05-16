@@ -13,6 +13,12 @@ from . import action, auth, helpers as xloader_helpers, utils
 from ckanext.xloader.utils import XLoaderFormats
 
 try:
+    from ckanext.validation.interfaces import IPipeValidation
+    HAS_IPIPE_VALIDATION = True
+except ImportError:
+    HAS_IPIPE_VALIDATION = False
+
+try:
     config_declarations = toolkit.blanket.config_declarations
 except AttributeError:
     # CKAN 2.9 does not have config_declarations.
@@ -34,6 +40,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    if HAS_IPIPE_VALIDATION:
+        plugins.implements(IPipeValidation)
 
     # IClick
     def get_commands(self):
@@ -68,6 +76,23 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
+    # IPipeValidation
+
+    def receive_validation_report(self, validation_report):
+        if utils.requires_successful_validation_report():
+            res_dict = toolkit.get_action('resource_show')({'ignore_auth': True},
+                                                           {'id': validation_report.get('resource_id')})
+            if (toolkit.asbool(toolkit.config.get('ckanext.xloader.validation.enforce_schema', True))
+                or res_dict.get('schema', None)) and validation_report.get('status') != 'success':
+                    # either validation.enforce_schema is turned on or it is off and there is a schema,
+                    # we then explicitly check for the `validation_status` report to be `success`
+                    return
+            # if validation is running in async mode, it is running from the redis workers.
+            # thus we need to do sync=True to have Xloader put the job at the front of the queue.
+            sync = toolkit.asbool(toolkit.config.get(u'ckanext.validation.run_on_update_async', True))
+            self._submit_to_xloader(res_dict, sync=sync)
+
+
     # IDomainObjectModification
 
     def notify(self, entity, operation):
@@ -95,7 +120,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
 
-        if not getattr(entity, 'url_changed', False):
+        if utils.requires_successful_validation_report():
+            log.debug("Skipping xloading resource %s because the "
+                      "resource did not pass validation yet.", entity.id)
+            return
+        elif not getattr(entity, 'url_changed', False):
             # do not submit to xloader if the url has not changed.
             return
 
@@ -104,6 +133,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IResourceController
 
     def after_resource_create(self, context, resource_dict):
+        if utils.requires_successful_validation_report():
+            log.debug("Skipping xloading resource %s because the "
+                      "resource did not pass validation yet.", resource_dict.get('id'))
+            return
+
         self._submit_to_xloader(resource_dict)
 
     def before_resource_show(self, resource_dict):
@@ -146,7 +180,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         def after_update(self, context, resource_dict):
             self.after_resource_update(context, resource_dict)
 
-    def _submit_to_xloader(self, resource_dict):
+    def _submit_to_xloader(self, resource_dict, sync=False):
         context = {"ignore_auth": True, "defer_commit": True}
         if not XLoaderFormats.is_it_an_xloader_format(resource_dict["format"]):
             log.debug(
@@ -165,14 +199,20 @@ class xloaderPlugin(plugins.SingletonPlugin):
             return
 
         try:
-            log.debug(
-                "Submitting resource %s to be xloadered", resource_dict["id"]
-            )
+            if sync:
+                log.debug(
+                    "xloadering resource %s in sync mode", resource_dict["id"]
+                )
+            else:
+                log.debug(
+                    "Submitting resource %s to be xloadered", resource_dict["id"]
+                )
             toolkit.get_action("xloader_submit")(
                 context,
                 {
                     "resource_id": resource_dict["id"],
                     "ignore_hash": self.ignore_hash,
+                    "sync": sync,
                 },
             )
         except toolkit.ValidationError as e:
