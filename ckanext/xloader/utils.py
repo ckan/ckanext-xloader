@@ -48,6 +48,10 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
+def requires_successful_validation_report():
+    return p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False))
+
+
 def awaiting_validation(res_dict):
     # type: (dict) -> bool
     """
@@ -60,7 +64,7 @@ def awaiting_validation(res_dict):
     Checks ckanext.xloader.validation.enforce_schema config
     option value. Then checks the Resource's validation_status.
     """
-    if not p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False)):
+    if not requires_successful_validation_report():
         # validation.requires_successful_report is turned off, return right away
         return False
 
@@ -88,37 +92,6 @@ def awaiting_validation(res_dict):
     # at this point, we can assume that the Resource is not waiting for Validation.
     # or that the Resource does not have a Validation Schema and we are not enforcing schemas.
     return False
-
-
-def do_chain_after_validation(res_dict):
-    # type: (dict) -> bool
-
-    current_job = get_current_job()
-
-    if not p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False)) \
-            or not p.toolkit.asbool(config.get('ckanext.xloader.validation.chain_xloader', True)) \
-            or not current_job:
-
-        # we are not requiring resources to pass validation
-        # OR we are not chaining validation to xloader
-        # OR we are outside of the job context, thus not running a job
-        return False
-
-    if current_job.func_name != 'ckanext.validation.jobs.run_validation_job':
-        # the current running job is not the ckanext-validation validate job
-        #FIXME: how to do a better check for the caller in the stack??
-        return False
-
-    try:
-        job_rid = current_job.args[0].get('id', None)
-    except (KeyError):
-        job_rid = None
-    if res_dict.get('id', None) != job_rid:
-        # the current running job's Resource ID is not
-        # the same as the passed Resource's ID
-        return False
-
-    return True
 
 
 def resource_data(id, resource_id, rows=None):

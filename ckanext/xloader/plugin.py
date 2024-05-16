@@ -13,6 +13,12 @@ from . import action, auth, helpers as xloader_helpers, utils
 from ckanext.xloader.utils import XLoaderFormats
 
 try:
+    from ckanext.validation.interfaces import IPipeValidation
+    HAS_IPIPE_VALIDATION = True
+except ImportError:
+    HAS_IPIPE_VALIDATION = False
+
+try:
     config_declarations = toolkit.blanket.config_declarations
 except AttributeError:
     # CKAN 2.9 does not have config_declarations.
@@ -34,6 +40,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    if HAS_IPIPE_VALIDATION:
+        plugins.implements(IPipeValidation)
 
     # IClick
     def get_commands(self):
@@ -68,6 +76,23 @@ class xloaderPlugin(plugins.SingletonPlugin):
                     )
                 )
 
+    # IPipeValidation
+
+    def receive_validation_report(self, validation_report):
+        if utils.requires_successful_validation_report():
+            res_dict = toolkit.get_action('resource_show')({'ignore_auth': True},
+                                                           {'id': validation_report.get('resource_id')})
+            if (toolkit.asbool(toolkit.config.get('ckanext.xloader.validation.enforce_schema', True))
+                or res_dict.get('schema', None)) and validation_report.get('status') != 'success':
+                    # either validation.enforce_schema is turned on or it is off and there is a schema,
+                    # we then explicitly check for the `validation_status` report to be `success`
+                    return
+            # if validation is running in async mode, it is running from the redis workers.
+            # thus we need to do sync=True to have Xloader put the job at the front of the queue.
+            sync = toolkit.asbool(toolkit.config.get(u'ckanext.validation.run_on_update_async', True))
+            self._submit_to_xloader(res_dict, sync=sync)
+
+
     # IDomainObjectModification
 
     def notify(self, entity, operation):
@@ -95,20 +120,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
 
-        if utils.awaiting_validation(resource_dict):
-            # If the resource requires validation, stop here if validation
-            # has not been performed or did not succeed. The Validation
-            # extension will call resource_patch and this method should
-            # be called again. However, url_changed will not be in the entity
-            # once Validation does the patch.
+        if utils.requires_successful_validation_report():
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", entity.id)
-            return
-        elif utils.do_chain_after_validation(resource_dict):
-            # At this point, the Resource has passed validation requirements,
-            # and chaining is turned on. We will execute XLoader right away,
-            # inside of the Validation job, instead of enqueueing a job.
-            self._submit_to_xloader(resource_dict, sync=True)
             return
         elif not getattr(entity, 'url_changed', False):
             # do not submit to xloader if the url has not changed.
@@ -119,13 +133,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IResourceController
 
     def after_resource_create(self, context, resource_dict):
-        if utils.awaiting_validation(resource_dict):
+        if utils.requires_successful_validation_report():
             log.debug("Skipping xloading resource %s because the "
                       "resource did not pass validation yet.", resource_dict.get('id'))
-            return
-
-        if utils.do_chain_after_validation(resource_dict):
-            self._submit_to_xloader(resource_dict, sync=True)
             return
 
         self._submit_to_xloader(resource_dict)

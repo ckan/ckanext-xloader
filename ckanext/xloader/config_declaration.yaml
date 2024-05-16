@@ -138,14 +138,6 @@ groups:
 
             See https://github.com/frictionlessdata/ckanext-validation?tab=readme-ov-file#data-schema
             for more details.
-      - key: ckanext.xloader.validation.chain_xloader
-        default: True
-        example: False
-        description: |
-            Resources that pass Validation will immediately get XLoadered instead of having
-            a job enqueued for it.
-
-            If this option is set to `False`, jobs will be enqueued like normal.
       - key: ckanext.xloader.clean_datastore_tables
         default: False
         example: True
