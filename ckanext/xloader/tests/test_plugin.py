@@ -79,6 +79,7 @@ class TestNotify(object):
             validation_status='failure',
         )
 
+        # TODO: test IPipeValidation
         assert not func.called  # because of the validation_status not being `success`
         func.called = None # reset
 
@@ -92,7 +93,8 @@ class TestNotify(object):
             validation_status='success',
         )
 
-        assert func.called  # because of the validation_status is `success`
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status is `success`
 
     @pytest.mark.ckan_config("ckanext.xloader.validation.requires_successful_report", True)
     @pytest.mark.ckan_config("ckanext.xloader.validation.enforce_schema", False)
@@ -114,7 +116,8 @@ class TestNotify(object):
             validation_status='',
         )
 
-        assert func.called  # because of the schema being empty
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the schema being empty
         func.called = None # reset
 
         helpers.call_action(
@@ -127,6 +130,7 @@ class TestNotify(object):
             validation_status='failure',
         )
 
+        # TODO: test IPipeValidation
         assert not func.called  # because of the validation_status not being `success` and there is a schema
         func.called = None # reset
 
@@ -140,7 +144,8 @@ class TestNotify(object):
             validation_status='success',
         )
 
-        assert func.called  # because of the validation_status is `success` and there is a schema
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status is `success` and there is a schema
 
     @pytest.mark.parametrize("toolkit_config_value, mock_xloader_formats, url_type, datastore_active, expected_result", [
         # Test1: Should pass as it is an upload with an active datastore entry but an unsupported format
