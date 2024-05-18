@@ -4,6 +4,7 @@ import logging
 
 from ckan import plugins
 from ckan.plugins import toolkit
+from ckanext.datastore.interfaces import IDataDictionaryForm
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
@@ -34,6 +35,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    plugins.implements(IDataDictionaryForm, inherit=True)
 
     # IClick
     def get_commands(self):
@@ -206,6 +208,20 @@ class xloaderPlugin(plugins.SingletonPlugin):
             "xloader_status_description": xloader_helpers.xloader_status_description,
             "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
         }
+
+    # IDataDictionaryForm
+
+    def update_datastore_create_schema(self, schema):
+        default = toolkit.get_validator('default')
+        boolean_validator = toolkit.get_validator('boolean_validator')
+        to_datastore_plugin_data = toolkit.get_validator('to_datastore_plugin_data')
+        schema['fields']['strip_extra_white'] = [default(True), boolean_validator, to_datastore_plugin_data('xloader')]
+        return schema
+
+    def update_datastore_info_field(self, field, plugin_data):
+        # expose all our non-secret plugin data in the field
+        field.update(plugin_data.get('xloader', {}))
+        return field
 
 
 def _should_remove_unsupported_resource_from_datastore(res_dict):
