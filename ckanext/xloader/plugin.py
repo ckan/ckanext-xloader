@@ -84,8 +84,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
                                                            {'id': validation_report.get('resource_id')})
             if (toolkit.asbool(toolkit.config.get('ckanext.xloader.validation.enforce_schema', True))
                 or res_dict.get('schema', None)) and validation_report.get('status') != 'success':
-                    # either validation.enforce_schema is turned on or it is off and there is a schema,
-                    # we then explicitly check for the `validation_status` report to be `success`
+                    # A schema is present, or required to be present
                     return
             # if validation is running in async mode, it is running from the redis workers.
             # thus we need to do sync=True to have Xloader put the job at the front of the queue.
@@ -121,7 +120,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
 
         if utils.requires_successful_validation_report():
-            log.debug("Skipping xloading resource %s because the "
+            log.debug("Deferring xloading resource %s because the "
                       "resource did not pass validation yet.", entity.id)
             return
         elif not getattr(entity, 'url_changed', False):
@@ -134,7 +133,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def after_resource_create(self, context, resource_dict):
         if utils.requires_successful_validation_report():
-            log.debug("Skipping xloading resource %s because the "
+            log.debug("Deferring xloading resource %s because the "
                       "resource did not pass validation yet.", resource_dict.get('id'))
             return
 
