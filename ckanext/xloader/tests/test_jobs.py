@@ -81,7 +81,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         with mock.patch("ckanext.xloader.jobs.get_response", get_response):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "File hash: d44fa65eda3675e11710682fdb5f1648" in stdout
-            assert "Fields: [{'id': 'x', 'type': 'text'}, {'id': 'y', 'type': 'text'}]" in stdout
+            assert "Fields: [{'id': 'x', 'type': 'text', 'strip_extra_white': True}, {'id': 'y', 'type': 'text', 'strip_extra_white': True}]" in stdout
             assert "Copying to database..." in stdout
             assert "Creating search index..." in stdout
             assert "Express Load completed" in stdout

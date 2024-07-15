@@ -228,6 +228,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
     def update_datastore_info_field(self, field, plugin_data):
         # expose all our non-secret plugin data in the field
         field.update(plugin_data.get('xloader', {}))
+        # CKAN version parody
+        if '_info' in plugin_data:
+            field.update({'info': plugin_data['_info']})
         return field
 
 
