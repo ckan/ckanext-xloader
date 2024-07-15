@@ -229,10 +229,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 super_iter = stream.iter
                 def strip_white_space_iter():
                     for row in super_iter():
-                        for _index, _cell in enumerate(row):
-                            # only strip white space if strip_extra_white is True
-                            if fields and fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
-                                row[_index] = _cell.strip()
+                        if len(row) == len(fields):
+                            for _index, _cell in enumerate(row):
+                                # only strip white space if strip_extra_white is True
+                                if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                                    row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
                 stream.save(**save_args)
@@ -242,10 +243,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 super_iter = stream.iter
                 def strip_white_space_iter():
                     for row in super_iter():
-                        for _index, _cell in enumerate(row):
-                            # only strip white space if strip_extra_white is True
-                            if fields and fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
-                                row[_index] = _cell.strip()
+                        if len(row) == len(fields):
+                            for _index, _cell in enumerate(row):
+                                # only strip white space if strip_extra_white is True
+                                if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                                    row[_index] = _cell.strip()
                         yield row
                 stream.iter = strip_white_space_iter
                 stream.save(**save_args)

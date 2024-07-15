@@ -34,10 +34,14 @@ class TypeConverter:
                     row[cell_index] = ''
                 if self.fields:
                     # only strip white space if strip_extra_white is True
-                    if self.fields[cell_index].get('strip_extra_white', True) and isinstance(cell_value, str):
+                    if self.fields[cell_index].get('strip_extra_white', True) and isinstance(cell_value, six.text_type):
                         cell_value = cell_value.strip()
                         row[cell_index] = cell_value.strip()
                 if not cell_value:
+                    # load_csv parody: empty of string type should be None
+                    if self.types and self.types[cell_index] == six.text_type:
+                        cell_value = None
+                        row[cell_index] = None
                     continue
                 cell_type = self.types[cell_index] if self.types else None
                 if cell_type in [Decimal, None]:

@@ -4,7 +4,6 @@ import logging
 
 from ckan import plugins
 from ckan.plugins import toolkit
-from ckanext.datastore.interfaces import IDataDictionaryForm
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
@@ -21,6 +20,12 @@ except AttributeError:
     def config_declarations(cls):
         return cls
 
+if toolkit.check_ckan_version(min_version='2.11'):
+    from ckanext.datastore.interfaces import IDataDictionaryForm
+    has_idata_dictionary_form = True
+else:
+    has_idata_dictionary_form = False
+
 log = logging.getLogger(__name__)
 
 
@@ -35,7 +40,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
-    plugins.implements(IDataDictionaryForm, inherit=True)
+    if has_idata_dictionary_form:
+        plugins.implements(IDataDictionaryForm, inherit=True)
 
     # IClick
     def get_commands(self):

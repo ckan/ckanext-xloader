@@ -1136,18 +1136,18 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153891"),
                 datetime.datetime(2017, 7, 6, 23, 38, 43),
                 datetime.datetime(2017, 7, 21, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u"",  # " " transforms to ""
+                None,  # " " transforms to None
                 u"Street Light Outages",
                 u"Public Works Department",  # "   " trailing whitespace gets trimmed
                 u"Street Lights",
                 u"Street Light Outages",
                 u"PWDx_Street Light Outages",
                 u"PWDx",
-                u"",
-                u"",
+                None,
+                None,
                 u"480 Harvard St  Dorchester  MA  02124",
                 Decimal("8"),
                 Decimal("7"),
@@ -1168,10 +1168,10 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153890"),
                 datetime.datetime(2017, 7, 6, 23, 29, 13),
                 datetime.datetime(2017, 9, 11, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u"",  # " " transforms to ""
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
@@ -1179,7 +1179,7 @@ class TestLoadTabulator(TestLoadBase):
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
                 u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # strip white spaces
-                u"",
+                None,
                 u"522 Saratoga St  East Boston  MA  02128",
                 Decimal("1"),
                 Decimal("9"),
@@ -1200,10 +1200,10 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153889"),
                 datetime.datetime(2017, 7, 6, 23, 24, 20),
                 datetime.datetime(2017, 9, 11, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u"",  # " " transforms to ""
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
@@ -1211,7 +1211,7 @@ class TestLoadTabulator(TestLoadBase):
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
                 u"https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # strip white spaces
-                u"",
+                None,
                 u"965 Bennington St  East Boston  MA  02128",
                 Decimal("1"),
                 Decimal("9"),

@@ -3,9 +3,11 @@
 
 {% block additional_fields %}
   {{ super() }}
-  {{ form.select('fields__' ~ position ~ '__strip_extra_white',
-    label=_('Strip Extra Leading and Trailing White Space'), options=[
-    {'text': _('Yes'), 'value': true},
-    {'text': _('No'), 'value': false},
-    ], selected=field.get('strip_extra_white')) }}
+  {% if h.check_ckan_version(min_version='2.11') %}
+    {{ form.select('fields__' ~ position ~ '__strip_extra_white',
+      label=_('Strip Extra Leading and Trailing White Space'), options=[
+      {'text': _('Yes'), 'value': true},
+      {'text': _('No'), 'value': false},
+      ], selected=field.get('strip_extra_white')) }}
+  {% endif %}
 {% endblock %}
