@@ -4,10 +4,14 @@
 {% block additional_fields %}
   {{ super() }}
   {% if h.check_ckan_version(min_version='2.11') %}
-    {{ form.select('fields__' ~ position ~ '__strip_extra_white',
-      label=_('Strip Extra Leading and Trailing White Space'), options=[
-      {'text': _('Yes'), 'value': true},
-      {'text': _('No'), 'value': false},
-      ], selected=field.get('strip_extra_white')) }}
+    {% set field_prefix = 'fields__' %}
+  {% else %}
+    {% set field_prefix = 'info__' %}
   {% endif %}
+  {% set is_selected = field.get('info', {}).get('strip_extra_white', field.get('strip_extra_white')) != 'False' %}
+  {{ form.select(field_prefix ~ position ~ '__strip_extra_white',
+    label=_('Strip Extra Leading and Trailing White Space'), options=[
+    {'text': _('Yes'), 'value': true},
+    {'text': _('No'), 'value': false},
+    ], selected=is_selected) }}
 {% endblock %}

@@ -202,7 +202,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             for f in fields:
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
-                    f['strip_extra_white'] = existing_fields_by_headers[f['id']].get('strip_extra_white', True)
+                    f['strip_extra_white'] = existing_info[f['id']].get('strip_extra_white') if 'strip_extra_white' in existing_info[f['id']] \
+                         else existing_fields_by_headers[f['id']].get('strip_extra_white', True)
 
             '''
             Delete or truncate existing datastore table before proceeding,
@@ -459,7 +460,8 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for h in headers_dicts:
                 if h['id'] in existing_info:
                     h['info'] = existing_info[h['id']]
-                    h['strip_extra_white'] = existing_fields_by_headers[h['id']].get('strip_extra_white', True)
+                    h['strip_extra_white'] = existing_info[h['id']].get('strip_extra_white') if 'strip_extra_white' in existing_info[h['id']] \
+                        else existing_fields_by_headers[h['id']].get('strip_extra_white', True)
                     # create columns with types user requested
                     type_override = existing_info[h['id']].get('type_override')
                     if type_override in list(_TYPE_MAPPING.values()):
