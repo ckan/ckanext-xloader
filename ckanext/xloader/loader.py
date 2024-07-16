@@ -178,11 +178,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         existing = datastore_resource_exists(resource_id)
         existing_info = {}
         if existing:
-            if p.toolkit.check_ckan_version(max_version='2.9'):
-                existing_fields = existing.get('fields', [])
-            else:
+            if p.toolkit.check_ckan_version(min_version='2.10'):
                 ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
                 existing_fields = ds_info.get('fields', [])
+            else:
+                existing_fields = existing.get('fields', [])
             existing_info = dict((f['id'], f['info'])
                                  for f in existing_fields
                                  if 'info' in f)
