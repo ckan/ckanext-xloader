@@ -817,6 +817,181 @@ class TestLoadCsv(TestLoadBase):
             u"Galway",
         )
 
+    def test_load_with_no_strip_white(self, Session):
+        csv_filepath = get_sample_filepath("boston_311_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        # Change strip_extra_white, as it would be done by Data Dictionary
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        for field in fields:
+            field["info"] = {"strip_extra_white": False}  # <=2.10
+            field["strip_extra_white"] = False  # >=2.11
+        p.toolkit.get_action("datastore_create")(
+            {"ignore_auth": True},
+            {"resource_id": resource_id, "force": True, "fields": fields},
+        )
+
+        # Load it again with new strip_extra_white
+        fields = loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        loader.create_column_indexes(
+            fields=fields, resource_id=resource_id, logger=logger
+        )
+
+        records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",
+            u"_full_text",
+            u"CASE_ENQUIRY_ID",
+            u"open_dt",
+            u"target_dt",
+            u"closed_dt",
+            u"OnTime_Status",
+            u"CASE_STATUS",
+            u"CLOSURE_REASON",
+            u"CASE_TITLE",
+            u"SUBJECT",
+            u"REASON",
+            u"TYPE",
+            u"QUEUE",
+            u"Department",
+            u"SubmittedPhoto",
+            u"ClosedPhoto",
+            u"Location",
+            u"Fire_district",
+            u"pwd_district",
+            u"city_council_district",
+            u"police_district",
+            u"neighborhood",
+            u"neighborhood_services_district",
+            u"ward",
+            u"precinct",
+            u"LOCATION_STREET_NAME",
+            u"LOCATION_ZIPCODE",
+            u"Latitude",
+            u"Longitude",
+            u"Source",
+        ]  # noqa
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+        ] + [u"text"] * (len(records[0]) - 1)
+        print(records)
+        assert records == [
+            (
+                4,  # ds auto increment
+                u"101002153891",
+                u"2017-07-06 23:38:43",
+                u"2017-07-21 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Street Light Outages",
+                u"Public Works Department   ",  # no strip_extra_white
+                u"Street Lights",
+                u"Street Light Outages",
+                u"PWDx_Street Light Outages",
+                u"PWDx",
+                None,
+                None,
+                u"480 Harvard St  Dorchester  MA  02124",
+                u"8",
+                u"07",
+                u"4",
+                u"B3",
+                u"Greater Mattapan",
+                u"9",
+                u"Ward 14",
+                u"1411",
+                u"480 Harvard St",
+                u"02124",
+                u"42.288",
+                u"-71.0927",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                5,  # ds auto increment
+                u"101002153890",
+                u"2017-07-06 23:29:13",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # no strip_extra_white
+                None,
+                u"522 Saratoga St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0110",
+                u"522 Saratoga St",
+                u"02128",
+                u"42.3807",
+                u"-71.0259",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                6,  # ds auto increment
+                u"101002153889",
+                u"2017-07-06 23:24:20",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # no strip_extra_white
+                None,
+                u"965 Bennington St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0112",
+                u"965 Bennington St",
+                u"02128",
+                u"42.386",
+                u"-71.008",
+                u"Citizens Connect App",
+            ),
+        ]  # noqa
+
 
 class TestLoadUnhandledTypes(TestLoadBase):
     def test_kml(self):
@@ -1299,3 +1474,207 @@ class TestLoadTabulator(TestLoadBase):
             (3, "Barcaldine", 4725, Decimal("-23.55327901"), Decimal("145.289156"),
              "9:00-12:30", "13:30-16:30", datetime.datetime(2018, 7, 20))
         ]
+
+    def test_load_with_no_strip_white(self, Session):
+        csv_filepath = get_sample_filepath("boston_311_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="csv",
+            logger=logger,
+        )
+
+        # Change strip_extra_white, as it would be done by Data Dictionary
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        for field in fields:
+            field["info"] = {"strip_extra_white": False}  # <=2.10
+            field["strip_extra_white"] = False  # >=2.11
+        p.toolkit.get_action("datastore_create")(
+            {"ignore_auth": True},
+            {"resource_id": resource_id, "force": True, "fields": fields},
+        )
+
+        # Load it again with new strip_extra_white
+        fields = loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="csv",
+            logger=logger,
+        )
+        loader.create_column_indexes(
+            fields=fields, resource_id=resource_id, logger=logger
+        )
+
+        records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",                                 # int4
+            u"_full_text",                          # tsvector
+            u"CASE_ENQUIRY_ID",                     # numeric
+            u"open_dt",                             # timestamp
+            u"target_dt",                           # timestamp
+            u"closed_dt",                           # text
+            u"OnTime_Status",                       # text
+            u"CASE_STATUS",                         # text
+            u"CLOSURE_REASON",                      # text
+            u"CASE_TITLE",                          # text
+            u"SUBJECT",                             # text
+            u"REASON",                              # text
+            u"TYPE",                                # text
+            u"QUEUE",                               # text
+            u"Department",                          # text
+            u"SubmittedPhoto",                      # text
+            u"ClosedPhoto",                         # text
+            u"Location",                            # text
+            u"Fire_district",                       # numeric
+            u"pwd_district",                        # numeric
+            u"city_council_district",               # numeric
+            u"police_district",                     # text
+            u"neighborhood",                        # text
+            u"neighborhood_services_district",      # numeric
+            u"ward",                                # text
+            u"precinct",                            # numeric
+            u"LOCATION_STREET_NAME",                # text
+            u"LOCATION_ZIPCODE",                    # numeric
+            u"Latitude",                            # numeric
+            u"Longitude",                           # numeric
+            u"Source",                              # text
+        ]  # noqa
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",            # _id
+            u"tsvector",        # _full_text
+            u"numeric",         # CASE_ENQUIRY_ID
+            u"timestamp",       # open_dt
+            u"timestamp",       # target_dt
+            u"text",            # closed_dt
+            u"text",            # OnTime_Status
+            u"text",            # CASE_STATUS
+            u"text",            # CLOSURE_REASON
+            u"text",            # CASE_TITLE
+            u"text",            # SUBJECT
+            u"text",            # REASON
+            u"text",            # TYPE
+            u"text",            # QUEUE
+            u"text",            # Department
+            u"text",            # SubmittedPhoto
+            u"text",            # ClosedPhoto
+            u"text",            # Location
+            u"numeric",         # Fire_district
+            u"numeric",         # pwd_district
+            u"numeric",         # city_council_district
+            u"text",            # police_district
+            u"text",            # neighborhood
+            u"numeric",         # neighborhood_services_district
+            u"text",            # ward
+            u"numeric",         # precinct
+            u"text",            # LOCATION_STREET_NAME
+            u"numeric",         # LOCATION_ZIPCODE
+            u"numeric",         # Latitude
+            u"numeric",         # Longitude
+            u"text",            # Source
+        ]  # noqa
+        print(records)
+        assert records == [
+            (
+                4,  # ds auto increment
+                Decimal("101002153891"),
+                datetime.datetime(2017, 7, 6, 23, 38, 43),
+                datetime.datetime(2017, 7, 21, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Street Light Outages",
+                u"Public Works Department   ",  # no strip_extra_white
+                u"Street Lights",
+                u"Street Light Outages",
+                u"PWDx_Street Light Outages",
+                u"PWDx",
+                None,
+                None,
+                u"480 Harvard St  Dorchester  MA  02124",
+                Decimal("8"),
+                Decimal("7"),
+                Decimal("4"),
+                u"B3",
+                u"Greater Mattapan",
+                Decimal("9"),
+                u"Ward 14",
+                Decimal("1411"),
+                u"480 Harvard St",
+                Decimal("2124"),
+                Decimal("42.288"),
+                Decimal("-71.0927"),
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                5,  # ds auto increment
+                Decimal("101002153890"),
+                datetime.datetime(2017, 7, 6, 23, 29, 13),
+                datetime.datetime(2017, 9, 11, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # no strip_extra_white
+                None,
+                u"522 Saratoga St  East Boston  MA  02128",
+                Decimal("1"),
+                Decimal("9"),
+                Decimal("1"),
+                u"A7",
+                u"East Boston",
+                Decimal("1"),
+                u"Ward 1",
+                Decimal("110"),
+                u"522 Saratoga St",
+                Decimal("2128"),
+                Decimal("42.3807"),
+                Decimal("-71.0259"),
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                6,  # ds auto increment
+                Decimal("101002153889"),
+                datetime.datetime(2017, 7, 6, 23, 24, 20),
+                datetime.datetime(2017, 9, 11, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # no strip_extra_white
+                None,
+                u"965 Bennington St  East Boston  MA  02128",
+                Decimal("1"),
+                Decimal("9"),
+                Decimal("1"),
+                u"A7",
+                u"East Boston",
+                Decimal("1"),
+                u"Ward 1",
+                Decimal("112"),
+                u"965 Bennington St",
+                Decimal("2128"),
+                Decimal("42.386"),
+                Decimal("-71.008"),
+                u"Citizens Connect App",
+            ),
+        ]  # noqa
