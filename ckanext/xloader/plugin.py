@@ -58,6 +58,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     def update_config(self, config):
         toolkit.add_template_directory(config, 'templates')
+        toolkit.add_public_directory(config, 'public')
 
     # IConfigurable
 
@@ -242,6 +243,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
             "xloader_status": xloader_helpers.xloader_status,
             "xloader_status_description": xloader_helpers.xloader_status_description,
             "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
+            "xloader_badge": xloader_helpers.xloader_badge,
         }
 
 

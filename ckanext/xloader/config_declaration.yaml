@@ -153,5 +153,21 @@ groups:
           that is not in ckanext.xloader.formats after a Resource is updated.
         type: bool
         required: false
+      - key: ckanext.xloader.show_badges
+        default: True
+        example: False
+        description: |
+          Controls whether or not the status badges display in the front end.
+        type: bool
+        required: false
+      - key: ckanext.xloader.debug_badges
+        default: False
+        example: True
+        description: |
+          Controls whether or not the status badges display all of the statuses. By default,
+          the badges will display "pending", "running", and "error". With debug_badges enabled,
+          they will also display "complete", "active", "inactive", and "unknown".
+        type: bool
+        required: false
 
 
