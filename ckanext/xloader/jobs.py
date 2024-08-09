@@ -222,11 +222,6 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                               resource_id=resource['id'],
                               mimetype=resource.get('format'),
                               logger=logger)
-        except rq_timeouts.JobTimeoutException as e:
-            tmp_file.close()
-            timeout = config.get('ckanext.xloader.job_timeout', '3600')
-            logger.warning('Job time out after %ss', timeout)
-            raise JobError('Job timed out after {}s'.format(timeout))
         except JobError as e:
             logger.error('Error during tabulator load: %s', e)
             raise
@@ -250,7 +245,13 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
         if use_type_guessing:
-            tabulator_load()
+            try:
+                tabulator_load()
+            except rq_timeouts.JobTimeoutException as e:
+                tmp_file.close()
+                timeout = config.get('ckanext.xloader.job_timeout', '3600')
+                logger.warning('Job time out after %ss', timeout)
+                raise JobError('Job timed out after {}s'.format(timeout))
         else:
             try:
                 direct_load()
