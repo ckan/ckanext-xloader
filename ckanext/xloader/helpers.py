@@ -86,17 +86,19 @@ def xloader_badge(resource):
         status = 'unknown'
 
     messages = {
+        # Default messages
         'pending': toolkit._('Data awaiting load to DataStore'),
         'running': toolkit._('Loading data into DataStore'),
-        'complete': toolkit._('Data loaded into DataStore'),
         'error': toolkit._('Failed to load data into DataStore'),
+        # Debug messages
+        'complete': toolkit._('Data loaded into DataStore'),
         'active': toolkit._('Data available in DataStore'),
         'inactive': toolkit._('Resource not active in DataStore'),
         'unknown': toolkit._('DataStore status unknown'),
     }
-    debug_level_statuses = ['complete', 'active', 'inactive', 'unknown']
+    basic_statuses = ['pending', 'running', 'error']
 
-    if status in debug_level_statuses and not toolkit.asbool(toolkit.config.get('ckanext.xloader.debug_badges', False)):
+    if status not in basic_statuses and not toolkit.asbool(toolkit.config.get('ckanext.xloader.debug_badges', False)):
         return ''
 
     badge_url = toolkit.h.url_for_static('/static/badges/{lang}/datastore-{status}.svg'.format(
