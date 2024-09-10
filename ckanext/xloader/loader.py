@@ -14,6 +14,7 @@ from chardet.universaldetector import UniversalDetector
 from six.moves import zip
 from tabulator import config as tabulator_config, EncodingError, Stream, TabulatorException
 from unidecode import unidecode
+import sqlalchemy as sa
 
 import ckan.plugins as p
 
@@ -118,8 +119,8 @@ def _clear_datastore_resource(resource_id):
     '''
     engine = get_write_engine()
     with engine.begin() as conn:
-        conn.execute("SET LOCAL lock_timeout = '15s'")
-        conn.execute('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id))
+        conn.execute(sa.text("SET LOCAL lock_timeout = '15s'"))
+        conn.execute(sa.text('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id)))
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -282,12 +283,17 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         except Exception as e:
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
-        connection = context['connection'] = engine.connect()
+
 
         # datstore_active is switched on by datastore_create - TODO temporarily
         # disable it until the load is complete
-        _disable_fulltext_trigger(connection, resource_id)
-        _drop_indexes(context, data_dict, False)
+
+        with engine.begin() as conn:
+            _disable_fulltext_trigger(conn, resource_id)
+
+        with engine.begin() as conn:
+            context['connection'] = conn
+            _drop_indexes(context, data_dict, False)
 
         logger.info('Copying to database...')
 
@@ -305,9 +311,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
         #    the superuser issue. <-- picked
 
-        raw_connection = engine.raw_connection()
-        try:
-            cur = raw_connection.cursor()
+        with engine.begin() as conn:
+            cur = conn.connection.cursor()
             try:
                 with open(csv_filepath, 'rb') as f:
                     # can't use :param for table name because params are only
@@ -337,15 +342,14 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
             finally:
                 cur.close()
-        finally:
-            raw_connection.commit()
     finally:
         os.remove(csv_filepath)  # i.e. the tempfile
 
     logger.info('...copying done')
 
     logger.info('Creating search index...')
-    _populate_fulltext(connection, resource_id, fields=fields)
+    with engine.begin() as conn:
+        _populate_fulltext(conn, resource_id, fields=fields)
     logger.info('...search index created')
 
     return fields
@@ -631,9 +635,9 @@ def fulltext_function_exists(connection):
     https://github.com/ckan/ckan/pull/3786
     or otherwise it is checked on startup of this plugin.
     '''
-    res = connection.execute('''
+    res = connection.execute(sa.text('''
         select * from pg_proc where proname = 'populate_full_text_trigger';
-        ''')
+        '''))
     return bool(res.rowcount)
 
 
@@ -642,24 +646,25 @@ def fulltext_trigger_exists(connection, resource_id):
     This will only be the case if your CKAN is new enough to have:
     https://github.com/ckan/ckan/pull/3786
     '''
-    res = connection.execute('''
+    res = connection.execute(sa.text('''
         SELECT pg_trigger.tgname FROM pg_class
         JOIN pg_trigger ON pg_class.oid=pg_trigger.tgrelid
         WHERE pg_class.relname={table}
         AND pg_trigger.tgname='zfulltext';
         '''.format(
-        table=literal_string(resource_id)))
+        table=literal_string(resource_id))))
     return bool(res.rowcount)
 
 
 def _disable_fulltext_trigger(connection, resource_id):
-    connection.execute('ALTER TABLE {table} DISABLE TRIGGER zfulltext;'
-                       .format(table=identifier(resource_id)))
+    connection.execute(sa.text('ALTER TABLE {table} DISABLE TRIGGER zfulltext;'
+                       .format(table=identifier(resource_id, True))))
 
 
 def _enable_fulltext_trigger(connection, resource_id):
-    connection.execute('ALTER TABLE {table} ENABLE TRIGGER zfulltext;'
-                       .format(table=identifier(resource_id)))
+    connection.execute(sa.text(
+        'ALTER TABLE {table} ENABLE TRIGGER zfulltext;'
+        .format(table=identifier(resource_id, True))))
 
 
 def _populate_fulltext(connection, resource_id, fields):
@@ -672,14 +677,9 @@ def _populate_fulltext(connection, resource_id, fields):
     fields: list of dicts giving the each column's 'id' (name) and 'type'
             (text/numeric/timestamp)
     '''
-    sql = \
-        u'''
-        UPDATE {table}
-        SET _full_text = to_tsvector({cols});
-        '''.format(
-            # coalesce copes with blank cells
-            table=identifier(resource_id),
-            cols=" || ' ' || ".join(
+    stmt = sa.update(sa.table(resource_id, sa.column("_full_text"))).values(
+        _full_text=sa.text("to_tsvector({})".format(
+            " || ' ' || ".join(
                 'coalesce({}, \'\')'.format(
                     identifier(field['id'])
                     + ('::text' if field['type'] != 'text' else '')
@@ -687,8 +687,10 @@ def _populate_fulltext(connection, resource_id, fields):
                 for field in fields
                 if not field['id'].startswith('_')
             )
-        )
-    connection.execute(sql)
+        ))
+    )
+
+    connection.execute(stmt)
 
 
 def calculate_record_count(resource_id, logger):
@@ -700,15 +702,18 @@ def calculate_record_count(resource_id, logger):
     logger.info('Calculating record count (running ANALYZE on the table)')
     engine = get_write_engine()
     conn = engine.connect()
-    conn.execute("ANALYZE \"{resource_id}\";"
-                 .format(resource_id=resource_id))
+    conn.execute(sa.text("ANALYZE \"{resource_id}\";"
+                         .format(resource_id=resource_id)))
 
 
-def identifier(s):
+def identifier(s, escape_binds=False):
     # "%" needs to be escaped, otherwise connection.execute thinks it is for
     # substituting a bind parameter
-    return u'"' + s.replace(u'"', u'""').replace(u'\0', '').replace('%', '%%')\
-        + u'"'
+    escaped = s.replace(u'"', u'""').replace(u'\0', '')
+    if escape_binds:
+        escaped = escaped.replace('%', '%%')
+
+    return u'"' + escaped + u'"'
 
 
 def literal_string(s):
