@@ -4,6 +4,7 @@ from __future__ import absolute_import
 import os
 import pytest
 import six
+import sqlalchemy as sa
 import sqlalchemy.orm as orm
 import datetime
 import logging
@@ -47,17 +48,16 @@ class TestLoadBase(object):
         c = Session.connection()
         if exclude_full_text_column:
             cols = self._get_column_names(Session, table_name)
-            cols = ", ".join(
-                loader.identifier(col) for col in cols if col != "_full_text"
-            )
+            cols = [
+                sa.column(col) for col in cols if col != "_full_text"
+            ]
         else:
-            cols = "*"
-        sql = 'SELECT {cols} FROM "{table_name}"'.format(
-            cols=cols, table_name=table_name
-        )
+            cols = [sa.text("*")]
+        stmt = sa.select(*cols).select_from(sa.table(table_name))
+
         if limit is not None:
-            sql += " LIMIT {}".format(limit)
-        results = c.execute(sql)
+            stmt = stmt.limit(limit)
+        results = c.execute(stmt)
         return results.fetchall()
 
     def _get_column_names(self, Session, table_name):
@@ -71,7 +71,7 @@ class TestLoadBase(object):
             ORDER BY ordinal_position;
             """.format(table_name)
         )
-        results = c.execute(sql)
+        results = c.execute(sa.text(sql))
         records = results.fetchall()
         return [r[0] for r in records]
 
@@ -85,7 +85,7 @@ class TestLoadBase(object):
             ORDER BY ordinal_position;
             """.format(table_name)
         )
-        results = c.execute(sql)
+        results = c.execute(sa.text(sql))
         records = results.fetchall()
         return [r[0] for r in records]
 
