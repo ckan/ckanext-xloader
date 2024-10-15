@@ -23,7 +23,7 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        ckan-version: ["2.11", "2.10", 2.9]
+        ckan-version: ["2.11", "2.10"]
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }}
@@ -53,8 +53,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - if: ${{ matrix.ckan-version == 2.9 }}
-      run: pip install "setuptools>=44.1.0,<71"
     - name: Install requirements
       run: |
         pip install -r requirements.txt
