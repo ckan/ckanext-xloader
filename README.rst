@@ -128,7 +128,7 @@ CKAN version    Compatibility
 =============== =============
 2.7             no longer supported (last supported version: 0.12.2)
 2.8             no longer supported (last supported version: 0.12.2)
-2.9             yes (Python3) (last supported version for Python 2.7: 0.12.2))
+2.9             yes (Python3) (last supported version for Python 2.7: 0.12.2)), Must: ``pip install "setuptools>=44.1.0,<71"``
 2.10            yes
 2.11            yes
 =============== =============
