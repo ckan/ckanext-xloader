@@ -156,7 +156,11 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
 
-    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
+    headers = [
+        header.strip()[:MAX_COLUMN_LENGTH].strip()
+        for header in headers
+        if header.strip()
+    ]
 
     # TODO worry about csv header name problems
     # e.g. duplicate names

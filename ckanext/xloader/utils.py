@@ -33,6 +33,8 @@ DEFAULT_FORMATS = [
     "application/vnd.oasis.opendocument.spreadsheet",
 ]
 
+from .job_exceptions import JobError
+
 
 class XLoaderFormats(object):
     formats = None

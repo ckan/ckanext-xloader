@@ -678,7 +678,7 @@ class TestLoadCsv(TestLoadBase):
             mimetype="text/csv",
             logger=logger,
         )
-        assert len(self._get_records(Session, resource_id)) == 2
+        assert len(self._get_records(Session, resource_id)) == 6
 
     def test_reload(self, Session):
         csv_filepath = get_sample_filepath("simple.csv")
@@ -985,6 +985,44 @@ class TestLoadTabulator(TestLoadBase):
             u"tsvector",
             u"numeric",
             u"text",
+        ]
+
+    def test_simple_large_file(self, Session):
+        csv_filepath = get_sample_filepath("simple-large.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+            u"numeric",
+            u"text",
+        ]
+
+    def test_with_mixed_types(self, Session):
+        csv_filepath = get_sample_filepath("mixed_numeric_string_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 6
+
+        assert self._get_column_types(Session, resource_id) == [
+            u'int4',
+            u'tsvector',
+            u'text',
+            u'text',
+            u'text',
+            u'numeric'
         ]
 
     # test disabled by default to avoid adding large file to repo and slow test
