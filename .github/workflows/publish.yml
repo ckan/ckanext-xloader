@@ -22,11 +22,11 @@ on:
       options:
         - pypi
         - testpypi
-      dryRun:
-        description: 'Dry Run deployment (set to false to deploy)'
-        required: true
-        type: boolean
-        default: true
+    dryRun:
+      description: 'Dry Run deployment (set to false to deploy)'
+      required: true
+      type: boolean
+      default: true
 
 
 
