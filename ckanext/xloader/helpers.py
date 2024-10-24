@@ -101,9 +101,6 @@ def xloader_badge(resource):
     if status not in basic_statuses and not toolkit.asbool(toolkit.config.get('ckanext.xloader.debug_badges', False)):
         return ''
 
-    badge_url = toolkit.h.url_for_static('/static/badges/{lang}/datastore-{status}.svg'.format(
-        lang=toolkit.h.lang(), status=status))
-
     title = toolkit.h.render_datetime(xloader_job.get('last_updated'), with_hours=True) \
         if xloader_job.get('last_updated') else ''
 
@@ -113,13 +110,24 @@ def xloader_badge(resource):
                                        id=resource.get('package_id'),
                                        resource_id=resource.get('id'))
 
-        return Markup(u'<a href="{pusher_url}" class="loader-badge"><img src="{badge_url}" alt="{alt}" title="{title}"/></a>'.format(
+        return Markup(u'''
+    <a href="{pusher_url}" class="loader-badge" title="{title}" >
+        <span class="prefix">{prefix}</span>
+        <span class="status {status}">{status_title}</span>
+    </a>'''.format(
             pusher_url=pusher_url,
-            badge_url=badge_url,
-            alt=html_escape(messages[status], quote=True),
+            prefix=toolkit._('datastore'),
+            status=status,
+            status_title=html_escape(messages[status], quote=True),
             title=html_escape(title, quote=True)))
     except toolkit.NotAuthorized:
-        return Markup(u'<span class="loader-badge"><img src="{badge_url}" alt="{alt}" title="{title}"/></span>'.format(
-            badge_url=badge_url,
-            alt=html_escape(messages[status], quote=True),
+        return Markup(u'''
+    <span class="loader-badge" title="{title}">
+        <span class="prefix">{prefix}</span>
+        <span class="status {status}">{status_title}</span>
+    </span>
+    '''.format(
+            prefix=toolkit._('datastore'),
+            status=status,
+            status_title=html_escape(messages[status], quote=True),
             title=html_escape(title, quote=True)))
