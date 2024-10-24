@@ -1,5 +1,6 @@
 {% ckan_extends %}
 
+
 {% block resource_read_url %}
   {% set badge = h.xloader_badge(res) %}
   {% if badge %}
@@ -21,3 +22,5 @@
   {% endif %}
   {{ super() }}
 {% endblock %}
+
+{% asset 'ckanext-xloader/main-css' %}
