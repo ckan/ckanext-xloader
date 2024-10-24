@@ -85,7 +85,19 @@ def xloader_badge(resource):
         # we do not know what the status is
         status = 'unknown'
 
-    messages = {
+    status_translations = {
+        # Default messages
+        'pending': toolkit._('Pending'),
+        'running': toolkit._('Running'),
+        'error': toolkit._('Error'),
+        # Debug messages
+        'complete': toolkit._('Complete'),
+        'active': toolkit._('Active'),
+        'inactive': toolkit._('Inactive'),
+        'unknown': toolkit._('Unknown'),
+    }
+
+    status_descriptions = {
         # Default messages
         'pending': toolkit._('Data awaiting load to DataStore'),
         'running': toolkit._('Loading data into DataStore'),
@@ -101,8 +113,8 @@ def xloader_badge(resource):
     if status not in basic_statuses and not toolkit.asbool(toolkit.config.get('ckanext.xloader.debug_badges', False)):
         return ''
 
-    title = toolkit.h.render_datetime(xloader_job.get('last_updated'), with_hours=True) \
-        if xloader_job.get('last_updated') else ''
+    last_updated = toolkit.h.render_datetime(xloader_job.get('last_updated'), with_hours=True) \
+        if xloader_job.get('last_updated') else toolkit._('Last Updated Not Available')
 
     try:
         toolkit.check_access('resource_update', {'user': toolkit.g.user}, {'id': resource.get('id')})
@@ -111,23 +123,25 @@ def xloader_badge(resource):
                                        resource_id=resource.get('id'))
 
         return Markup(u'''
-    <a href="{pusher_url}" class="loader-badge" title="{title}" >
+    <a href="{pusher_url}" class="loader-badge" title="{title}: {status_description}" >
         <span class="prefix">{prefix}</span>
-        <span class="status {status}">{status_title}</span>
+        <span class="status {status}">{status_display}</span>
     </a>'''.format(
             pusher_url=pusher_url,
             prefix=toolkit._('datastore'),
             status=status,
-            status_title=html_escape(messages[status], quote=True),
-            title=html_escape(title, quote=True)))
+            status_display=html_escape(status_translations[status], quote=True),
+            status_description=html_escape(status_descriptions[status], quote=True),
+            title=html_escape(last_updated, quote=True)))
     except toolkit.NotAuthorized:
         return Markup(u'''
-    <span class="loader-badge" title="{title}">
+    <span class="loader-badge" title="{title}: {status_description}">
         <span class="prefix">{prefix}</span>
-        <span class="status {status}">{status_title}</span>
+        <span class="status {status}">{status_display}</span>
     </span>
     '''.format(
             prefix=toolkit._('datastore'),
             status=status,
-            status_title=html_escape(messages[status], quote=True),
-            title=html_escape(title, quote=True)))
+            status_display=html_escape(status_translations[status], quote=True),
+            status_description=html_escape(status_descriptions[status], quote=True),
+            title=html_escape(last_updated, quote=True)))
