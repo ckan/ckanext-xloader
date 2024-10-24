@@ -8,6 +8,7 @@
   vertical-align: middle;
   font-weight: 400;
   line-height: 1.2;
+  text-decoration: none;
 }
 
 .loader-badge:hover,
