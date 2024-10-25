@@ -114,7 +114,7 @@ jobs:
           #!/bin/bash
 
           TAG_VALUE=${GITHUB_REF/refs\/tags\//}
-          echo "version=${TAG_VALUE}" >> $GITHUB_ENV
+          echo "version=${TAG_VALUE}" >> $GITHUB_OUTPUT
 
           # Extract the repository name (minus the owner/org)
           reponame=$(basename $GITHUB_REPOSITORY)
