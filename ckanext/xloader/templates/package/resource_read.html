@@ -1,5 +1,15 @@
 {% ckan_extends %}
 
+
+{% block resource_read_url %}
+  {% set badge = h.xloader_badge(res) %}
+  {% if badge %}
+    {{ badge }}<br/><br/>
+    {% asset 'ckanext-xloader/main-css' %}
+  {% endif %}
+  {{ super() }}
+{% endblock %}
+
 {% block action_manage_inner %}
   {{ super() }}
   {% if h.is_resource_supported_by_xloader(res) %}
@@ -13,3 +23,5 @@
   {% endif %}
   {{ super() }}
 {% endblock %}
+
+
