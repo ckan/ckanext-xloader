@@ -5,6 +5,7 @@
   {% set badge = h.xloader_badge(res) %}
   {% if badge %}
     {{ badge }}<br/><br/>
+    {% asset 'ckanext-xloader/main-css' %}
   {% endif %}
   {{ super() }}
 {% endblock %}
@@ -23,4 +24,4 @@
   {{ super() }}
 {% endblock %}
 
-{% asset 'ckanext-xloader/main-css' %}
+
