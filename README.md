@@ -1,13 +1,9 @@
 # XLoader - ckanext-xloader
 
 [![Tests](https://github.com/ckan/ckanext-xloader/workflows/Tests/badge.svg?branch=master)](https://github.com/ckan/ckanext-xloader/actions)
-
 [![Latest Version](https://img.shields.io/pypi/v/ckanext-xloader.svg)](https://pypi.org/project/ckanext-xloader/)
-
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/ckanext-xloader.svg)](https://pypi.org/project/ckanext-xloader/)
-
 [![Development Status](https://img.shields.io/pypi/status/ckanext-xloader.svg)](https://pypi.org/project/ckanext-xloader/)
-
 [![License](https://img.shields.io/pypi/l/ckanext-xloader.svg)](https://pypi.org/project/ckanext-xloader/)
 
 
@@ -17,6 +13,7 @@ more robustness (hence the name, derived from "Express Loader")
 
 **OpenGov Inc.** has sponsored this development, with the aim of
 benefitting open data infrastructure worldwide.
+
 * [Key differences from DataPusher](#key-differences-from-datapusher)
 * [Requirements](#requirements)
 * [Installation](#installation)
