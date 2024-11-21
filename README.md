@@ -195,6 +195,14 @@ All configurations below are defined in the
 
 #### ckanext.xloader.jobs_db.uri
 
+Example:
+
+```
+postgresql://ckan_default:pass@localhost/ckan_default
+
+```
+
+
 Default value: `sqlite:////tmp/xloader_jobs.db`
 
 The connection string for the jobs database used by XLoader. The
