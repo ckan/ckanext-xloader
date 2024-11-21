@@ -124,6 +124,7 @@ def xloader_data_into_datastore(input):
             if tries < MAX_RETRIES:
                 tries = tries + 1
                 log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
+                logger.info("Job failed due to temporary error [%s], retrying", e)
                 job_dict['status'] = 'pending'
                 job_dict['metadata']['tries'] = tries
                 enqueue_job(
@@ -245,7 +246,12 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
     try:
         if use_type_guessing:
-            tabulator_load()
+            try:
+                tabulator_load()
+            except JobError as e:
+                logger.warning('Load using tabulator failed: %s', e)
+                logger.info('Trying again with direct COPY')
+                direct_load()
         else:
             try:
                 direct_load()

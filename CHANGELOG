@@ -1,3 +1,33 @@
+1.1.2 2024-10-25
+================
+
+Feat:
+* Frontend Status Badges by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/224
+
+Fix:
+* Fix automated PyPI publishing by @ThrawnCA in https://github.com/ckan/ckanext-xloader/pull/231
+
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.1...1.1.2
+
+1.1.1 2024-10-16
+================
+
+* feat: Add pypi cicd publish via github action via environment controls by @duttonw in https://github.com/ckan/ckanext-xloader/pull/228
+
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.0...1.1.1
+
+1.1.0 2024-10-16
+================
+
+Fixes: 
+* feat: Add pypi cicd publish via github action via environment controls by @duttonw in https://github.com/ckan/ckanext-xloader/pull/228
+
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.0...1.1.1
+
+
 1.1.0 2024-10-15
 ================
 

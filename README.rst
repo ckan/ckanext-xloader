@@ -203,6 +203,20 @@ expect European (day-first) dates, you could add to ``postgresql.conf``:
 
     datestyle=ISO,DMY
 
+External Database credentials for datastore
+
+     ``ckanext.xloader.jobs_db.uri = postgresql://ckan_default:pass@localhost/ckan_default``
+
+API Key requires for xloader interaction CKAN 2.10 onwards, to generate  ``TOKEN=ckan -c /etc/ckan/default/production.ini user token add $ACCOUNT xloader | tail -1 | tr -d '[:space:]')``
+
+     ``ckanext.xloader.api_token = <your-CKAN-generated-API-Token>``
+
+Badge notification on what xloader is doing
+
+     ``ckanext.xloader.show_badges = True|False (default True)``
+
+     ``ckanext.xloader.debug_badges = True|False (default False)``
+
 ------------------------
 Developer installation
 ------------------------

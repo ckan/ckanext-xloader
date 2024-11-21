@@ -1,6 +1,16 @@
 {% ckan_extends %}
 
-{% block action_manage_inner %}
+
+{% block resource_read_url %}
+  {% set badge = h.xloader_badge(res) %}
+  {% if badge %}
+    {{ badge }}<br/>
+    {% asset 'ckanext-xloader/main-css' %}
+  {% endif %}
+  {{ super() }}
+{% endblock %}
+
+{% block action_manage %}
   {{ super() }}
   {% if h.is_resource_supported_by_xloader(res) %}
     <li>{% link_for _('DataStore'), named_route='xloader.resource_data', id=pkg.name, resource_id=res.id, class_='btn btn-light', icon='cloud-upload' %}</li>

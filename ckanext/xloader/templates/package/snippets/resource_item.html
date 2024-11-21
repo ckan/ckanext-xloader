@@ -13,3 +13,11 @@
   {% endif %}
   {{ super() }}
 {% endblock %}
+
+{% block resource_item_title %}
+  {{ super() }}
+  {{ h.xloader_badge(res) }}
+  {% asset 'ckanext-xloader/main-css' %}
+{% endblock %}
+
+
