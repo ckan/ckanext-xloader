@@ -120,7 +120,7 @@ def _clear_datastore_resource(resource_id):
     engine = get_write_engine()
     with engine.begin() as conn:
         conn.execute(sa.text("SET LOCAL lock_timeout = '15s'"))
-        conn.execute(sa.text('TRUNCATE TABLE "{} RESTART IDENTITY"'.format(resource_id)))
+        conn.execute(sa.text('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id)))
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
