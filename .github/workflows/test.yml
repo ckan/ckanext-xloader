@@ -30,9 +30,6 @@ jobs:
           - ckan-version: "2.10"
             ckan-image: "2.10-py3.10"
             experimental: false
-          - ckan-version: "2.9"
-            ckan-image: "2.9-py3.9"
-            experimental: false
           - ckan-version: "master"
             ckan-image: "master"
             experimental: true  # master is unstable, good to know if we are compatible or not
