@@ -128,6 +128,23 @@ groups:
             to True.
         type: bool
         required: false
+      - key: ckanext.xloader.validation.requires_successful_report
+        default: False
+        example: True
+        description: |
+            Resources are required to pass Validation from the ckanext-validation
+            plugin to be able to get XLoadered.
+        type: bool
+        required: false
+      - key: ckanext.xloader.validation.enforce_schema
+        default: True
+        example: False
+        description: |
+            Resources are expected to have a Validation Schema, or use the default ones if not.
+            If this option is set to `False`, Resources that do not have
+            a Validation Schema will be treated like they do not require Validation.
+            See https://github.com/frictionlessdata/ckanext-validation?tab=readme-ov-file#data-schema
+            for more details.
       - key: ckanext.xloader.clean_datastore_tables
         default: False
         example: True
