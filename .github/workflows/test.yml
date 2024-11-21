@@ -30,9 +30,6 @@ jobs:
           - ckan-version: "2.10"
             ckan-image: "2.10-py3.10"
             experimental: false
-          - ckan-version: "2.9"
-            ckan-image: "2.9-py3.9"
-            experimental: false
           - ckan-version: "master"
             ckan-image: "master"
             experimental: true  # master is unstable, good to know if we are compatible or not
@@ -66,11 +63,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      continue-on-error: ${{ matrix.experimental }}
-
-    - name: Pin setuptools for ckan 2.9 only
-      if: ${{ matrix.ckan-version == 2.9 }}
-      run: pip install "setuptools>=44.1.0,<71"
       continue-on-error: ${{ matrix.experimental }}
 
     - name: Install requirements

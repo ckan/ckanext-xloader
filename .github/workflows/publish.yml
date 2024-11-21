@@ -53,8 +53,6 @@ jobs:
             ckan-image: "2.11-py3.10"
           - ckan-version: "2.10"
             ckan-image: "2.10-py3.10"
-          - ckan-version: "2.9"
-            ckan-image: "2.9-py3.9"
           #- ckan-version: "master" Publish does not care about master
           #  ckan-image: "master"
       fail-fast: false
