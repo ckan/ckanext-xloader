@@ -105,9 +105,10 @@ jobs:
 
   publishSkipped:
     if: github.repository != 'ckan/ckanext-xloader'
+    runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "Skipping PyPI publish on downstream repository"
+          echo "## Skipping PyPI publish on downstream repository" >> $GITHUB_STEP_SUMMARY
 
   publish:
     needs: test
