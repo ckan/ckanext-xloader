@@ -60,6 +60,93 @@ class TestNotify(object):
 
         assert func.called
 
+    @pytest.mark.ckan_config("ckanext.xloader.validation.requires_successful_report", True)
+    def test_require_validation(self, monkeypatch):
+        func = mock.Mock()
+        monkeypatch.setitem(_actions, "xloader_submit", func)
+
+        mock_resource_validation_show = mock.Mock()
+        monkeypatch.setitem(_actions, "resource_validation_show", mock_resource_validation_show)
+
+        dataset = factories.Dataset()
+
+        resource = helpers.call_action(
+            "resource_create",
+            {},
+            package_id=dataset["id"],
+            url="http://example.com/file.csv",
+            format="CSV",
+            validation_status='failure',
+        )
+
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status not being `success`
+        func.called = None # reset
+
+        helpers.call_action(
+            "resource_update",
+            {},
+            id=resource["id"],
+            package_id=dataset["id"],
+            url="http://example.com/file2.csv",
+            format="CSV",
+            validation_status='success',
+        )
+
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status is `success`
+
+    @pytest.mark.ckan_config("ckanext.xloader.validation.requires_successful_report", True)
+    @pytest.mark.ckan_config("ckanext.xloader.validation.enforce_schema", False)
+    def test_enforce_validation_schema(self, monkeypatch):
+        func = mock.Mock()
+        monkeypatch.setitem(_actions, "xloader_submit", func)
+
+        mock_resource_validation_show = mock.Mock()
+        monkeypatch.setitem(_actions, "resource_validation_show", mock_resource_validation_show)
+
+        dataset = factories.Dataset()
+
+        resource = helpers.call_action(
+            "resource_create",
+            {},
+            package_id=dataset["id"],
+            url="http://example.com/file.csv",
+            schema='',
+            validation_status='',
+        )
+
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the schema being empty
+        func.called = None # reset
+
+        helpers.call_action(
+            "resource_update",
+            {},
+            id=resource["id"],
+            package_id=dataset["id"],
+            url="http://example.com/file2.csv",
+            schema='https://example.com/schema.json',
+            validation_status='failure',
+        )
+
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status not being `success` and there is a schema
+        func.called = None # reset
+
+        helpers.call_action(
+            "resource_update",
+            {},
+            package_id=dataset["id"],
+            id=resource["id"],
+            url="http://example.com/file3.csv",
+            schema='https://example.com/schema.json',
+            validation_status='success',
+        )
+
+        # TODO: test IPipeValidation
+        assert not func.called  # because of the validation_status is `success` and there is a schema
+
     @pytest.mark.parametrize("toolkit_config_value, mock_xloader_formats, url_type, datastore_active, expected_result", [
         # Test1: Should pass as it is an upload with an active datastore entry but an unsupported format
         (True, False, 'upload', True, True),

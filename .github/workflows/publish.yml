@@ -32,6 +32,7 @@ on:
 
 jobs:
   lint:
+    if: github.repository == 'ckan/ckanext-xloader'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,13 +48,22 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        ckan-version: ["2.11", "2.10", 2.9]
+        include: #ckan-image see https://github.com/ckan/ckan-docker-base, ckan-version controls other image tags
+          - ckan-version: "2.11"
+            ckan-image: "2.11-py3.10"
+          - ckan-version: "2.10"
+            ckan-image: "2.10-py3.10"
+          - ckan-version: "2.9"
+            ckan-image: "2.9-py3.9"
+          #- ckan-version: "master" Publish does not care about master
+          #  ckan-image: "master"
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }}
     runs-on: ubuntu-latest
     container:
-      image: ckan/ckan-dev:${{ matrix.ckan-version }}
+      image: ckan/ckan-dev:${{ matrix.ckan-image }}
+      options: --user root
     services:
       solr:
         image: ckan/ckan-solr:${{ matrix.ckan-version }}-solr9
@@ -93,6 +103,13 @@ jobs:
     - name: Run tests
       run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
 
+  publishSkipped:
+    if: github.repository != 'ckan/ckanext-xloader'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "## Skipping PyPI publish on downstream repository" >> $GITHUB_STEP_SUMMARY
+
   publish:
     needs: test
     permissions:
@@ -121,10 +138,10 @@ jobs:
           echo "reponame=${reponame}" >> $GITHUB_OUTPUT
 
           if [ "$env.ENVIRONMENT" == "testpypi" ]; then
-            url="https://test.pypi.com/p/$reponame"
+            url="https://test.pypi.org/project/$reponame/$TAG_VALUE/"
             echo "environment=${env.ENVIRONMENT}" >> $GITHUB_OUTPUT
           else
-            url="https://pypi.com/p/$reponame"
+            url="https://pypi.org/project/$reponame/$TAG_VALUE/"
             echo "environment=pypi" >> $GITHUB_OUTPUT
           fi
 
