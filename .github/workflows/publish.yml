@@ -138,10 +138,10 @@ jobs:
           echo "reponame=${reponame}" >> $GITHUB_OUTPUT
 
           if [ "$env.ENVIRONMENT" == "testpypi" ]; then
-            url="https://test.pypi.com/p/$reponame"
+            url="https://test.pypi.org/project/$reponame/$TAG_VALUE/"
             echo "environment=${env.ENVIRONMENT}" >> $GITHUB_OUTPUT
           else
-            url="https://pypi.com/p/$reponame"
+            url="https://pypi.org/project/$reponame/$TAG_VALUE/"
             echo "environment=pypi" >> $GITHUB_OUTPUT
           fi
 
