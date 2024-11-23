@@ -140,17 +140,18 @@ def xloader_submit(context, data_dict):
         qualified=True
     )
     data = {
-        'api_key': utils.get_xloader_user_apitoken(),
-        'job_type': 'xloader_to_datastore',
-        'result_url': callback_url,
-        'metadata': {
-            'ignore_hash': data_dict.get('ignore_hash', False),
-            'ckan_url': config['ckan.site_url'],
-            'resource_id': res_id,
-            'set_url_type': data_dict.get('set_url_type', False),
-            'task_created': task['last_updated'],
-            'original_url': resource_dict.get('url'),
-        }
+        "api_key": utils.get_xloader_user_apitoken(),
+        "job_type": "xloader_to_datastore",
+        "result_url": callback_url,
+        "metadata": {
+            "ignore_hash": data_dict.get("ignore_hash", False),
+            "ckan_url": config.get("ckanext.xloader.site_url")
+            or config["ckan.site_url"],
+            "resource_id": res_id,
+            "set_url_type": data_dict.get("set_url_type", False),
+            "task_created": task["last_updated"],
+            "original_url": resource_dict.get("url"),
+        },
     }
     if custom_queue != rq_jobs.DEFAULT_QUEUE_NAME:
         # Don't automatically retry if it's a custom run
