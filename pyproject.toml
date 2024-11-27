@@ -20,14 +20,14 @@ authors = [
     {name = "Adrià Mercader (amercader)", email = "amercadero@gmail.com"},
     {name = "David Read (davidread)"},
     {name = "Brett Jones (kowh-ai)", email = "datashades@linkdigital.com.au"},
-    {name = "Patricio Del Boca (pdelboca)", email = "patriciodelboca@gmail.com"},
+    {name = "Patricio Del Boca (pdelboca)"},
     {name = "William Dutton (duttonw)", email = "william.dutton@qld.gov.au"},
 #    {name = "", email = ""},
 ]
 maintainers = [
     {name = "Adrià Mercader (amercader)", email = "amercadero@gmail.com"},
     {name = "William Dutton (duttonw)", email = "william.dutton@qld.gov.au"},
-    {name = "Ian Ward (wardi)", email = "ian@excess.org"},
+    {name = "Ian Ward (wardi)"},
     {name = "Brett Jones (kowh-ai)", email = "datashades@linkdigital.com.au"},
 ]
 
