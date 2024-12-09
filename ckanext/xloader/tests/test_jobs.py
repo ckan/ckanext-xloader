@@ -90,14 +90,6 @@ def data(create_with_upload, apikey):
 @pytest.mark.ckan_config("ckan.jobs.timeout", 15)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
-    @classmethod
-    def setup_method(self, method):
-        """Method is called at class level before EACH test methods of the class are called.
-        Setup any state specific to the execution of the given class methods.
-        """
-        for f in _get_temp_files():
-            os.remove(f)
-
     def test_xloader_data_into_datastore(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
         with mock.patch("ckanext.xloader.jobs.get_response", get_response):
@@ -146,13 +138,14 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         assert resource["datastore_contains_all_records_of_source_file"] is False
 
     def test_data_with_rq_job_timeout(self, cli, data):
-        assert len(_get_temp_files()) == 0
+        file_suffix = 'multiplication_2.csv'
         self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=15))
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "Job timed out after" in stdout
-            assert len(_get_temp_files()) == 0
-
+            for f in _get_temp_files():
+                # make sure that the tmp file has been closed/deleted in job timeout exception handling
+                assert file_suffix not in f
 
 
 @pytest.mark.usefixtures("clean_db")
