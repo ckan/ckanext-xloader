@@ -42,8 +42,8 @@ def get_large_data_response(download_url, headers):
     resp.headers = headers
     return resp
 
-def _get_temp_files():
-    return [os.path.join('/tmp', f) for f in os.listdir('/tmp') if os.path.isfile(os.path.join('/tmp', f))]
+def _get_temp_files(dir='/tmp'):
+    return [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
 
 
 @pytest.fixture
@@ -89,6 +89,14 @@ def data(create_with_upload, apikey):
 @pytest.mark.ckan_config("ckanext.xloader.job_timeout", 15)
 @pytest.mark.ckan_config("ckan.jobs.timeout", 15)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
+
+    @classmethod
+    def setup_method(self, method):
+        """Method is called at class level before EACH test methods of the class are called.
+        Setup any state specific to the execution of the given class methods.
+        """
+        for f in _get_temp_files():
+            os.remove(f)
 
     def test_xloader_data_into_datastore(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
@@ -138,8 +146,6 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         assert resource["datastore_contains_all_records_of_source_file"] is False
 
     def test_data_with_rq_job_timeout(self, cli, data):
-        for f in _get_temp_files():
-            os.remove(f)
         assert len(_get_temp_files()) == 0
         self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=15))
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
