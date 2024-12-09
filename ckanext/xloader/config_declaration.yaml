@@ -141,8 +141,10 @@ groups:
         example: False
         description: |
             Resources are expected to have a Validation Schema, or use the default ones if not.
+
             If this option is set to `False`, Resources that do not have
             a Validation Schema will be treated like they do not require Validation.
+
             See https://github.com/frictionlessdata/ckanext-validation?tab=readme-ov-file#data-schema
             for more details.
       - key: ckanext.xloader.clean_datastore_tables

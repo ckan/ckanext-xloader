@@ -115,7 +115,7 @@ Compatibility with core CKAN versions:
   | CKAN version   | Compatibility                                                                                                  |
   | -------------- | -------------------------------------------------------------------------------------------------------------- |
   | 2.7            | no longer supported (last supported version: 0.12.2)                                                           |
-  | 2.8            | no longer supported (last supported version: 0.12.2)                                                           | 
+  | 2.8            | no longer supported (last supported version: 0.12.2)                                                           |
   | 2.9            | yes (Python3) (last supported version for Python 2.7: 0.12.2)), Must: `pip install "setuptools>=44.1.0,<71"`   |
   | 2.10           | yes                                                                                                            |
   | 2.11           | yes                                                                                                            |
@@ -189,7 +189,7 @@ expect European (day-first) dates, you could add to `postgresql.conf`:
 
     datestyle=ISO,DMY
 
-All configurations below are defined in the 
+All configurations below are defined in the
 [config_declaration.yaml](ckanext/xloader/config_declaration.yaml) file.
 
 
@@ -408,6 +408,34 @@ Default value: `False`
 Controls whether or not the status badges display all of the statuses. By default,
 the badges will display "pending", "running", and "error". With debug_badges enabled,
 they will also display "complete", "active", "inactive", and "unknown".
+
+#### ckanext.xloader.validation.requires_successful_report
+
+Supports: __ckanext-validation__
+
+Example:
+
+```
+ckanext.xloader.validation.requires_successful_report = True
+```
+
+Default value: `False`
+
+Controls whether or not a resource requires a successful validation report from the ckanext-validation plugin in order to be XLoadered.
+
+#### ckanext.xloader.validation.enforce_schema
+
+Supports: __ckanext-validation__
+
+Example:
+
+```
+ckanext.xloader.validation.enforce_schema = False
+```
+
+Default value: `True`
+
+Controls whether or not a resource requires a Validation Schema to be present from the ckanext-validation plugin to be XLoadered.
 
 ## Developer installation
 
