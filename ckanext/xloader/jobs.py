@@ -14,7 +14,8 @@ import sys
 from psycopg2 import errors
 from six.moves.urllib.parse import urlsplit
 import requests
-from rq import get_current_job, timeouts as rq_timeouts
+from rq import get_current_job
+from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
 from ckan import model
@@ -259,8 +260,11 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with tabulator')
                 tabulator_load()
-    except rq_timeouts.JobTimeoutException as e:
-        tmp_file.close()
+    except JobTimeoutException as e:
+        try:
+            tmp_file.close()
+        except FileNotFoundError:
+            pass
         timeout = config.get('ckanext.xloader.job_timeout', '3600')
         logger.warning('Job time out after %ss', timeout)
         raise JobError('Job timed out after {}s'.format(timeout))
@@ -383,7 +387,7 @@ def _download_resource_data(resource, data, api_key, logger):
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
-    except rq_timeouts.JobTimeoutException as e:
+    except JobTimeoutException as e:
         tmp_file.close()
         timeout = config.get('ckanext.xloader.job_timeout', '3600')
         logger.warning('Job time out after %ss', timeout)
