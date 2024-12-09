@@ -437,6 +437,12 @@ Default value: `True`
 
 Controls whether or not a resource requires a Validation Schema to be present from the ckanext-validation plugin to be XLoadered.
 
+## Data Dictionary Fields
+
+#### strip_extra_white
+
+This plugin adds the `Strip Extra Leading and Trailing White Space` field to Data Dictionary fields. This controls whether or not to trim whitespace from data values prior to inserting into the database. Default for each field is `True` (it will trim whitespace).
+
 ## Developer installation
 
 To install XLoader for development, activate your CKAN virtualenv and in

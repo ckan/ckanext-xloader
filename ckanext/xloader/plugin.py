@@ -25,6 +25,12 @@ except AttributeError:
     def config_declarations(cls):
         return cls
 
+if toolkit.check_ckan_version(min_version='2.11'):
+    from ckanext.datastore.interfaces import IDataDictionaryForm
+    has_idata_dictionary_form = True
+else:
+    has_idata_dictionary_form = False
+
 log = logging.getLogger(__name__)
 
 
@@ -39,6 +45,8 @@ class xloaderPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IBlueprint)
+    if has_idata_dictionary_form:
+        plugins.implements(IDataDictionaryForm, inherit=True)
     if HAS_IPIPE_VALIDATION:
         plugins.implements(IPipeValidation)
 
@@ -251,6 +259,23 @@ class xloaderPlugin(plugins.SingletonPlugin):
             "is_resource_supported_by_xloader": xloader_helpers.is_resource_supported_by_xloader,
             "xloader_badge": xloader_helpers.xloader_badge,
         }
+
+    # IDataDictionaryForm
+
+    def update_datastore_create_schema(self, schema):
+        default = toolkit.get_validator('default')
+        boolean_validator = toolkit.get_validator('boolean_validator')
+        to_datastore_plugin_data = toolkit.get_validator('to_datastore_plugin_data')
+        schema['fields']['strip_extra_white'] = [default(True), boolean_validator, to_datastore_plugin_data('xloader')]
+        return schema
+
+    def update_datastore_info_field(self, field, plugin_data):
+        # expose all our non-secret plugin data in the field
+        field.update(plugin_data.get('xloader', {}))
+        # CKAN version parody
+        if '_info' in plugin_data:
+            field.update({'info': plugin_data['_info']})
+        return field
 
 
 def _should_remove_unsupported_resource_from_datastore(res_dict):
