@@ -178,7 +178,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         existing = datastore_resource_exists(resource_id)
         existing_info = {}
         if existing:
-            if p.toolkit.check_ckan_version(min_version='2.10'):
+            if p.toolkit.check_ckan_version(min_version='2.11'):
                 ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
                 existing_fields = ds_info.get('fields', [])
             else:
@@ -412,7 +412,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     existing = datastore_resource_exists(resource_id)
     existing_info = None
     if existing:
-        if p.toolkit.check_ckan_version(min_version='2.10'):
+        if p.toolkit.check_ckan_version(min_version='2.11'):
             ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
             existing_fields = ds_info.get('fields', [])
         else:
