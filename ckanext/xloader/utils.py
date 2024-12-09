@@ -2,7 +2,6 @@
 
 import json
 import datetime
-from rq import get_current_job
 
 from six import text_type as str, binary_type
 
