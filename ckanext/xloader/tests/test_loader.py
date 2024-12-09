@@ -895,7 +895,7 @@ class TestLoadCsv(TestLoadBase):
         print(records)
         assert records == [
             (
-                4,  # ds auto increment
+                1,  # ds auto increment id / primary key
                 u"101002153891",
                 u"2017-07-06 23:38:43",
                 u"2017-07-21 08:30:00",
@@ -927,7 +927,7 @@ class TestLoadCsv(TestLoadBase):
                 u"Citizens Connect App",
             ),  # noqa
             (
-                5,  # ds auto increment
+                2,  # ds auto increment id / primary key
                 u"101002153890",
                 u"2017-07-06 23:29:13",
                 u"2017-09-11 08:30:00",
@@ -959,7 +959,7 @@ class TestLoadCsv(TestLoadBase):
                 u"Citizens Connect App",
             ),  # noqa
             (
-                6,  # ds auto increment
+                3,  # ds auto increment id / primary key
                 u"101002153889",
                 u"2017-07-06 23:24:20",
                 u"2017-09-11 08:30:00",
@@ -1657,7 +1657,7 @@ class TestLoadTabulator(TestLoadBase):
         print(records)
         assert records == [
             (
-                4,  # ds auto increment
+                1,  # ds auto increment id / primary key
                 Decimal("101002153891"),
                 datetime.datetime(2017, 7, 6, 23, 38, 43),
                 datetime.datetime(2017, 7, 21, 8, 30),
@@ -1689,7 +1689,7 @@ class TestLoadTabulator(TestLoadBase):
                 u"Citizens Connect App",
             ),  # noqa
             (
-                5,  # ds auto increment
+                2,  # ds auto increment id / primary key
                 Decimal("101002153890"),
                 datetime.datetime(2017, 7, 6, 23, 29, 13),
                 datetime.datetime(2017, 9, 11, 8, 30),
@@ -1721,7 +1721,7 @@ class TestLoadTabulator(TestLoadBase):
                 u"Citizens Connect App",
             ),  # noqa
             (
-                6,  # ds auto increment
+                3,  # ds auto increment id / primary key
                 Decimal("101002153889"),
                 datetime.datetime(2017, 7, 6, 23, 24, 20),
                 datetime.datetime(2017, 9, 11, 8, 30),
