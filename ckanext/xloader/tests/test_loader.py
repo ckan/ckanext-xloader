@@ -102,6 +102,20 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
+        records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",
+            u"_full_text",
+            u"date",
+            u"temperature",
+            u"place",
+        ]
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+        ] + [u"text"] * (len(records[0]) - 1)
         assert self._get_records(
             Session, resource_id, limit=1, exclude_full_text_column=False
         ) == [
@@ -113,27 +127,14 @@ class TestLoadCsv(TestLoadBase):
                 u"Galway",
             )
         ]
-        assert self._get_records(Session, resource_id) == [
+        print(records)
+        assert records == [
             (1, u"2011-01-01", u"1", u"Galway"),
             (2, u"2011-01-02", u"-1", u"Galway"),
             (3, u"2011-01-03", u"0", u"Galway"),
             (4, u"2011-01-01", u"6", u"Berkeley"),
             (5, None, None, u"Berkeley"),
             (6, u"2011-01-03", u"5", None),
-        ]
-        assert self._get_column_names(Session, resource_id) == [
-            u"_id",
-            u"_full_text",
-            u"date",
-            u"temperature",
-            u"place",
-        ]
-        assert self._get_column_types(Session, resource_id) == [
-            u"int4",
-            u"tsvector",
-            u"text",
-            u"text",
-            u"text",
         ]
 
     def test_simple_with_indexing(self, Session):
@@ -217,105 +218,6 @@ class TestLoadCsv(TestLoadBase):
         )
 
         records = self._get_records(Session, resource_id)
-        print(records)
-        assert records == [
-            (
-                1,
-                u"101002153891",
-                u"2017-07-06 23:38:43",
-                u"2017-07-21 08:30:00",
-                None,
-                u"ONTIME",
-                u"Open",
-                u" ",
-                u"Street Light Outages",
-                u"Public Works Department",
-                u"Street Lights",
-                u"Street Light Outages",
-                u"PWDx_Street Light Outages",
-                u"PWDx",
-                None,
-                None,
-                u"480 Harvard St  Dorchester  MA  02124",
-                u"8",
-                u"07",
-                u"4",
-                u"B3",
-                u"Greater Mattapan",
-                u"9",
-                u"Ward 14",
-                u"1411",
-                u"480 Harvard St",
-                u"02124",
-                u"42.288",
-                u"-71.0927",
-                u"Citizens Connect App",
-            ),  # noqa
-            (
-                2,
-                u"101002153890",
-                u"2017-07-06 23:29:13",
-                u"2017-09-11 08:30:00",
-                None,
-                u"ONTIME",
-                u"Open",
-                u" ",
-                u"Graffiti Removal",
-                u"Property Management",
-                u"Graffiti",
-                u"Graffiti Removal",
-                u"PROP_GRAF_GraffitiRemoval",
-                u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",
-                None,
-                u"522 Saratoga St  East Boston  MA  02128",
-                u"1",
-                u"09",
-                u"1",
-                u"A7",
-                u"East Boston",
-                u"1",
-                u"Ward 1",
-                u"0110",
-                u"522 Saratoga St",
-                u"02128",
-                u"42.3807",
-                u"-71.0259",
-                u"Citizens Connect App",
-            ),  # noqa
-            (
-                3,
-                u"101002153889",
-                u"2017-07-06 23:24:20",
-                u"2017-09-11 08:30:00",
-                None,
-                u"ONTIME",
-                u"Open",
-                u" ",
-                u"Graffiti Removal",
-                u"Property Management",
-                u"Graffiti",
-                u"Graffiti Removal",
-                u"PROP_GRAF_GraffitiRemoval",
-                u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",
-                None,
-                u"965 Bennington St  East Boston  MA  02128",
-                u"1",
-                u"09",
-                u"1",
-                u"A7",
-                u"East Boston",
-                u"1",
-                u"Ward 1",
-                u"0112",
-                u"965 Bennington St",
-                u"02128",
-                u"42.386",
-                u"-71.008",
-                u"Citizens Connect App",
-            ),
-        ]  # noqa
         print(self._get_column_names(Session, resource_id))
         assert self._get_column_names(Session, resource_id) == [
             u"_id",
@@ -355,6 +257,105 @@ class TestLoadCsv(TestLoadBase):
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
+        print(records)
+        assert records == [
+            (
+                1,
+                u"101002153891",
+                u"2017-07-06 23:38:43",
+                u"2017-07-21 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                None,  # " " transforms to None
+                u"Street Light Outages",
+                u"Public Works Department",  # "   " trailing whitespace gets trimmed
+                u"Street Lights",
+                u"Street Light Outages",
+                u"PWDx_Street Light Outages",
+                u"PWDx",
+                None,
+                None,
+                u"480 Harvard St  Dorchester  MA  02124",
+                u"8",
+                u"07",
+                u"4",
+                u"B3",
+                u"Greater Mattapan",
+                u"9",
+                u"Ward 14",
+                u"1411",
+                u"480 Harvard St",
+                u"02124",
+                u"42.288",
+                u"-71.0927",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                2,
+                u"101002153890",
+                u"2017-07-06 23:29:13",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                None,  # " " transforms to None
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # strip white spaces
+                None,
+                u"522 Saratoga St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0110",
+                u"522 Saratoga St",
+                u"02128",
+                u"42.3807",
+                u"-71.0259",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                3,
+                u"101002153889",
+                u"2017-07-06 23:24:20",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                None,  # " " transforms to None
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # strip white spaces
+                None,
+                u"965 Bennington St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0112",
+                u"965 Bennington St",
+                u"02128",
+                u"42.386",
+                u"-71.008",
+                u"Citizens Connect App",
+            ),
+        ]  # noqa
 
     def test_brazilian(self, Session):
         csv_filepath = get_sample_filepath("brazilian_sample.csv")
@@ -368,105 +369,6 @@ class TestLoadCsv(TestLoadBase):
         )
 
         records = self._get_records(Session, resource_id)
-        print(records)
-        assert records[0] == (
-            1,
-            u"01/01/1996 12:00:00 AM",
-            u"1100015",
-            u"ALTA FLORESTA D'OESTE",
-            u"RO",
-            None,
-            u"128",
-            u"0",
-            u"8",
-            u"119",
-            u"1",
-            u"0",
-            u"3613",
-            u"3051",
-            u"130",
-            u"7",
-            u"121",
-            u"3716",
-            u"3078",
-            u"127",
-            u"7",
-            None,
-            None,
-            None,
-            None,
-            u"6794",
-            u"5036",
-            u"1758",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            u"337",
-            u"0.26112759",
-            u"0.17210683",
-            u"0.43323442",
-            u"0.13353115",
-            u"24.833692447908199",
-            None,
-            None,
-            u"22.704964",
-            u"67.080006197818605",
-            u"65.144188573097907",
-            u"74.672390253375497",
-            u"16.7913561569619",
-            u"19.4894563570641",
-            u"8.649237411458509",
-            u"7.60165422117368",
-            u"11.1540090366186",
-            u"17.263407056738099",
-            u"8.5269823",
-            u"9.2213373",
-            u"5.3085136",
-            u"52.472769803217503",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            u"25.0011414302354",
-            u"22.830887000000001",
-            u"66.8150490097632",
-            u"64.893674212235595",
-            u"74.288246611754104",
-            u"17.0725384713319",
-            u"19.8404105332814",
-            u"8.856561911292371",
-            u"7.74275834336647",
-            u"11.357671741889",
-            u"17.9410577459881",
-            u"8.3696527",
-            u"8.9979973",
-            u"5.0570836",
-            u"53.286314230720798",
-            None,
-            None,
-            None,
-            None,
-            None,
-            u"122988",
-            None,
-            u"10.155015000000001",
-            u"14.826086999999999",
-            u"11.671533",
-            u"9.072917",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )  # noqa
         print(self._get_column_names(Session, resource_id))
         assert self._get_column_names(Session, resource_id) == [
             u"_id",
@@ -572,6 +474,105 @@ class TestLoadCsv(TestLoadBase):
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
+        print(records)
+        assert records[0] == (
+            1,
+            u"01/01/1996 12:00:00 AM",
+            u"1100015",
+            u"ALTA FLORESTA D'OESTE",
+            u"RO",
+            None,
+            u"128",
+            u"0",
+            u"8",
+            u"119",
+            u"1",
+            u"0",
+            u"3613",
+            u"3051",
+            u"130",
+            u"7",
+            u"121",
+            u"3716",
+            u"3078",
+            u"127",
+            u"7",
+            None,
+            None,
+            None,
+            None,
+            u"6794",
+            u"5036",
+            u"1758",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            u"337",
+            u"0.26112759",
+            u"0.17210683",
+            u"0.43323442",
+            u"0.13353115",
+            u"24.833692447908199",
+            None,
+            None,
+            u"22.704964",
+            u"67.080006197818605",
+            u"65.144188573097907",
+            u"74.672390253375497",
+            u"16.7913561569619",
+            u"19.4894563570641",
+            u"8.649237411458509",
+            u"7.60165422117368",
+            u"11.1540090366186",
+            u"17.263407056738099",
+            u"8.5269823",
+            u"9.2213373",
+            u"5.3085136",
+            u"52.472769803217503",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            u"25.0011414302354",
+            u"22.830887000000001",
+            u"66.8150490097632",
+            u"64.893674212235595",
+            u"74.288246611754104",
+            u"17.0725384713319",
+            u"19.8404105332814",
+            u"8.856561911292371",
+            u"7.74275834336647",
+            u"11.357671741889",
+            u"17.9410577459881",
+            u"8.3696527",
+            u"8.9979973",
+            u"5.0570836",
+            u"53.286314230720798",
+            None,
+            None,
+            None,
+            None,
+            None,
+            u"122988",
+            None,
+            u"10.155015000000001",
+            u"14.826086999999999",
+            u"11.671533",
+            u"9.072917",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )  # noqa
 
     def test_german(self, Session):
         csv_filepath = get_sample_filepath("german_sample.csv")
@@ -585,20 +586,6 @@ class TestLoadCsv(TestLoadBase):
         )
 
         records = self._get_records(Session, resource_id)
-        print(records)
-        assert records[0] == (
-            1,
-            u"Zürich",
-            u"68260",
-            u"65444",
-            u"62646",
-            u"6503",
-            u"28800",
-            u"1173",
-            u"6891",
-            u"24221",
-            u"672",
-        )
         print(self._get_column_names(Session, resource_id))
         assert self._get_column_names(Session, resource_id) == [
             u"_id",
@@ -619,6 +606,20 @@ class TestLoadCsv(TestLoadBase):
             u"int4",
             u"tsvector",
         ] + [u"text"] * (len(records[0]) - 1)
+        print(records)
+        assert records[0] == (
+            1,
+            u"Zürich",
+            u"68260",
+            u"65444",
+            u"62646",
+            u"6503",
+            u"28800",
+            u"1173",
+            u"6891",
+            u"24221",
+            u"672",
+        )
 
     def test_with_blanks(self, Session):
         csv_filepath = get_sample_filepath("sample_with_blanks.csv")
@@ -699,7 +700,6 @@ class TestLoadCsv(TestLoadBase):
             logger=logger,
         )
 
-        assert len(self._get_records(Session, resource_id)) == 6
         assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
@@ -714,6 +714,7 @@ class TestLoadCsv(TestLoadBase):
             u"text",
             u"text",
         ]
+        assert len(self._get_records(Session, resource_id)) == 6
 
     @pytest.mark.skipif(
         not p.toolkit.check_ckan_version(min_version="2.7"),
@@ -752,7 +753,6 @@ class TestLoadCsv(TestLoadBase):
             fields=fields, resource_id=resource_id, logger=logger
         )
 
-        assert len(self._get_records(Session, resource_id)) == 6
         assert self._get_column_names(Session, resource_id) == [
             u"_id",
             u"_full_text",
@@ -767,6 +767,7 @@ class TestLoadCsv(TestLoadBase):
             u"numeric",
             u"text",
         ]
+        assert len(self._get_records(Session, resource_id)) == 6
 
         # check that rows with nulls are indexed correctly
         records = self._get_records(
@@ -815,6 +816,181 @@ class TestLoadCsv(TestLoadBase):
             u"1",
             u"Galway",
         )
+
+    def test_load_with_no_strip_white(self, Session):
+        csv_filepath = get_sample_filepath("boston_311_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        # Change strip_extra_white, as it would be done by Data Dictionary
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        for field in fields:
+            field["info"] = {"strip_extra_white": False}  # <=2.10
+            field["strip_extra_white"] = False  # >=2.11
+        p.toolkit.get_action("datastore_create")(
+            {"ignore_auth": True},
+            {"resource_id": resource_id, "force": True, "fields": fields},
+        )
+
+        # Load it again with new strip_extra_white
+        fields = loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        loader.create_column_indexes(
+            fields=fields, resource_id=resource_id, logger=logger
+        )
+
+        records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",
+            u"_full_text",
+            u"CASE_ENQUIRY_ID",
+            u"open_dt",
+            u"target_dt",
+            u"closed_dt",
+            u"OnTime_Status",
+            u"CASE_STATUS",
+            u"CLOSURE_REASON",
+            u"CASE_TITLE",
+            u"SUBJECT",
+            u"REASON",
+            u"TYPE",
+            u"QUEUE",
+            u"Department",
+            u"SubmittedPhoto",
+            u"ClosedPhoto",
+            u"Location",
+            u"Fire_district",
+            u"pwd_district",
+            u"city_council_district",
+            u"police_district",
+            u"neighborhood",
+            u"neighborhood_services_district",
+            u"ward",
+            u"precinct",
+            u"LOCATION_STREET_NAME",
+            u"LOCATION_ZIPCODE",
+            u"Latitude",
+            u"Longitude",
+            u"Source",
+        ]  # noqa
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+        ] + [u"text"] * (len(records[0]) - 1)
+        print(records)
+        assert records == [
+            (
+                1,  # ds auto increment id / primary key
+                u"101002153891",
+                u"2017-07-06 23:38:43",
+                u"2017-07-21 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Street Light Outages",
+                u"Public Works Department   ",  # no strip_extra_white
+                u"Street Lights",
+                u"Street Light Outages",
+                u"PWDx_Street Light Outages",
+                u"PWDx",
+                None,
+                None,
+                u"480 Harvard St  Dorchester  MA  02124",
+                u"8",
+                u"07",
+                u"4",
+                u"B3",
+                u"Greater Mattapan",
+                u"9",
+                u"Ward 14",
+                u"1411",
+                u"480 Harvard St",
+                u"02124",
+                u"42.288",
+                u"-71.0927",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                2,  # ds auto increment id / primary key
+                u"101002153890",
+                u"2017-07-06 23:29:13",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # no strip_extra_white
+                None,
+                u"522 Saratoga St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0110",
+                u"522 Saratoga St",
+                u"02128",
+                u"42.3807",
+                u"-71.0259",
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                3,  # ds auto increment id / primary key
+                u"101002153889",
+                u"2017-07-06 23:24:20",
+                u"2017-09-11 08:30:00",
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # no strip_extra_white
+                None,
+                u"965 Bennington St  East Boston  MA  02128",
+                u"1",
+                u"09",
+                u"1",
+                u"A7",
+                u"East Boston",
+                u"1",
+                u"Ward 1",
+                u"0112",
+                u"965 Bennington St",
+                u"02128",
+                u"42.386",
+                u"-71.008",
+                u"Citizens Connect App",
+            ),
+        ]  # noqa
 
 
 class TestLoadUnhandledTypes(TestLoadBase):
@@ -919,6 +1095,20 @@ class TestLoadTabulator(TestLoadBase):
         #   "'-01':4,5 '00':6,7,8 '1':1 '2011':3 'galway':2"
         #   "'-01':2,3 '00':5,6 '1':7 '2011':1 'galway':8 't00':4"
 
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",
+            u"_full_text",
+            u"date",
+            u"temperature",
+            u"place",
+        ]
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+            u"timestamp",
+            u"numeric",
+            u"text",
+        ]
         assert self._get_records(Session, resource_id) == [
             (1, datetime.datetime(2011, 1, 1, 0, 0), Decimal("1"), u"Galway",),
             (
@@ -1085,6 +1275,74 @@ class TestLoadTabulator(TestLoadBase):
         )
 
         records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",                                 # int4
+            u"_full_text",                          # tsvector
+            u"CASE_ENQUIRY_ID",                     # numeric
+            u"open_dt",                             # timestamp
+            u"target_dt",                           # timestamp
+            u"closed_dt",                           # text
+            u"OnTime_Status",                       # text
+            u"CASE_STATUS",                         # text
+            u"CLOSURE_REASON",                      # text
+            u"CASE_TITLE",                          # text
+            u"SUBJECT",                             # text
+            u"REASON",                              # text
+            u"TYPE",                                # text
+            u"QUEUE",                               # text
+            u"Department",                          # text
+            u"SubmittedPhoto",                      # text
+            u"ClosedPhoto",                         # text
+            u"Location",                            # text
+            u"Fire_district",                       # numeric
+            u"pwd_district",                        # numeric
+            u"city_council_district",               # numeric
+            u"police_district",                     # text
+            u"neighborhood",                        # text
+            u"neighborhood_services_district",      # numeric
+            u"ward",                                # text
+            u"precinct",                            # numeric
+            u"LOCATION_STREET_NAME",                # text
+            u"LOCATION_ZIPCODE",                    # numeric
+            u"Latitude",                            # numeric
+            u"Longitude",                           # numeric
+            u"Source",                              # text
+        ]  # noqa
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",            # _id
+            u"tsvector",        # _full_text
+            u"numeric",         # CASE_ENQUIRY_ID
+            u"timestamp",       # open_dt
+            u"timestamp",       # target_dt
+            u"text",            # closed_dt
+            u"text",            # OnTime_Status
+            u"text",            # CASE_STATUS
+            u"text",            # CLOSURE_REASON
+            u"text",            # CASE_TITLE
+            u"text",            # SUBJECT
+            u"text",            # REASON
+            u"text",            # TYPE
+            u"text",            # QUEUE
+            u"text",            # Department
+            u"text",            # SubmittedPhoto
+            u"text",            # ClosedPhoto
+            u"text",            # Location
+            u"numeric",         # Fire_district
+            u"numeric",         # pwd_district
+            u"numeric",         # city_council_district
+            u"text",            # police_district
+            u"text",            # neighborhood
+            u"numeric",         # neighborhood_services_district
+            u"text",            # ward
+            u"numeric",         # precinct
+            u"text",            # LOCATION_STREET_NAME
+            u"numeric",         # LOCATION_ZIPCODE
+            u"numeric",         # Latitude
+            u"numeric",         # Longitude
+            u"text",            # Source
+        ]  # noqa
         print(records)
         assert records == [
             (
@@ -1092,18 +1350,18 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153891"),
                 datetime.datetime(2017, 7, 6, 23, 38, 43),
                 datetime.datetime(2017, 7, 21, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Street Light Outages",
-                u"Public Works Department",
+                u"Public Works Department",  # "   " trailing whitespace gets trimmed
                 u"Street Lights",
                 u"Street Light Outages",
                 u"PWDx_Street Light Outages",
                 u"PWDx",
-                u"",
-                u"",
+                None,
+                None,
                 u"480 Harvard St  Dorchester  MA  02124",
                 Decimal("8"),
                 Decimal("7"),
@@ -1124,18 +1382,18 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153890"),
                 datetime.datetime(2017, 7, 6, 23, 29, 13),
                 datetime.datetime(2017, 9, 11, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
                 u"Graffiti Removal",
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",
-                u"",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # strip white spaces
+                None,
                 u"522 Saratoga St  East Boston  MA  02128",
                 Decimal("1"),
                 Decimal("9"),
@@ -1156,18 +1414,18 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("101002153889"),
                 datetime.datetime(2017, 7, 6, 23, 24, 20),
                 datetime.datetime(2017, 9, 11, 8, 30),
-                u"",
+                None,
                 u"ONTIME",
                 u"Open",
-                u" ",
+                None,  # " " transforms to None
                 u"Graffiti Removal",
                 u"Property Management",
                 u"Graffiti",
                 u"Graffiti Removal",
                 u"PROP_GRAF_GraffitiRemoval",
                 u"PROP",
-                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",
-                u"",
+                u"https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # strip white spaces
+                None,
                 u"965 Bennington St  East Boston  MA  02128",
                 Decimal("1"),
                 Decimal("9"),
@@ -1183,74 +1441,6 @@ class TestLoadTabulator(TestLoadBase):
                 Decimal("-71.008"),
                 u"Citizens Connect App",
             ),
-        ]  # noqa
-        print(self._get_column_names(Session, resource_id))
-        assert self._get_column_names(Session, resource_id) == [
-            u"_id",
-            u"_full_text",
-            u"CASE_ENQUIRY_ID",
-            u"open_dt",
-            u"target_dt",
-            u"closed_dt",
-            u"OnTime_Status",
-            u"CASE_STATUS",
-            u"CLOSURE_REASON",
-            u"CASE_TITLE",
-            u"SUBJECT",
-            u"REASON",
-            u"TYPE",
-            u"QUEUE",
-            u"Department",
-            u"SubmittedPhoto",
-            u"ClosedPhoto",
-            u"Location",
-            u"Fire_district",
-            u"pwd_district",
-            u"city_council_district",
-            u"police_district",
-            u"neighborhood",
-            u"neighborhood_services_district",
-            u"ward",
-            u"precinct",
-            u"LOCATION_STREET_NAME",
-            u"LOCATION_ZIPCODE",
-            u"Latitude",
-            u"Longitude",
-            u"Source",
-        ]  # noqa
-        print(self._get_column_types(Session, resource_id))
-        assert self._get_column_types(Session, resource_id) == [
-            u"int4",
-            u"tsvector",
-            u"numeric",
-            u"timestamp",
-            u"timestamp",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"text",
-            u"numeric",
-            u"numeric",
-            u"numeric",
-            u"text",
-            u"text",
-            u"numeric",
-            u"text",
-            u"numeric",
-            u"text",
-            u"numeric",
-            u"numeric",
-            u"numeric",
-            u"text",
         ]  # noqa
 
     def test_no_entries(self):
@@ -1359,3 +1549,209 @@ class TestLoadTabulator(TestLoadBase):
             (3, "Barcaldine", 4725, Decimal("-23.55327901"), Decimal("145.289156"),
              "9:00-12:30", "13:30-16:30", datetime.datetime(2018, 7, 20))
         ]
+
+    def test_load_with_no_strip_white(self, Session):
+        csv_filepath = get_sample_filepath("boston_311_sample.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="csv",
+            logger=logger,
+        )
+
+        # Change strip_extra_white, as it would be done by Data Dictionary
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        for field in fields:
+            if "info" not in field:
+                field["info"] = {}
+            field["info"]["strip_extra_white"] = False  # <=2.10
+            field["strip_extra_white"] = False  # >=2.11
+        p.toolkit.get_action("datastore_create")(
+            {"ignore_auth": True},
+            {"resource_id": resource_id, "force": True, "fields": fields},
+        )
+
+        # Load it again with new strip_extra_white
+        fields = loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="csv",
+            logger=logger,
+        )
+        loader.create_column_indexes(
+            fields=fields, resource_id=resource_id, logger=logger
+        )
+
+        records = self._get_records(Session, resource_id)
+        print(self._get_column_names(Session, resource_id))
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",                                 # int4
+            u"_full_text",                          # tsvector
+            u"CASE_ENQUIRY_ID",                     # numeric
+            u"open_dt",                             # timestamp
+            u"target_dt",                           # timestamp
+            u"closed_dt",                           # text
+            u"OnTime_Status",                       # text
+            u"CASE_STATUS",                         # text
+            u"CLOSURE_REASON",                      # text
+            u"CASE_TITLE",                          # text
+            u"SUBJECT",                             # text
+            u"REASON",                              # text
+            u"TYPE",                                # text
+            u"QUEUE",                               # text
+            u"Department",                          # text
+            u"SubmittedPhoto",                      # text
+            u"ClosedPhoto",                         # text
+            u"Location",                            # text
+            u"Fire_district",                       # numeric
+            u"pwd_district",                        # numeric
+            u"city_council_district",               # numeric
+            u"police_district",                     # text
+            u"neighborhood",                        # text
+            u"neighborhood_services_district",      # numeric
+            u"ward",                                # text
+            u"precinct",                            # numeric
+            u"LOCATION_STREET_NAME",                # text
+            u"LOCATION_ZIPCODE",                    # numeric
+            u"Latitude",                            # numeric
+            u"Longitude",                           # numeric
+            u"Source",                              # text
+        ]  # noqa
+        print(self._get_column_types(Session, resource_id))
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",            # _id
+            u"tsvector",        # _full_text
+            u"numeric",         # CASE_ENQUIRY_ID
+            u"timestamp",       # open_dt
+            u"timestamp",       # target_dt
+            u"text",            # closed_dt
+            u"text",            # OnTime_Status
+            u"text",            # CASE_STATUS
+            u"text",            # CLOSURE_REASON
+            u"text",            # CASE_TITLE
+            u"text",            # SUBJECT
+            u"text",            # REASON
+            u"text",            # TYPE
+            u"text",            # QUEUE
+            u"text",            # Department
+            u"text",            # SubmittedPhoto
+            u"text",            # ClosedPhoto
+            u"text",            # Location
+            u"numeric",         # Fire_district
+            u"numeric",         # pwd_district
+            u"numeric",         # city_council_district
+            u"text",            # police_district
+            u"text",            # neighborhood
+            u"numeric",         # neighborhood_services_district
+            u"text",            # ward
+            u"numeric",         # precinct
+            u"text",            # LOCATION_STREET_NAME
+            u"numeric",         # LOCATION_ZIPCODE
+            u"numeric",         # Latitude
+            u"numeric",         # Longitude
+            u"text",            # Source
+        ]  # noqa
+        print(records)
+        assert records == [
+            (
+                1,  # ds auto increment id / primary key
+                Decimal("101002153891"),
+                datetime.datetime(2017, 7, 6, 23, 38, 43),
+                datetime.datetime(2017, 7, 21, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Street Light Outages",
+                u"Public Works Department   ",  # no strip_extra_white
+                u"Street Lights",
+                u"Street Light Outages",
+                u"PWDx_Street Light Outages",
+                u"PWDx",
+                None,
+                None,
+                u"480 Harvard St  Dorchester  MA  02124",
+                Decimal("8"),
+                Decimal("7"),
+                Decimal("4"),
+                u"B3",
+                u"Greater Mattapan",
+                Decimal("9"),
+                u"Ward 14",
+                Decimal("1411"),
+                u"480 Harvard St",
+                Decimal("2124"),
+                Decimal("42.288"),
+                Decimal("-71.0927"),
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                2,  # ds auto increment id / primary key
+                Decimal("101002153890"),
+                datetime.datetime(2017, 7, 6, 23, 29, 13),
+                datetime.datetime(2017, 9, 11, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595f0000048560f46d94b9fa/report.jpg",  # no strip_extra_white
+                None,
+                u"522 Saratoga St  East Boston  MA  02128",
+                Decimal("1"),
+                Decimal("9"),
+                Decimal("1"),
+                u"A7",
+                u"East Boston",
+                Decimal("1"),
+                u"Ward 1",
+                Decimal("110"),
+                u"522 Saratoga St",
+                Decimal("2128"),
+                Decimal("42.3807"),
+                Decimal("-71.0259"),
+                u"Citizens Connect App",
+            ),  # noqa
+            (
+                3,  # ds auto increment id / primary key
+                Decimal("101002153889"),
+                datetime.datetime(2017, 7, 6, 23, 24, 20),
+                datetime.datetime(2017, 9, 11, 8, 30),
+                None,
+                u"ONTIME",
+                u"Open",
+                u" ",  # no strip_extra_white
+                u"Graffiti Removal",
+                u"Property Management",
+                u"Graffiti",
+                u"Graffiti Removal",
+                u"PROP_GRAF_GraffitiRemoval",
+                u"PROP",
+                u" https://mayors24.cityofboston.gov/media/boston/report/photos/595efedb048560f46d94b9ef/report.jpg",  # no strip_extra_white
+                None,
+                u"965 Bennington St  East Boston  MA  02128",
+                Decimal("1"),
+                Decimal("9"),
+                Decimal("1"),
+                u"A7",
+                u"East Boston",
+                Decimal("1"),
+                u"Ward 1",
+                Decimal("112"),
+                u"965 Bennington St",
+                Decimal("2128"),
+                Decimal("42.386"),
+                Decimal("-71.008"),
+                u"Citizens Connect App",
+            ),
+        ]  # noqa
