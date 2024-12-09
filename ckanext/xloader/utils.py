@@ -11,7 +11,14 @@ from collections import defaultdict
 from decimal import Decimal
 
 import ckan.plugins as p
-from ckan.plugins.toolkit import config
+from ckan.plugins.toolkit import config, h, _
+
+from .job_exceptions import JobError
+
+from logging import getLogger
+
+
+log = getLogger(__name__)
 
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
 DEFAULT_FORMATS = [
@@ -46,9 +53,70 @@ class XLoaderFormats(object):
         return format_.lower() in cls._formats
 
 
+def requires_successful_validation_report():
+    return p.toolkit.asbool(config.get('ckanext.xloader.validation.requires_successful_report', False))
+
+
+def awaiting_validation(res_dict):
+    """
+    Checks the existence of a logic action from the ckanext-validation
+    plugin, thus supporting any extending of the Validation Plugin class.
+    Checks ckanext.xloader.validation.requires_successful_report config
+    option value.
+    Checks ckanext.xloader.validation.enforce_schema config
+    option value. Then checks the Resource's validation_status.
+    """
+    if not requires_successful_validation_report():
+        # validation.requires_successful_report is turned off, return right away
+        return False
+
+    try:
+        # check for one of the main actions from ckanext-validation
+        # in the case that users extend the Validation plugin class
+        # and rename the plugin entry-point.
+        p.toolkit.get_action('resource_validation_show')
+        is_validation_plugin_loaded = True
+    except KeyError:
+        is_validation_plugin_loaded = False
+
+    if not is_validation_plugin_loaded:
+        # the validation plugin is not loaded but required, log a warning
+        log.warning('ckanext.xloader.validation.requires_successful_report requires the ckanext-validation plugin to be activated.')
+        return False
+
+    if (p.toolkit.asbool(config.get('ckanext.xloader.validation.enforce_schema', True))
+            or res_dict.get('schema', None)) and res_dict.get('validation_status', None) != 'success':
+
+        # either validation.enforce_schema is turned on or it is off and there is a schema,
+        # we then explicitly check for the `validation_status` report to be `success``
+        return True
+
+    # at this point, we can assume that the Resource is not waiting for Validation.
+    # or that the Resource does not have a Validation Schema and we are not enforcing schemas.
+    return False
+
+
 def resource_data(id, resource_id, rows=None):
 
     if p.toolkit.request.method == "POST":
+
+        context = {
+            "ignore_auth": True,
+        }
+        resource_dict = p.toolkit.get_action("resource_show")(
+            context,
+            {
+                "id": resource_id,
+            },
+        )
+
+        if awaiting_validation(resource_dict):
+            h.flash_error(_("Cannot upload resource %s to the DataStore "
+                            "because the resource did not pass validation yet.") % resource_id)
+            return p.toolkit.redirect_to(
+                "xloader.resource_data", id=id, resource_id=resource_id
+            )
+
         try:
             p.toolkit.get_action("xloader_submit")(
                 None,
@@ -231,7 +299,7 @@ def type_guess(rows, types=TYPES, strict=False):
     else:
         for i, row in enumerate(rows):
             diff = len(row) - len(guesses)
-            for _ in range(diff):
+            for _i in range(diff):
                 guesses.append(defaultdict(int))
             for i, cell in enumerate(row):
                 # add string guess so that we have at least one guess
