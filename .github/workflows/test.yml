@@ -10,8 +10,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install requirements
@@ -23,16 +23,29 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        ckan-version: ["2.10", 2.9]
+        include: #ckan-image see https://github.com/ckan/ckan-docker-base, ckan-version controls other image tags
+          - ckan-version: "2.11"
+            ckan-image: "2.11-py3.10"
+            experimental: false
+          - ckan-version: "2.10"
+            ckan-image: "2.10-py3.10"
+            experimental: false
+          - ckan-version: "2.9"
+            ckan-image: "2.9-py3.9"
+            experimental: false
+          - ckan-version: "master"
+            ckan-image: "master"
+            experimental: true  # master is unstable, good to know if we are compatible or not
       fail-fast: false
 
     name: CKAN ${{ matrix.ckan-version }}
     runs-on: ubuntu-latest
     container:
-      image: openknowledge/ckan-dev:${{ matrix.ckan-version }}
+      image: ckan/ckan-dev:${{ matrix.ckan-image }}
+      options: --user root
     services:
       solr:
-        image: ckan/ckan-solr:${{ matrix.ckan-version }}
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}-solr9
       postgres:
         image: ckan/ckan-postgres-dev:${{ matrix.ckan-version }}
         env:
@@ -52,8 +65,16 @@ jobs:
       CKAN_REDIS_URL: redis://redis:6379/1
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      continue-on-error: ${{ matrix.experimental }}
+
+    - name: Pin setuptools for ckan 2.9 only
+      if: ${{ matrix.ckan-version == 2.9 }}
+      run: pip install "setuptools>=44.1.0,<71"
+      continue-on-error: ${{ matrix.experimental }}
+
     - name: Install requirements
+      continue-on-error: ${{ matrix.experimental }}
       run: |
         pip install -r requirements.txt
         pip install -r dev-requirements.txt
@@ -61,8 +82,19 @@ jobs:
         pip install -U requests[security]
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
-    - name: Setup extension (CKAN >= 2.9)
+
+    - name: Setup extension
+      continue-on-error: ${{ matrix.experimental }}
       run: |
         ckan -c test.ini db init
+
     - name: Run tests
-      run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests
+      continue-on-error: ${{ matrix.experimental }}
+      run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests --junit-xml=/tmp/artifacts/junit/results.xml
+
+    - name: Test Summary
+      uses: test-summary/action@v2
+      continue-on-error: ${{ matrix.experimental }}
+      with:
+        paths: "/tmp/artifacts/junit/*.xml"
+      if: always()

@@ -1,7 +1,11 @@
 ckantoolkit
-requests[security]>=2.11.1
+requests>=2.31.0
 six>=1.12.0
 tabulator==1.53.5
 Unidecode==1.0.22
 python-dateutil>=2.8.2
+certifi>=2023.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
 chardet==5.2.0
+idna>=3.7 # not directly required, pinned by Snyk to avoid a vulnerability
+urllib3>=1.26.19 # not directly required, pinned by Snyk to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability

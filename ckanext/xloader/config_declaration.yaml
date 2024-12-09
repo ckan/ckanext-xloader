@@ -46,6 +46,15 @@ groups:
         type: bool
         required: false
         legacy_key: ckanext.xloader.just_load_with_messytables
+      - key: ckanext.xloader.strict_type_guessing
+        default: True
+        example: False
+        description: |
+            Use with ckanext.xloader.use_type_guessing to set strict true or false
+            for type guessing. If set to False, the types will always fallback to string type.
+
+            Strict means that a type will not be guessed if parsing fails for a single cell in the column.
+        type: bool
       - key: ckanext.xloader.max_type_guessing_length
         default: 0
         example: 100000
@@ -144,6 +153,22 @@ groups:
         description: |
           Enqueue jobs to remove Datastore tables from Resources that have a format
           that is not in ckanext.xloader.formats after a Resource is updated.
+        type: bool
+        required: false
+      - key: ckanext.xloader.show_badges
+        default: True
+        example: False
+        description: |
+          Controls whether or not the status badges display in the front end.
+        type: bool
+        required: false
+      - key: ckanext.xloader.debug_badges
+        default: False
+        example: True
+        description: |
+          Controls whether or not the status badges display all of the statuses. By default,
+          the badges will display "pending", "running", and "error". With debug_badges enabled,
+          they will also display "complete", "active", "inactive", and "unknown".
         type: bool
         required: false
 

@@ -4,6 +4,8 @@ import json
 import datetime
 from rq import get_current_job
 
+from six import text_type as str, binary_type
+
 from ckan import model
 from ckan.lib import search
 from collections import defaultdict
@@ -11,6 +13,8 @@ from decimal import Decimal
 
 import ckan.plugins as p
 from ckan.plugins.toolkit import config, h, _
+
+from .job_exceptions import JobError
 
 from logging import getLogger
 
@@ -53,7 +57,6 @@ def requires_successful_validation_report():
 
 
 def awaiting_validation(res_dict):
-    # type: (dict) -> bool
     """
     Checks the existence of a logic action from the ckanext-validation
     plugin, thus supporting any extending of the Validation Plugin class.
@@ -254,7 +257,7 @@ def headers_guess(rows, tolerance=1):
     return 0, []
 
 
-TYPES = [int, bool, str, datetime.datetime, float, Decimal]
+TYPES = [int, bool, str, binary_type, datetime.datetime, float, Decimal]
 
 
 def type_guess(rows, types=TYPES, strict=False):
@@ -315,6 +318,8 @@ def type_guess(rows, types=TYPES, strict=False):
         # element in case of a tie
         # See: http://stackoverflow.com/a/6783101/214950
         guesses_tuples = [(t, guess[t]) for t in types if t in guess]
+        if not guesses_tuples:
+            raise JobError('Failed to guess types')
         _columns.append(max(guesses_tuples, key=lambda t_n: t_n[1])[0])
     return _columns
 

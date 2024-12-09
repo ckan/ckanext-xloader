@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import datetime
 import itertools
+from six import text_type as str, binary_type
 import os
 import os.path
 import tempfile
@@ -117,8 +118,8 @@ def _clear_datastore_resource(resource_id):
     '''
     engine = get_write_engine()
     with engine.begin() as conn:
-        conn.execute("SET LOCAL lock_timeout = '5s'")
-        conn.execute('TRUNCATE TABLE "{}"'.format(resource_id))
+        conn.execute("SET LOCAL lock_timeout = '15s'")
+        conn.execute('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id))
 
 
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
@@ -338,6 +339,18 @@ def create_column_indexes(fields, resource_id, logger):
     logger.info('...column indexes created.')
 
 
+def _save_type_overrides(headers_dicts):
+    # copy 'type' to 'type_override' if it's not the default type (text)
+    # and there isn't already an override in place
+    for h in headers_dicts:
+        if h['type'] != 'text':
+            if 'info' in h:
+                if 'type_override' not in h['info']:
+                    h['info']['type_override'] = h['type']
+            else:
+                h['info'] = {'type_override': h['type']}
+
+
 def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads an Excel file (or other tabular data recognized by tabulator)
     into Datastore and creates indexes.
@@ -384,7 +397,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     skip_rows.append({'type': 'preset', 'value': 'blank'})
 
     TYPES, TYPE_MAPPING = get_types()
-    types = type_guess(stream.sample[1:], types=TYPES, strict=True)
+    strict_guessing = p.toolkit.asbool(
+        config.get('ckanext.xloader.strict_type_guessing', True))
+    types = type_guess(stream.sample[1:], types=TYPES, strict=strict_guessing)
 
     # override with types user requested
     if existing_info:
@@ -396,7 +411,14 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             }.get(existing_info.get(h, {}).get('type_override'), t)
             for t, h in zip(types, headers)]
 
-    headers = [header.strip()[:MAX_COLUMN_LENGTH] for header in headers if header.strip()]
+    # Strip leading and trailing whitespace, then truncate to maximum length,
+    # then strip again in case the truncation exposed a space.
+    headers = [
+        header.strip()[:MAX_COLUMN_LENGTH].strip()
+        for header in headers
+        if header and header.strip()
+    ]
+    header_count = len(headers)
     type_converter = TypeConverter(types=types)
 
     with UnknownEncodingStream(table_filepath, file_format, decoding_result,
@@ -406,6 +428,17 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for row in stream:
                 data_row = {}
                 for index, cell in enumerate(row):
+                    # Handle files that have extra blank cells in heading and body
+                    # eg from Microsoft Excel adding lots of empty cells on export.
+                    # Blank header cells won't generate a column,
+                    # so row length won't match column count.
+                    if index >= header_count:
+                        # error if there's actual data out of bounds, otherwise ignore
+                        if cell:
+                            raise LoaderError("Found data in column %s but resource only has %s header(s)",
+                                              index + 1, header_count)
+                        else:
+                            continue
                     data_row[headers[index]] = cell
                 yield data_row
         result = row_iterator()
@@ -422,6 +455,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                     type_override = existing_info[h['id']].get('type_override')
                     if type_override in list(_TYPE_MAPPING.values()):
                         h['type'] = type_override
+
+        # preserve any types that we have sniffed unless told otherwise
+        _save_type_overrides(headers_dicts)
 
         logger.info('Determined headers and types: %s', headers_dicts)
 
@@ -462,12 +498,17 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
 
 
 _TYPE_MAPPING = {
+    "<type 'str'>": 'text',
     "<type 'unicode'>": 'text',
+    "<type 'bytes'>": 'text',
     "<type 'bool'>": 'text',
     "<type 'int'>": 'numeric',
     "<type 'float'>": 'numeric',
     "<class 'decimal.Decimal'>": 'numeric',
+    "<type 'datetime.datetime'>": 'timestamp',
     "<class 'str'>": 'text',
+    "<class 'unicode'>": 'text',
+    "<class 'bytes'>": 'text',
     "<class 'bool'>": 'text',
     "<class 'int'>": 'numeric',
     "<class 'float'>": 'numeric',
@@ -476,7 +517,7 @@ _TYPE_MAPPING = {
 
 
 def get_types():
-    _TYPES = [int, bool, str, datetime.datetime, float, Decimal]
+    _TYPES = [int, bool, str, binary_type, datetime.datetime, float, Decimal]
     TYPE_MAPPING = config.get('TYPE_MAPPING', _TYPE_MAPPING)
     return _TYPES, TYPE_MAPPING
 
