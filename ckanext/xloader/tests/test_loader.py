@@ -1566,6 +1566,11 @@ class TestLoadTabulator(TestLoadBase):
             None, {"resource_id": resource_id, "limit": 0}
         )
         fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        print('    ')
+        print('DEBUGGING::step 1')
+        print('    ')
+        print(fields)
+        print('    ')
         for field in fields:
             if "info" not in field:
                 field["info"] = {}
@@ -1578,6 +1583,18 @@ class TestLoadTabulator(TestLoadBase):
             {"ignore_auth": True},
             {"resource_id": resource_id, "force": True, "fields": fields},
         )
+
+        rec = p.toolkit.get_action("datastore_search")(
+            None, {"resource_id": resource_id, "limit": 0}
+        )
+        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
+        print('    ')
+        print('DEBUGGING::step 2')
+        print('    ')
+        print(fields)
+        print('    ')
+
+        assert False
 
         # Load it again with new strip_extra_white
         fields = loader.load_table(
