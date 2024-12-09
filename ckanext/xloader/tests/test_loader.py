@@ -1566,11 +1566,6 @@ class TestLoadTabulator(TestLoadBase):
             None, {"resource_id": resource_id, "limit": 0}
         )
         fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
-        print('    ')
-        print('DEBUGGING::step 1')
-        print('    ')
-        print(fields)
-        print('    ')
         for field in fields:
             if "info" not in field:
                 field["info"] = {}
@@ -1580,38 +1575,6 @@ class TestLoadTabulator(TestLoadBase):
             {"ignore_auth": True},
             {"resource_id": resource_id, "force": True, "fields": fields},
         )
-
-        rec = p.toolkit.get_action("datastore_search")(
-            None, {"resource_id": resource_id, "limit": 0}
-        )
-        fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
-        print('    ')
-        print('DEBUGGING::step 2')
-        print('    ')
-        print(fields)
-        print('    ')
-
-        ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
-        existing_fields = ds_info.get('fields', [])
-        existing_info = dict(
-            (f['id'], f['info'])
-            for f in existing_fields if 'info' in f)
-        existing_fields_by_headers = dict((f['id'], f)
-                                          for f in existing_fields)
-
-        print('    ')
-        print('DEBUGGING::step 3')
-        print('    ')
-        print(existing_info)
-        print('    ')
-
-        print('    ')
-        print('DEBUGGING::step 4')
-        print('    ')
-        print(existing_fields_by_headers)
-        print('    ')
-
-        assert False
 
         # Load it again with new strip_extra_white
         fields = loader.load_table(
