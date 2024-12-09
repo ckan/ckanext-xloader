@@ -33,8 +33,6 @@ DEFAULT_FORMATS = [
     "application/vnd.oasis.opendocument.spreadsheet",
 ]
 
-from .job_exceptions import JobError
-
 
 class XLoaderFormats(object):
     formats = None
@@ -61,8 +59,10 @@ def awaiting_validation(res_dict):
     """
     Checks the existence of a logic action from the ckanext-validation
     plugin, thus supporting any extending of the Validation Plugin class.
+
     Checks ckanext.xloader.validation.requires_successful_report config
     option value.
+
     Checks ckanext.xloader.validation.enforce_schema config
     option value. Then checks the Resource's validation_status.
     """
@@ -273,7 +273,7 @@ def type_guess(rows, types=TYPES, strict=False):
         at_least_one_value = []
         for ri, row in enumerate(rows):
             diff = len(row) - len(guesses)
-            for _ in range(diff):
+            for _i in range(diff):
                 typesdict = {}
                 for type in types:
                     typesdict[type] = 0

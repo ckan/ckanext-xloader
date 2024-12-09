@@ -409,6 +409,34 @@ Controls whether or not the status badges display all of the statuses. By defaul
 the badges will display "pending", "running", and "error". With debug_badges enabled,
 they will also display "complete", "active", "inactive", and "unknown".
 
+#### ckanext.xloader.validation.requires_successful_report
+
+Supports: __ckanext-validation__
+
+Example:
+
+```
+ckanext.xloader.validation.requires_successful_report = True
+```
+
+Default value: `False`
+
+Controls whether or not a resource requires a successful validation report from the ckanext-validation plugin in order to be XLoadered.
+
+#### ckanext.xloader.validation.enforce_schema
+
+Supports: __ckanext-validation__
+
+Example:
+
+```
+ckanext.xloader.validation.enforce_schema = False
+```
+
+Default value: `True`
+
+Controls whether or not a resource requires a Validation Schema to be present from the ckanext-validation plugin to be XLoadered.
+
 ## Data Dictionary Fields
 
 #### strip_extra_white

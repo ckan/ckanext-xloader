@@ -3,6 +3,8 @@
 
 Feat:
 * Adds Strip White Space fields to the Data Dictionary (defualts to `True` for each field). This will strip surrounding white space from data values prior to inserting them into the database.
+* Adds support for ckanext-validation. Config `ckanext.xloader.validation.requires_successful_report` controls whether a resource requires a successful validation report to be XLoadered. By default, a resource would also require a Validation Schema, which can be turned off with `ckanext.xloader.validation.enforce_schema`.
+
 
 **Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.2...1.1.3
 
