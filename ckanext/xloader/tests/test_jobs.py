@@ -86,8 +86,8 @@ def data(create_with_upload, apikey):
 
 
 @pytest.mark.usefixtures("clean_db", "with_plugins")
-@pytest.mark.ckan_config("ckanext.xloader.job_timeout", 15)
-@pytest.mark.ckan_config("ckan.jobs.timeout", 15)
+@pytest.mark.ckan_config("ckanext.xloader.job_timeout", 2)
+@pytest.mark.ckan_config("ckan.jobs.timeout", 2)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
     def test_xloader_data_into_datastore(self, cli, data):
@@ -139,7 +139,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
     def test_data_with_rq_job_timeout(self, cli, data):
         file_suffix = 'multiplication_2.csv'
-        self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=15))
+        self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=2))
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "Job timed out after" in stdout

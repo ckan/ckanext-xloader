@@ -265,9 +265,8 @@ def xloader_data_into_datastore_(input, job_dict, logger):
             tmp_file.close()
         except FileNotFoundError:
             pass
-        timeout = config.get('ckanext.xloader.job_timeout', '3600')
-        logger.warning('Job timed out after %ss', timeout)
-        raise JobError('Job timed out after {}s'.format(timeout))
+        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
+        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)
@@ -389,9 +388,8 @@ def _download_resource_data(resource, data, api_key, logger):
             request_url=url, response=None)
     except JobTimeoutException as e:
         tmp_file.close()
-        timeout = config.get('ckanext.xloader.job_timeout', '3600')
-        logger.warning('Job timed out after %ss', timeout)
-        raise JobError('Job timed out after {}s'.format(timeout))
+        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
+        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
 
     logger.info('Downloaded ok - %s', printable_file_size(length))
     file_hash = m.hexdigest()
