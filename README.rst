@@ -202,6 +202,24 @@ expect European (day-first) dates, you could add to ``postgresql.conf``:
 
     datestyle=ISO,DMY
 
+------------------
+Validation Support
+------------------
+
+There is optional support for the ckanext-validation plugin. This makes it so that a resource requires a successful validation report for it to be XLoadered.
+
+To enable the support, use the config option:
+
+```
+ckanext.xloader.validation.requires_successful_report = True
+```
+
+By default, a resource would also require a Validation Schema, which can be turned off with the config option:
+
+```
+ckanext.xloader.validation.enforce_schema = False
+```
+
 ------------------------
 Developer installation
 ------------------------

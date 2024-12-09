@@ -179,7 +179,7 @@ def xloader_submit(context, data_dict):
         if sync:
             log.exception('Unable to xloader res_id=%s', res_id)
         else:
-            log.exception('Unable to enqueued xloader res_id=%s', res_id)
+            log.exception('Unable to enqueue xloader res_id=%s', res_id)
         return False
     log.debug('Enqueued xloader job=%s res_id=%s', job.id, res_id)
     value = json.dumps({'job_id': job.id})
