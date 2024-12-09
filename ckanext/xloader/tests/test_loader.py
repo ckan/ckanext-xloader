@@ -1567,7 +1567,12 @@ class TestLoadTabulator(TestLoadBase):
         )
         fields = [f for f in rec["fields"] if not f["id"].startswith("_")]
         for field in fields:
-            field["info"] = {"strip_extra_white": False}  # <=2.10
+            if "info" not in field:
+                field["info"] = {}
+            if '__extras' not in field["info"]:
+                field["info"]["__extras"] = {}
+            field["info"]["strip_extra_white"] = False  # <=2.10
+            field["info"]["__extras"]["strip_extra_white"] = False  # <=2.10
             field["strip_extra_white"] = False  # >=2.11
         p.toolkit.get_action("datastore_create")(
             {"ignore_auth": True},
