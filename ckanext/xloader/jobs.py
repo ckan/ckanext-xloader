@@ -248,11 +248,6 @@ def xloader_data_into_datastore_(input, job_dict, logger):
         if use_type_guessing:
             try:
                 tabulator_load()
-            except rq_timeouts.JobTimeoutException as e:
-                tmp_file.close()
-                timeout = config.get('ckanext.xloader.job_timeout', '3600')
-                logger.warning('Job time out after %ss', timeout)
-                raise JobError('Job timed out after {}s'.format(timeout))
             except JobError as e:
                 logger.warning('Load using tabulator failed: %s', e)
                 logger.info('Trying again with direct COPY')
@@ -260,15 +255,15 @@ def xloader_data_into_datastore_(input, job_dict, logger):
         else:
             try:
                 direct_load()
-            except rq_timeouts.JobTimeoutException as e:
-                tmp_file.close()
-                timeout = config.get('ckanext.xloader.job_timeout', '3600')
-                logger.warning('Job time out after %ss', timeout)
-                raise JobError('Job timed out after {}s'.format(timeout))
             except JobError as e:
                 logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with tabulator')
                 tabulator_load()
+    except rq_timeouts.JobTimeoutException as e:
+        tmp_file.close()
+        timeout = config.get('ckanext.xloader.job_timeout', '3600')
+        logger.warning('Job time out after %ss', timeout)
+        raise JobError('Job timed out after {}s'.format(timeout))
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)
