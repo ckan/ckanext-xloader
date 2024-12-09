@@ -15,6 +15,7 @@ from psycopg2 import errors
 from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
+from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
 from ckan import model
@@ -259,6 +260,13 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with tabulator')
                 tabulator_load()
+    except JobTimeoutException as e:
+        try:
+            tmp_file.close()
+        except FileNotFoundError:
+            pass
+        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
+        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)
@@ -357,6 +365,7 @@ def _download_resource_data(resource, data, api_key, logger):
         response.close()
         data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
+        tmp_file.close()
         # status code error
         logger.debug('HTTP error: %s', error)
         raise HTTPError(
@@ -368,6 +377,7 @@ def _download_resource_data(resource, data, api_key, logger):
         raise JobError('Connection timed out after {}s'.format(
                        DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
+        tmp_file.close()
         try:
             err_message = str(e.reason)
         except AttributeError:
@@ -376,6 +386,10 @@ def _download_resource_data(resource, data, api_key, logger):
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
+    except JobTimeoutException as e:
+        tmp_file.close()
+        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
+        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
 
     logger.info('Downloaded ok - %s', printable_file_size(length))
     file_hash = m.hexdigest()

@@ -1,5 +1,6 @@
 import pytest
 import io
+import os
 
 from datetime import datetime
 
@@ -16,6 +17,7 @@ from ckanext.xloader.utils import get_xloader_user_apitoken
 
 
 _TEST_FILE_CONTENT = "x, y\n1,2\n2,4\n3,6\n4,8\n5,10"
+_TEST_LARGE_FILE_CONTENT = "\n1,2\n2,4\n3,6\n4,8\n5,10"
 
 
 def get_response(download_url, headers):
@@ -25,13 +27,23 @@ def get_response(download_url, headers):
     resp.headers = headers
     return resp
 
-
 def get_large_response(download_url, headers):
     """Mock jobs.get_response() method to fake a large file."""
     resp = Response()
     resp.raw = io.BytesIO(_TEST_FILE_CONTENT.encode())
     resp.headers = {'content-length': 2000000000}
     return resp
+
+def get_large_data_response(download_url, headers):
+    """Mock jobs.get_response() method."""
+    resp = Response()
+    f_content = _TEST_FILE_CONTENT + (_TEST_LARGE_FILE_CONTENT * 500000)
+    resp.raw = io.BytesIO(f_content.encode())
+    resp.headers = headers
+    return resp
+
+def _get_temp_files(dir='/tmp'):
+    return [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
 
 
 @pytest.fixture
@@ -74,6 +86,8 @@ def data(create_with_upload, apikey):
 
 
 @pytest.mark.usefixtures("clean_db", "with_plugins")
+@pytest.mark.ckan_config("ckanext.xloader.job_timeout", 2)
+@pytest.mark.ckan_config("ckan.jobs.timeout", 2)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
     def test_xloader_data_into_datastore(self, cli, data):
@@ -122,6 +136,16 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"] is False
+
+    def test_data_with_rq_job_timeout(self, cli, data):
+        file_suffix = 'multiplication_2.csv'
+        self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=2))
+        with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
+            stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+            assert "Job timed out after" in stdout
+            for f in _get_temp_files():
+                # make sure that the tmp file has been closed/deleted in job timeout exception handling
+                assert file_suffix not in f
 
 
 @pytest.mark.usefixtures("clean_db")
