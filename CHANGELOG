@@ -1,3 +1,12 @@
+1.1.3 2024-12-09
+================
+
+Feat:
+* Adds support for ckanext-validation. Config `ckanext.xloader.validation.requires_successful_report` controls whether a resource requires a successful validation report to be XLoadered. By default, a resource would also require a Validation Schema, which can be turned off with `ckanext.xloader.validation.enforce_schema`.
+
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.2...1.1.3
+
 1.1.2 2024-10-25
 ================
 
@@ -21,7 +30,7 @@ Fix:
 1.1.0 2024-10-16
 ================
 
-Fixes: 
+Fixes:
 * feat: Add pypi cicd publish via github action via environment controls by @duttonw in https://github.com/ckan/ckanext-xloader/pull/228
 
 
@@ -32,7 +41,7 @@ Fixes:
 ================
 
 
-Fixes: 
+Fixes:
 
 * add README note about running on separate server, #191 by @ThrawnCA in https://github.com/ckan/ckanext-xloader/pull/192
 * Use IDomainObjectModification Implementation by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/198
