@@ -8,10 +8,10 @@
   {% else %}
     {% set field_prefix = 'info__' %}
   {% endif %}
-  {% set is_selected = field.get('info', {}).get('strip_extra_white', field.get('strip_extra_white')) != 'False' %}
+  {% set selected_value = field.get('info', {}).get('strip_extra_white', field.get('strip_extra_white', true)) %}
   {{ form.select(field_prefix ~ position ~ '__strip_extra_white',
     label=_('Strip Extra Leading and Trailing White Space'), options=[
     {'text': _('Yes'), 'value': true},
     {'text': _('No'), 'value': false},
-    ], selected=is_selected) }}
+    ], selected=selected_value) }}
 {% endblock %}
