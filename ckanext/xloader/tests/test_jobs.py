@@ -142,6 +142,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=15))
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+            print('    ')
+            print('DEBUGGING::')
+            print('    ')
+            print(stdout)
+            print('    ')
+            assert False
             assert "Job timed out after" in stdout
             for f in _get_temp_files():
                 # make sure that the tmp file has been closed/deleted in job timeout exception handling
