@@ -1,3 +1,11 @@
+1.1.3 2024-12-09
+================
+
+Feat:
+* Adds Strip White Space fields to the Data Dictionary (defualts to `True` for each field). This will strip surrounding white space from data values prior to inserting them into the database.
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.2...1.1.3
+
 1.1.2 2024-10-25
 ================
 
@@ -21,7 +29,7 @@ Fix:
 1.1.0 2024-10-16
 ================
 
-Fixes: 
+Fixes:
 * feat: Add pypi cicd publish via github action via environment controls by @duttonw in https://github.com/ckan/ckanext-xloader/pull/228
 
 
@@ -32,7 +40,7 @@ Fixes:
 ================
 
 
-Fixes: 
+Fixes:
 
 * add README note about running on separate server, #191 by @ThrawnCA in https://github.com/ckan/ckanext-xloader/pull/192
 * Use IDomainObjectModification Implementation by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/198
