@@ -1,27 +1,58 @@
-1.1.3 2024-12-09
+CHANGELOG
+=========
+See: https://github.com/ckan/ckanext-xloader/releases if this file has drifted.
+
+2.0.0 2024-12-10
 ================
 
-Feat:
-* Adds Strip White Space fields to the Data Dictionary (defualts to `True` for each field). This will strip surrounding white space from data values prior to inserting them into the database.
-* Adds support for ckanext-validation. Config `ckanext.xloader.validation.requires_successful_report` controls whether a resource requires a successful validation report to be XLoadered. By default, a resource would also require a Validation Schema, which can be turned off with `ckanext.xloader.validation.enforce_schema`.
-
-Fix:
-* Properly handle REDIS queue timeouts to close/delete any temporary files.
+## Major
+Dropped CKAN 2.9.x and Python2.
 
 
-**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.2...1.1.3
-
-1.1.2 2024-10-25
-================
-
-Feat:
+## Feat:
+* Adds Strip White Space fields to the Data Dictionary (defualts to `True` for each field).
+  This will strip surrounding white space from data values prior to inserting them into the database.
+* Adds support for ckanext-validation. Config `ckanext.xloader.validation.requires_successful_report`
+  controls whether a resource requires a successful validation report to be XLoadered.
+  By default, a resource would also require a Validation Schema, which can be turned off with
+  `ckanext.xloader.validation.enforce_schema`.
 * Frontend Status Badges by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/224
 
-Fix:
+
+## Fix:
+* Properly handle REDIS queue timeouts to close/delete any temporary files.
 * Fix automated PyPI publishing by @ThrawnCA in https://github.com/ckan/ckanext-xloader/pull/231
 
+## What's Changed
+* Update README, migrate it to Markdown by @amercader in https://github.com/ckan/ckanext-xloader/pull/235
+* chore: switch to pyproject.toml by @duttonw in https://github.com/ckan/ckanext-xloader/pull/236
+* Validation Extension Support (Squashed) by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/237
+* Strip White Space from Cell Values (Squashed) by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/238
+* RQ Job Timeout Handling (Squashed) by @JVickery-TBS in https://github.com/ckan/ckanext-xloader/pull/239
+* SQLAlchemy v2 support by @smotornyuk in https://github.com/ckan/ckanext-xloader/pull/225
 
-**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.1...1.1.2
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.2.0...2.0.0
+
+1.2.0 2024-11-21
+================
+
+## What's Changed
+* Fix PyPI publishing by @ThrawnCA in https://github.com/ckan/ckanext-xloader/pull/233
+* Enhancement/Bugfix: Downstream qld-gov-au fix's by @duttonw in https://github.com/ckan/ckanext-xloader/pull/232
+  * feat: @JVickery-TBS work on validation integration (await successful validation prior to doing datastore work via 'IPipeValidation'
+  * fix: handle gracefully if tabulator load fails by trying 'direct load'
+  * fix: Excel blank header row bug
+  * fix: Datastore truncate, restart identity so numbering restarts from 0 again (when imported data has same columns and types
+  * fix: parital fix on DB deadlock by adding timeouts on DDL events
+  * test: test_simple_large_file, test_with_blanks, test_with_empty_lines, test_with_extra_blank_cells
+  * test: test_require_validation, test_enforce_validation_schema
+  * chore: min version requirements for cve's,
+     *   requests>=2.32.0
+     *   urllib3>=2.2.2
+     *   zipp>=3.19.1
+
+**Full Changelog**: https://github.com/ckan/ckanext-xloader/compare/1.1.2...1.2.0
+
 
 1.1.1 2024-10-16
 ================
