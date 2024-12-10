@@ -39,8 +39,8 @@ def init(config, echo=False):
     global ENGINE, _METADATA, JOBS_TABLE, METADATA_TABLE, LOGS_TABLE
     db_uri = config.get('ckanext.xloader.jobs_db.uri',
                         'sqlite:////tmp/xloader_jobs.db')
-    ENGINE = sqlalchemy.create_engine(db_uri, echo=echo, convert_unicode=True)
-    _METADATA = sqlalchemy.MetaData(ENGINE)
+    ENGINE = sqlalchemy.create_engine(db_uri, echo=echo)
+    _METADATA = sqlalchemy.MetaData()
     JOBS_TABLE = _init_jobs_table()
     METADATA_TABLE = _init_metadata_table()
     LOGS_TABLE = _init_logs_table()
@@ -111,8 +111,10 @@ def get_job(job_id):
     if job_id:
         job_id = six.text_type(job_id)
 
-    result = ENGINE.execute(
-        JOBS_TABLE.select().where(JOBS_TABLE.c.job_id == job_id)).first()
+    with ENGINE.connect() as conn:
+        result = conn.execute(
+            JOBS_TABLE.select().where(JOBS_TABLE.c.job_id == job_id)
+        ).first()
 
     if not result:
         return None
@@ -298,10 +300,11 @@ def _update_job(job_id, job_dict):
     if "data" in job_dict:
         job_dict["data"] = six.text_type(job_dict["data"])
 
-    ENGINE.execute(
-        JOBS_TABLE.update()
-        .where(JOBS_TABLE.c.job_id == job_id)
-        .values(**job_dict))
+    with ENGINE.begin() as conn:
+        conn.execute(
+            JOBS_TABLE.update()
+            .where(JOBS_TABLE.c.job_id == job_id)
+            .values(**job_dict))
 
 
 def mark_job_as_completed(job_id, data=None):
@@ -443,9 +446,10 @@ def _get_metadata(job_id):
     # warnings.
     job_id = six.text_type(job_id)
 
-    results = ENGINE.execute(
-        METADATA_TABLE.select().where(
-            METADATA_TABLE.c.job_id == job_id)).fetchall()
+    with ENGINE.connect() as conn:
+        results = conn.execute(
+            METADATA_TABLE.select().where(
+                METADATA_TABLE.c.job_id == job_id)).fetchall()
     metadata = {}
     for row in results:
         value = row['value']
@@ -461,8 +465,9 @@ def _get_logs(job_id):
     # warnings.
     job_id = six.text_type(job_id)
 
-    results = ENGINE.execute(
-        LOGS_TABLE.select().where(LOGS_TABLE.c.job_id == job_id)).fetchall()
+    with ENGINE.connect() as conn:
+        results = conn.execute(
+            LOGS_TABLE.select().where(LOGS_TABLE.c.job_id == job_id)).fetchall()
 
     results = [dict(result) for result in results]
 
