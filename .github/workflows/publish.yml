@@ -46,7 +46,7 @@ jobs:
         run: |
           TAG_VALUE=${GITHUB_REF/refs\/tags\//}
           PYTHON_VERSION=$(grep -E '\bversion\s?=\s?"[^"]+"' pyproject.toml  | awk -F '"' '{print $2}')
-          echo "Tag version is [${{ steps.version.outputs.version }}], Python version is [$PYTHON_VERSION]"
+          echo "Tag version is [$TAG_VALUE], Python version is [$PYTHON_VERSION]"
           if [ "$TAG_VALUE" != "$PYTHON_VERSION" ]; then
             echo "Version mismatch; tag version is [$TAG_VALUE] but Python version is [$PYTHON_VERSION]" >> $GITHUB_STEP_SUMMARY
             exit 1
