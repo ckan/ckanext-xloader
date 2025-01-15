@@ -12,7 +12,7 @@ import traceback
 import sys
 
 from psycopg2 import errors
-from six.moves.urllib.parse import urlsplit, urlparse, urlunparse
+from six.moves.urllib.parse import urlsplit
 import requests
 from rq import get_current_job
 from rq.timeouts import JobTimeoutException
