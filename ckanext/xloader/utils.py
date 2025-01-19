@@ -175,6 +175,28 @@ def get_xloader_user_apitoken():
     return site_user["apikey"]
 
 
+def get_ckan_url():
+    """ Returns the CKAN URL.
+
+    ckan may be behind a proxy, or more likely, within a docker network.
+    This method returns the URL set in the config file for the CKAN instance.
+    Containers within the same network ie: XLoader will be able to communicate with CKAN using this URL.
+    """
+    ckan_url = config.get('ckanext.xloader.site_url', None)
+    if ckan_url:
+        return ckan_url
+
+    # Fall back to mandatory ckan.site_url
+    ckan_url = config.get('ckan.site_url')
+    if not ckan_url:
+        raise ValueError(
+            "The ckan.site_url configuration option is required but not set. "
+            "Please set this value in your CKAN configuration file."
+        )
+    
+    return ckan_url
+
+
 def set_resource_metadata(update_dict):
     '''
     Set appropriate datastore_active flag on CKAN resource.
