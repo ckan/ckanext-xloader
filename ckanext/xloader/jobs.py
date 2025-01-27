@@ -19,7 +19,7 @@ from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config
+from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config, h
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
@@ -178,8 +178,8 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info('Express Load starting: %s', resource_ckan_url)
 
     # check if the resource url_type is a datastore
-    if resource.get('url_type') == 'datastore':
-        logger.info('Ignoring resource - url_type=datastore - dump files are '
+    if resource.get('url_type') in h.datastore_rw_resource_url_types():
+        logger.info('Ignoring resource - R/W DataStore resources are '
                     'managed with the Datastore API')
         return
 
