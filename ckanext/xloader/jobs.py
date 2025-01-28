@@ -178,7 +178,13 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info('Express Load starting: %s', resource_ckan_url)
 
     # check if the resource url_type is a datastore
-    if resource.get('url_type') in h.datastore_rw_resource_url_types():
+    if hasattr(h, "datastore_rw_resource_url_types"):
+        datastore_rw_resource_url_types = h.datastore_rw_resource_url_types()
+    else:
+        #fallback for 2.10.x or older.
+        datastore_rw_resource_url_types = ['datastore']
+           
+    if resource.get('url_type') in datastore_rw_resource_url_types:
         logger.info('Ignoring resource - R/W DataStore resources are '
                     'managed with the Datastore API')
         return
