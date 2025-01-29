@@ -193,9 +193,8 @@ def modify_ckan_url(result_url: str, ckan_url: str) -> str:
     """
     parsed_url = urlparse(result_url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    path_url = parsed_url.path
-
     if base_url != ckan_url:
+        path_url = parsed_url.path
         result_url = urljoin(ckan_url, path_url)
          
     return result_url
