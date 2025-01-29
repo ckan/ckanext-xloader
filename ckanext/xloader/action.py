@@ -146,7 +146,7 @@ def xloader_submit(context, data_dict):
         "metadata": {
             "ignore_hash": data_dict.get("ignore_hash", False),
             "ckan_url": config.get("ckanext.xloader.site_url")
-            or config["ckan.site_url"],
+                or config["ckan.site_url"],
             "resource_id": res_id,
             "set_url_type": data_dict.get("set_url_type", False),
             "task_created": task["last_updated"],
