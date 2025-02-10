@@ -1,13 +1,17 @@
+import json
 import pytest
+
 try:
     from unittest import mock
 except ImportError:
     import mock
 
-from ckan.plugins.toolkit import NotAuthorized
+from ckan.plugins.toolkit import NotAuthorized, url_for
 from ckan.tests import helpers, factories
 
 from ckanext.xloader.utils import get_xloader_user_apitoken
+
+from ckanext.xloader.jobs import xloader_data_into_datastore
 
 
 @pytest.mark.usefixtures("clean_db", "with_plugins")
@@ -116,6 +120,49 @@ class TestAction(object):
         )
 
         assert status["status"] == "pending"
+
+    def test_status_actual_job(self):
+
+        res = factories.Resource(format="CSV")
+        with mock.patch(
+            "ckanext.xloader.jobs.xloader_data_into_datastore_",
+
+        ):
+            helpers.call_action(
+                "xloader_submit",
+                resource_id=res["id"],
+                sync=True
+            )
+            existing_task = helpers.call_action("task_status_show", entity_id=res["id"], task_type="xloader",
+                key="xloader"
+            )
+
+            job_id = json.loads(existing_task["value"])["job_id"]
+            with mock.patch(
+                "ckanext.xloader.jobs.get_current_job",
+                return_value=mock.MagicMock(id=job_id),
+            ):
+                # Manually trigger an xloader job to actually populate the jobs table
+                # in the xloader db
+                callback_url = url_for(
+                    "api.action", ver=3, logic_function="xloader_hook", qualified=True
+                )
+                xloader_data_into_datastore(
+                    {
+                        "metadata": {"resource_id": res["id"], "ckan_url": url_for("/")},
+                        "result_url": callback_url,
+                        "api_key": "xxx",
+                        "job_type": "xloader_to_datastore",
+                    }
+                )
+
+            status = helpers.call_action(
+                "xloader_status",
+                resource_id=res["id"],
+            )
+
+            assert status["job_id"] == job_id
+
 
     def test_xloader_user_api_token_defaults_to_site_user_apikey(self):
         api_token = get_xloader_user_apitoken()
