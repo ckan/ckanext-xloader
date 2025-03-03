@@ -3,6 +3,10 @@ from unittest.mock import patch
 from ckan.plugins import toolkit
 from ckanext.xloader import utils
 
+def test_private_modify_url_no_change():
+    url = "https://ckan.example.com/dataset"
+    assert utils._modify_url(url, "https://ckan.example.com") == url
+
 
 @pytest.mark.parametrize("result_url, ckan_url, expected", [
     ("https://example.com/resource/123", "https://ckan.example.org", "https://ckan.example.org/resource/123"),
@@ -19,14 +23,13 @@ from ckanext.xloader import utils
     ("https://ckan.example.org/resource/123?param=value&other=123", "https://xloader.example.org", "https://xloader.example.org/resource/123?param=value&other=123"),
     ("https://ckan.example.org/resource/partial#fragment", "https://xloader.example.org", "https://xloader.example.org/resource/partial#fragment"),
     ("https://ckan.example.org/path/to/data?key=value#section", "https://xloader.example.org", "https://xloader.example.org/path/to/data?key=value#section"),
+    ("", "", ""),
+    ("", "http://127.0.0.1:5000", ""),
+    (None, None, None),
+    (None, "http://127.0.0.1:5000", None),
 ])
 def test_private_modify_url(result_url, ckan_url, expected):
     assert utils._modify_url(result_url, ckan_url) == expected
-
-
-def test_modify_ckan_url_no_change():
-    url = "https://ckan.example.com/dataset"
-    assert utils._modify_url(url, "https://ckan.example.com") == url
 
 
 @pytest.mark.parametrize("input_url, ckan_site_url, xloader_site_url, is_altered, expected", [
@@ -42,6 +45,11 @@ def test_modify_ckan_url_no_change():
     ("https://ckan.example.org/path/to/data?key=value#section", "https://ckan.example.org", "http://localhost:3000", True, "http://localhost:3000/path/to/data?key=value#section"),
     ("https://ckan.example.org/blackListedPathToS3HostOrigin?key=value#section", "https://ckan.example.org", "https://xloader.example.org", False, ""),
     ("ftp://ckan.example.org/dataset/456#section", "https://ckan.example.org", "https://xloader.example.org", False, ""),
+    ("https://ckan.example.org/dataset/456#section", "https://ckan.example.org", "", False, ""),
+    ("", "http://127.0.0.1:5000", None, False, ""),
+    ("", "http://127.0.0.1:5000", "", False, ""),
+    (None, "http://127.0.0.1:5000", None, False, ""),
+    (None, "http://127.0.0.1:5000", "", False, ""),
 ])
 def test_modify_input_url(input_url, ckan_site_url, xloader_site_url, is_altered, expected):
     with patch.dict(toolkit.config,
