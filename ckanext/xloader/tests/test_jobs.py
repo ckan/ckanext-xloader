@@ -76,8 +76,7 @@ def data(create_with_upload, apikey):
         "result_url": callback_url,
         "metadata": {
             "ignore_hash": True,
-            "ckan_url": toolkit.config.get("ckanext.xloader.site_url")
-            or toolkit.config.get("ckan.site_url"),
+            "ckan_url": toolkit.config.get("ckanext.xloader.site_url", toolkit.config.get("ckan.site_url")),
             "resource_id": resource["id"],
             "set_url_type": False,
             "task_created": datetime.utcnow().isoformat(),

@@ -5,7 +5,7 @@ import logging
 import ckan.plugins.toolkit as tk
 
 from ckanext.xloader.jobs import xloader_data_into_datastore_
-from ckanext.xloader.utils import XLoaderFormats
+from ckanext.xloader.utils import XLoaderFormats, get_xloader_user_apitoken
 
 
 class XloaderCmd:
@@ -114,11 +114,12 @@ class XloaderCmd:
             'ignore_hash': True,
         }
         if sync:
-            data_dict["ckan_url"] = tk.config.get(
-                "ckanext.xloader.site_url"
-            ) or tk.config.get("ckan.site_url")
-            input_dict = {"metadata": data_dict, "api_key": "TODO"}
-            logger = logging.getLogger("ckanext.xloader.cli")
+            data_dict['ckan_url'] = tk.config.get('ckan.site_url')
+            input_dict = {
+                'metadata': data_dict,
+                'api_key': get_xloader_user_apitoken()
+            }
+            logger = logging.getLogger('ckanext.xloader.cli')
             xloader_data_into_datastore_(input_dict, None, logger)
         else:
             if queue:
