@@ -170,12 +170,11 @@ def get_xloader_user_apitoken():
     method returns the api_token set in the config file and defaults to the
     site_user.
     """
-    api_token = p.toolkit.config.get('ckanext.xloader.api_token', None)
-    if api_token:
+    api_token = p.toolkit.config.get('ckanext.xloader.api_token')
+    if api_token and api_token != 'NOT_SET':
         return api_token
+    raise p.toolkit.ValidationError({u'ckanext.xloader.api_token': u'NOT_SET, please provide valid api token'})
 
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
-    return site_user["apikey"]
 
 
 def _modify_url(input_url: str, base_url: str) -> str:

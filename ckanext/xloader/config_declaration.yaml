@@ -30,9 +30,9 @@ groups:
         example: eyJ0eXAiOiJKV1QiLCJh.eyJqdGkiOiJ0M2VNUFlQWFg0VU.8QgV8em4RA
         description: |
             Uses a specific API token for the xloader_submit action instead of the
-            apikey of the site_user. Will be mandatory when dropping support for
-            CKAN 2.9.
-        required: false
+            apikey of the site_user.
+        default: 'NOT_SET'
+        required: true
       - key: ckanext.xloader.formats
         example: csv application/csv xls application/vnd.ms-excel
         description: |

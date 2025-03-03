@@ -25,10 +25,8 @@ from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
 from .utils import datastore_resource_exists, set_resource_metadata, modify_input_url
 
-try:
-    from ckan.lib.api_token import get_user_from_token
-except ImportError:
-    get_user_from_token = None
+
+from ckan.lib.api_token import get_user_from_token
 
 log = logging.getLogger(__name__)
 
@@ -511,19 +509,9 @@ def update_resource(resource, patch_only=False):
 
 def _get_user_from_key(api_key_or_token):
     """ Gets the user using the API Token or API Key.
-
-    This method provides backwards compatibility for CKAN 2.9 that
-    supported both methods and previous CKAN versions supporting
-    only API Keys.
     """
-    user = None
-    if get_user_from_token:
-        user = get_user_from_token(api_key_or_token)
-    if not user:
-        user = model.Session.query(model.User).filter_by(
-            apikey=api_key_or_token
-        ).first()
-    return user
+    return get_user_from_token(api_key_or_token)
+
 
 
 def get_resource_and_dataset(resource_id, api_key):

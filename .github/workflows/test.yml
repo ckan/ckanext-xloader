@@ -35,7 +35,7 @@ jobs:
             experimental: true  # master is unstable, good to know if we are compatible or not
       fail-fast: false
 
-    name: CKAN ${{ matrix.ckan-version }}
+    name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} CKAN ${{ matrix.ckan-version }}
     runs-on: ubuntu-latest
     container:
       image: ckan/ckan-dev:${{ matrix.ckan-image }}
@@ -65,12 +65,7 @@ jobs:
     - uses: actions/checkout@v4
       continue-on-error: ${{ matrix.experimental }}
 
-    - name: Pin setuptools for ckan 2.9 only
-      if: ${{ matrix.ckan-version == 2.9 }}
-      run: pip install "setuptools>=44.1.0,<71"
-      continue-on-error: ${{ matrix.experimental }}
-
-    - name: Install requirements
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Install requirements
       continue-on-error: ${{ matrix.experimental }}
       run: |
         pip install -r requirements.txt
@@ -80,16 +75,20 @@ jobs:
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
 
-    - name: Setup extension
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Setup extension
       continue-on-error: ${{ matrix.experimental }}
       run: |
         ckan -c test.ini db init
+        ckan -c test.ini user add ckan_admin email=ckan_admin@localhost password="AbCdEf12345!@#%"
+        ckan -c test.ini sysadmin add ckan_admin
+        ckan config-tool test.ini "ckanext.xloader.api_token=$(ckan -c test.ini user token add ckan_admin xloader | tail -n 1 | tr -d '\t')"
+        ckan -c test.ini user list
 
-    - name: Run tests
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Run tests
       continue-on-error: ${{ matrix.experimental }}
       run: pytest --ckan-ini=test.ini --cov=ckanext.xloader --disable-warnings ckanext/xloader/tests --junit-xml=/tmp/artifacts/junit/results.xml
 
-    - name: Test Summary
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Test Summary
       uses: test-summary/action@v2
       continue-on-error: ${{ matrix.experimental }}
       with:

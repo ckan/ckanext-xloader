@@ -17,13 +17,7 @@ try:
 except ImportError:
     HAS_IPIPE_VALIDATION = False
 
-try:
-    config_declarations = toolkit.blanket.config_declarations
-except AttributeError:
-    # CKAN 2.9 does not have config_declarations.
-    # Remove when dropping support.
-    def config_declarations(cls):
-        return cls
+config_declarations = toolkit.blanket.config_declarations
 
 if toolkit.check_ckan_version(min_version='2.11'):
     from ckanext.datastore.interfaces import IDataDictionaryForm
