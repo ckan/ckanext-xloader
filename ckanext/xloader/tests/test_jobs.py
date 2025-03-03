@@ -71,17 +71,17 @@ def data(create_with_upload, apikey):
         "api.action", ver=3, logic_function="xloader_hook", qualified=True
     )
     return {
-        "api_key": apikey,
-        "job_type": "xloader_to_datastore",
-        "result_url": callback_url,
-        "metadata": {
-            "ignore_hash": True,
-            "ckan_url": toolkit.config.get("ckanext.xloader.site_url", toolkit.config.get("ckan.site_url")),
-            "resource_id": resource["id"],
-            "set_url_type": False,
-            "task_created": datetime.utcnow().isoformat(),
-            "original_url": resource["url"],
-        },
+        'api_key': apikey,
+        'job_type': 'xloader_to_datastore',
+        'result_url': callback_url,
+        'metadata': {
+            'ignore_hash': True,
+            'ckan_url': toolkit.config.get('ckan.site_url'),
+            'resource_id': resource["id"],
+            'set_url_type': False,
+            'task_created': datetime.utcnow().isoformat(),
+            'original_url': resource["url"],
+        }
     }
 
 
