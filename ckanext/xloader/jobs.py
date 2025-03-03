@@ -52,6 +52,7 @@ RETRYABLE_ERRORS = (
 # Retries can only occur in cases where the datastore entry exists,
 # so use the standard timeout
 RETRIED_JOB_TIMEOUT = config.get('ckanext.xloader.job_timeout', '3600')
+APITOKEN_HEADER_NAME = config.get('apitoken_header_name', 'Authorization')
 
 
 # input = {
@@ -316,7 +317,7 @@ def _download_resource_data(resource, data, api_key, logger):
         if resource.get('url_type') == 'upload':
             # If this is an uploaded file to CKAN, authenticate the request,
             # otherwise we won't get file from private resources
-            headers['Authorization'] = api_key
+            headers[APITOKEN_HEADER_NAME] = api_key
 
             # Add a constantly changing parameter to bypass URL caching.
             # If we're running XLoader, then either the resource has
@@ -462,7 +463,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         if ':' in api_key:
             header, key = api_key.split(':')
         else:
-            header, key = 'Authorization', api_key
+            header, key = APITOKEN_HEADER_NAME, api_key
         headers[header] = key
 
     try:
