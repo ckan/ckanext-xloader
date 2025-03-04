@@ -74,17 +74,18 @@ def data(create_with_upload, apikey):
         "api.action", ver=3, logic_function="xloader_hook", qualified=True
     )
     return {
-        'api_key': apikey,
-        'job_type': 'xloader_to_datastore',
-        'result_url': callback_url,
-        'metadata': {
-            'ignore_hash': True,
-            'ckan_url': toolkit.config.get('ckan.site_url'),
-            'resource_id': resource["id"],
-            'set_url_type': False,
-            'task_created': datetime.utcnow().isoformat(),
-            'original_url': resource["url"],
-        }
+        "api_key": apikey,
+        "job_type": "xloader_to_datastore",
+        "result_url": callback_url,
+        "metadata": {
+            "ignore_hash": True,
+            "ckan_url": toolkit.config.get("ckanext.xloader.site_url")
+            or toolkit.config.get("ckan.site_url"),
+            "resource_id": resource["id"],
+            "set_url_type": False,
+            "task_created": datetime.utcnow().isoformat(),
+            "original_url": resource["url"],
+        },
     }
 
 
@@ -105,6 +106,66 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"]
+
+    def test_download_resource_data_with_ckanext_xloader_site_url(self, cli, data):
+        # Set the ckanext.xloader.site_url in the config
+        with mock.patch.dict(toolkit.config, {'ckanext.xloader.site_url': 'http://xloader-site-url'}):
+            data['metadata']['original_url'] = 'http://xloader-site-url/resource.csv'
+            self.enqueue(jobs.xloader_data_into_datastore, [data])
+            with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+                assert "Express Load completed" in stdout
+
+            resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+            assert resource["datastore_contains_all_records_of_source_file"]
+
+    def test_download_resource_data_with_ckan_site_url(self, cli, data):
+        # Set the ckan.site_url in the config
+        with mock.patch.dict(toolkit.config, {'ckan.site_url': 'http://ckan-site-url'}):
+            data['metadata']['original_url'] = 'http://ckan-site-url/resource.csv'
+            self.enqueue(jobs.xloader_data_into_datastore, [data])
+            with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+                assert "Express Load completed" in stdout
+
+            resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+            assert resource["datastore_contains_all_records_of_source_file"]
+
+    def test_download_resource_data_with_different_original_url(self, cli, data):
+        # Set the ckan.site_url in the config
+        with mock.patch.dict(toolkit.config, {'ckan.site_url': 'http://ckan-site-url'}):
+            data['metadata']['original_url'] = 'http://external-site-url/resource.csv'
+            self.enqueue(jobs.xloader_data_into_datastore, [data])
+            with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+                assert "Express Load completed" in stdout
+
+            resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+            assert resource["datastore_contains_all_records_of_source_file"]
+
+    def test_callback_xloader_hook_with_ckanext_xloader_site_url(self, cli, data):
+        # Set the ckanext.xloader.site_url in the config
+        with mock.patch.dict(toolkit.config, {'ckanext.xloader.site_url': 'http://xloader-site-url'}):
+            data['result_url'] = 'http://xloader-site-url/api/3/action/xloader_hook'
+            self.enqueue(jobs.xloader_data_into_datastore, [data])
+            with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+                assert "Express Load completed" in stdout
+
+            resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+            assert resource["datastore_contains_all_records_of_source_file"]
+
+    def test_callback_xloader_hook_with_ckan_site_url(self, cli, data):
+        # Set the ckan.site_url in the config
+        with mock.patch.dict(toolkit.config, {'ckan.site_url': 'http://ckan-site-url'}):
+            data['result_url'] = 'http://ckan-site-url/api/3/action/xloader_hook'
+            self.enqueue(jobs.xloader_data_into_datastore, [data])
+            with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+                assert "Express Load completed" in stdout
+
+            resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+            assert resource["datastore_contains_all_records_of_source_file"]
 
     def test_xloader_ignore_hash(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])

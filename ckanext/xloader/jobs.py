@@ -18,12 +18,14 @@ from rq import get_current_job
 from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
+from urllib.parse import urljoin, urlunsplit
+
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config, h
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
-from .utils import datastore_resource_exists, set_resource_metadata
+from .utils import datastore_resource_exists, set_resource_metadata, modify_resource_url, modify_ckan_url
 
 try:
     from ckan.lib.api_token import get_user_from_token
@@ -81,8 +83,10 @@ def xloader_data_into_datastore(input):
     # First flag that this task is running, to indicate the job is not
     # stillborn, for when xloader_submit is deciding whether another job would
     # be a duplicate or not
+
     job_dict = dict(metadata=input['metadata'],
                     status='running')
+
     callback_xloader_hook(result_url=input['result_url'],
                           api_key=input['api_key'],
                           job_dict=job_dict)
@@ -297,9 +301,11 @@ def _download_resource_data(resource, data, api_key, logger):
     data['datastore_contains_all_records_of_source_file'] = False
     which will be saved to the resource later on.
     '''
-    # check scheme
+ 
     url = resource.get('url')
-    url_parts = urlsplit(url)
+    url = modify_resource_url(url)
+    # check scheme
+    url_parts = urlsplit(url) 
     scheme = url_parts.scheme
     if scheme not in ('http', 'https', 'ftp'):
         raise JobError(
@@ -465,7 +471,8 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         else:
             header, key = APITOKEN_HEADER_NAME, api_key
         headers[header] = key
-
+  
+    result_url = modify_ckan_url(result_url, job_dict['metadata']['ckan_url'])
     try:
         result = requests.post(
             result_url,
