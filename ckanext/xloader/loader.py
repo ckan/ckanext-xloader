@@ -204,7 +204,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
                 if f['id'] in existing_info:
                     f['info'] = existing_info[f['id']]
                     f['strip_extra_white'] = existing_info[f['id']].get('strip_extra_white') if 'strip_extra_white' in existing_info[f['id']] \
-                         else existing_fields_by_headers[f['id']].get('strip_extra_white', True)
+                        else existing_fields_by_headers[f['id']].get('strip_extra_white', True)
 
             '''
             Delete or truncate existing datastore table before proceeding,
@@ -222,39 +222,32 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             fields = [
                 {'id': header_name,
                  'type': 'text',
-                 'strip_extra_white': True,}
+                 'strip_extra_white': True}
                 for header_name in headers]
 
         logger.info('Fields: %s', fields)
+
+        def _make_whitespace_stripping_iter(super_iter):
+            def strip_white_space_iter():
+                for row in super_iter():
+                    if len(row) == len(fields):
+                        for _index, _cell in enumerate(row):
+                            # only strip white space if strip_extra_white is True
+                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                                row[_index] = _cell.strip()
+                    yield row
+            return strip_white_space_iter
 
         save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
         try:
             with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
-                super_iter = stream.iter
-                def strip_white_space_iter():
-                    for row in super_iter():
-                        if len(row) == len(fields):
-                            for _index, _cell in enumerate(row):
-                                # only strip white space if strip_extra_white is True
-                                if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
-                                    row[_index] = _cell.strip()
-                        yield row
-                stream.iter = strip_white_space_iter
+                stream.iter = _make_whitespace_stripping_iter(stream.iter)
                 stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
-                super_iter = stream.iter
-                def strip_white_space_iter():
-                    for row in super_iter():
-                        if len(row) == len(fields):
-                            for _index, _cell in enumerate(row):
-                                # only strip white space if strip_extra_white is True
-                                if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
-                                    row[_index] = _cell.strip()
-                        yield row
-                stream.iter = strip_white_space_iter
+                stream.iter = _make_whitespace_stripping_iter(stream.iter)
                 stream.save(**save_args)
         csv_filepath = f_write.name
 
@@ -284,9 +277,8 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
             raise LoaderError('Could not create the database table: {}'
                               .format(e))
 
-
-        # datstore_active is switched on by datastore_create - TODO temporarily
-        # disable it until the load is complete
+        # datastore_active is switched on by datastore_create
+        # TODO temporarily disable it until the load is complete
 
         with engine.begin() as conn:
             _disable_fulltext_trigger(conn, resource_id)

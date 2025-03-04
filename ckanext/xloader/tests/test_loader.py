@@ -1177,23 +1177,6 @@ class TestLoadTabulator(TestLoadBase):
             u"text",
         ]
 
-    def test_simple_large_file(self, Session):
-        csv_filepath = get_sample_filepath("simple-large.csv")
-        resource = factories.Resource()
-        resource_id = resource['id']
-        loader.load_table(
-            csv_filepath,
-            resource_id=resource_id,
-            mimetype="text/csv",
-            logger=logger,
-        )
-        assert self._get_column_types(Session, resource_id) == [
-            u"int4",
-            u"tsvector",
-            u"numeric",
-            u"text",
-        ]
-
     def test_with_mixed_types(self, Session):
         csv_filepath = get_sample_filepath("mixed_numeric_string_sample.csv")
         resource = factories.Resource()

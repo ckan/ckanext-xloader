@@ -91,9 +91,9 @@ class xloaderPlugin(plugins.SingletonPlugin):
             res_dict = toolkit.get_action('resource_show')({'ignore_auth': True},
                                                            {'id': validation_report.get('resource_id')})
             if (toolkit.asbool(toolkit.config.get('ckanext.xloader.validation.enforce_schema', True))
-                or res_dict.get('schema', None)) and validation_report.get('status') != 'success':
-                    # A schema is present, or required to be present
-                    return
+                    or res_dict.get('schema', None)) and validation_report.get('status') != 'success':
+                # A schema is present, or required to be present
+                return
             # if validation is running in async mode, it is running from the redis workers.
             # thus we need to do sync=True to have Xloader put the job at the front of the queue.
             sync = toolkit.asbool(toolkit.config.get(u'ckanext.validation.run_on_update_async', True))
