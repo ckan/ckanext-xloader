@@ -182,9 +182,9 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     if hasattr(h, "datastore_rw_resource_url_types"):
         datastore_rw_resource_url_types = h.datastore_rw_resource_url_types()
     else:
-        #fallback for 2.10.x or older.
+        # fallback for 2.10.x or older.
         datastore_rw_resource_url_types = ['datastore']
-           
+
     if resource.get('url_type') in datastore_rw_resource_url_types:
         logger.info('Ignoring resource - R/W DataStore resources are '
                     'managed with the Datastore API')
@@ -267,7 +267,7 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with tabulator')
                 tabulator_load()
-    except JobTimeoutException as e:
+    except JobTimeoutException:
         try:
             tmp_file.close()
         except FileNotFoundError:
@@ -393,7 +393,7 @@ def _download_resource_data(resource, data, api_key, logger):
         raise HTTPError(
             message=err_message, status_code=None,
             request_url=url, response=None)
-    except JobTimeoutException as e:
+    except JobTimeoutException:
         tmp_file.close()
         logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
         raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))

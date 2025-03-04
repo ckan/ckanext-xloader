@@ -27,12 +27,14 @@ def get_response(download_url, headers):
     resp.headers = headers
     return resp
 
+
 def get_large_response(download_url, headers):
     """Mock jobs.get_response() method to fake a large file."""
     resp = Response()
     resp.raw = io.BytesIO(_TEST_FILE_CONTENT.encode())
     resp.headers = {'content-length': 2000000000}
     return resp
+
 
 def get_large_data_response(download_url, headers):
     """Mock jobs.get_response() method."""
@@ -41,6 +43,7 @@ def get_large_data_response(download_url, headers):
     resp.raw = io.BytesIO(f_content.encode())
     resp.headers = headers
     return resp
+
 
 def _get_temp_files(dir='/tmp'):
     return [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]

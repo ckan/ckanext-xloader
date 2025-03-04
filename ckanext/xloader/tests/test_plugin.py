@@ -81,7 +81,7 @@ class TestNotify(object):
 
         # TODO: test IPipeValidation
         assert not func.called  # because of the validation_status not being `success`
-        func.called = None # reset
+        func.called = None  # reset
 
         helpers.call_action(
             "resource_update",
@@ -118,7 +118,7 @@ class TestNotify(object):
 
         # TODO: test IPipeValidation
         assert not func.called  # because of the schema being empty
-        func.called = None # reset
+        func.called = None  # reset
 
         helpers.call_action(
             "resource_update",
@@ -132,7 +132,7 @@ class TestNotify(object):
 
         # TODO: test IPipeValidation
         assert not func.called  # because of the validation_status not being `success` and there is a schema
-        func.called = None # reset
+        func.called = None  # reset
 
         helpers.call_action(
             "resource_update",
