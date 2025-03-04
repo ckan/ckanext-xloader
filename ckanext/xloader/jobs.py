@@ -23,12 +23,10 @@ from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError
-from .utils import datastore_resource_exists, set_resource_metadata
+from .utils import datastore_resource_exists, set_resource_metadata, modify_input_url
 
-try:
-    from ckan.lib.api_token import get_user_from_token
-except ImportError:
-    get_user_from_token = None
+
+from ckan.lib.api_token import get_user_from_token
 
 log = logging.getLogger(__name__)
 
@@ -297,8 +295,9 @@ def _download_resource_data(resource, data, api_key, logger):
     data['datastore_contains_all_records_of_source_file'] = False
     which will be saved to the resource later on.
     '''
+    # update base url (for possible local loopback)
+    url = modify_input_url(resource.get('url'))
     # check scheme
-    url = resource.get('url')
     url_parts = urlsplit(url)
     scheme = url_parts.scheme
     if scheme not in ('http', 'https', 'ftp'):
@@ -468,7 +467,7 @@ def callback_xloader_hook(result_url, api_key, job_dict):
 
     try:
         result = requests.post(
-            result_url,
+            modify_input_url(result_url), # modify with local config
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
             verify=SSL_VERIFY,
             headers=headers)
@@ -511,19 +510,9 @@ def update_resource(resource, patch_only=False):
 
 def _get_user_from_key(api_key_or_token):
     """ Gets the user using the API Token or API Key.
-
-    This method provides backwards compatibility for CKAN 2.9 that
-    supported both methods and previous CKAN versions supporting
-    only API Keys.
     """
-    user = None
-    if get_user_from_token:
-        user = get_user_from_token(api_key_or_token)
-    if not user:
-        user = model.Session.query(model.User).filter_by(
-            apikey=api_key_or_token
-        ).first()
-    return user
+    return get_user_from_token(api_key_or_token)
+
 
 
 def get_resource_and_dataset(resource_id, api_key):

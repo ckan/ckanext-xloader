@@ -2,6 +2,22 @@ version: 1
 groups:
   - annotation: ckanext-xloader settings
     options:
+      - key: ckanext.xloader.site_url
+        example: http://ckan-dev:5000
+        default:
+        description: |
+            Provide an alternate site URL for the xloader_submit action.
+            This is useful, for example, when the site is running within a docker network.
+            Note: This setting will not alter path. i.e ckan.root_path
+        required: false
+      - key: ckanext.xloader.site_url_ignore_path_regex
+        example: "(/PathToS3HostOriginIWantToGoDirectTo|/anotherPath)"
+        default:
+        description: |
+            Provide the ability to ignore paths which can't be mapped to alternative site URL for resource access.
+            This is useful, for example, when the site is running within a docker network and the cdn front door has 
+            Blob storage mapped to another path on the same domain.
+        required: false
       - key: ckanext.xloader.jobs_db.uri
         default: sqlite:////tmp/xloader_jobs.db
         description: |
@@ -14,9 +30,9 @@ groups:
         example: eyJ0eXAiOiJKV1QiLCJh.eyJqdGkiOiJ0M2VNUFlQWFg0VU.8QgV8em4RA
         description: |
             Uses a specific API token for the xloader_submit action instead of the
-            apikey of the site_user. Will be mandatory when dropping support for
-            CKAN 2.9.
-        required: false
+            apikey of the site_user.
+        default: 'NOT_SET'
+        required: true
       - key: ckanext.xloader.formats
         example: csv application/csv xls application/vnd.ms-excel
         description: |
@@ -171,5 +187,3 @@ groups:
           they will also display "complete", "active", "inactive", and "unknown".
         type: bool
         required: false
-
-

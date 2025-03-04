@@ -5,7 +5,7 @@ import logging
 import ckan.plugins.toolkit as tk
 
 from ckanext.xloader.jobs import xloader_data_into_datastore_
-from ckanext.xloader.utils import XLoaderFormats
+from ckanext.xloader.utils import XLoaderFormats, get_xloader_user_apitoken
 
 
 class XloaderCmd:
@@ -117,7 +117,7 @@ class XloaderCmd:
             data_dict['ckan_url'] = tk.config.get('ckan.site_url')
             input_dict = {
                 'metadata': data_dict,
-                'api_key': 'TODO'
+                'api_key': get_xloader_user_apitoken()
             }
             logger = logging.getLogger('ckanext.xloader.cli')
             xloader_data_into_datastore_(input_dict, None, logger)

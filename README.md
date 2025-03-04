@@ -151,6 +151,7 @@ To install XLoader:
     execute jobs against the server:
 
         ckanext.xloader.api_token = <your-CKAN-generated-API-Token>
+        ckan config-tool test.ini "ckanext.xloader.api_token=$(ckan -c test.ini user token add ckan_admin xloader | tail -n 1 | tr -d '\t')"
 
 6.  If it is a production server, you'll want to store jobs info in a
     more robust database than the default sqlite file. It can happily
@@ -220,8 +221,7 @@ ckanext.xloader.api_token = eyJ0eXAiOiJKV1QiLCJh.eyJqdGkiOiJ0M2VNUFlQWFg0VU.8QgV
 
 Default value: none
 
-Uses a specific API token for the xloader_submit action instead of the
-apikey of the site_user. It's mandatory starting from CKAN 2.10. You can get one
+It's mandatory starting from CKAN 2.10. You can get one
 running the command `ckan user token add {USER_NAME} xloader -q`
 
 

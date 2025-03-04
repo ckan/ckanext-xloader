@@ -47,6 +47,7 @@ def xloader_submit(context, data_dict):
     :rtype: bool
     '''
     p.toolkit.check_access('xloader_submit', context, data_dict)
+    api_key = utils.get_xloader_user_apitoken()
     custom_queue = data_dict.pop('queue', rq_jobs.DEFAULT_QUEUE_NAME)
     schema = context.get('schema', ckanext.xloader.schema.xloader_submit_schema())
     data_dict, errors = _validate(data_dict, schema, context)
@@ -147,7 +148,7 @@ def xloader_submit(context, data_dict):
         qualified=True
     )
     data = {
-        'api_key': utils.get_xloader_user_apitoken(),
+        'api_key': api_key,
         'job_type': 'xloader_to_datastore',
         'result_url': callback_url,
         'metadata': {
