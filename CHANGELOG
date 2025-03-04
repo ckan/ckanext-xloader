@@ -2,6 +2,15 @@ CHANGELOG
 =========
 See: https://github.com/ckan/ckanext-xloader/releases if this file has drifted.
 
+2.0.1 2025-03-04
+================
+
+## Fix
+
+* #244 Static webassets not included in package
+* #245 support apitoken_header_name in 2.11.x.
+* #241 loading R/W datasource resources via api (not hardcoded)
+
 2.0.0 2024-12-10
 ================
 
