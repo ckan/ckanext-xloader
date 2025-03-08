@@ -2,6 +2,7 @@
 
 import json
 import datetime
+import re
 
 from six import text_type as str, binary_type
 
@@ -19,6 +20,8 @@ from logging import getLogger
 
 
 log = getLogger(__name__)
+
+from urllib.parse import urlunparse, urlparse
 
 # resource.formats accepted by ckanext-xloader. Must be lowercase here.
 DEFAULT_FORMATS = [
@@ -167,12 +170,73 @@ def get_xloader_user_apitoken():
     method returns the api_token set in the config file and defaults to the
     site_user.
     """
-    api_token = p.toolkit.config.get('ckanext.xloader.api_token', None)
-    if api_token:
+    api_token = p.toolkit.config.get('ckanext.xloader.api_token')
+    if api_token and api_token != 'NOT_SET':
         return api_token
+    raise p.toolkit.ValidationError({u'ckanext.xloader.api_token': u'NOT_SET, please provide valid api token'})
 
-    site_user = p.toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
-    return site_user["apikey"]
+
+
+def _modify_url(input_url: str, base_url: str) -> str:
+    """ Modifies the input URL with base_url provided.
+
+    Args:
+        input_url (str): The original URL to potentially modify
+        base_url (str): The base URL to compare/replace against
+    Returns:
+        str: The modified URL with replaced scheme and netloc
+    """
+    parsed_input_url = urlparse(input_url)
+    parsed_base_url = urlparse(base_url)
+    # Do not modify non-HTTP(S) URLs (e.g., ftp://)
+    if parsed_input_url.scheme not in ("http", "https"):
+        return input_url
+    # replace scheme: "http/https" and netloc:"//<user>:<password>@<host>:<port>/<url-path>"
+    new_url = urlunparse(
+    (parsed_base_url.scheme,
+     parsed_base_url.netloc,
+     parsed_input_url.path,
+     parsed_input_url.params,
+     parsed_input_url.query,
+     parsed_input_url.fragment))
+    return new_url
+
+
+def modify_input_url(input_url: str) -> str:
+    """Returns a potentially modified CKAN URL.
+
+    This function takes a possible CKAN URL and potentially modifies its base URL while preserving the path,
+    query parameters, and fragments. The modification occurs only if three conditions are met:
+    1. The base URL of the input matches the configured CKAN site URL (ckan.site_url).
+    2. A `ckanext.xloader.site_url` is configured in the settings.
+    3. A `ckanext.xloader.site_url_ignore_path_regex` if configured in the settings and does not match.
+
+    Args:
+        input_url (str): The original CKAN URL to potentially modify
+    Returns:
+        str: Either the modified URL with new base URL from xloader_site_url,
+             or the original URL if conditions aren't met
+    """
+
+    xloader_site_url = config.get('ckanext.xloader.site_url')
+    if not xloader_site_url:
+        return input_url
+
+    parsed_input_url = urlparse(input_url)
+    input_base_url = f"{parsed_input_url.scheme}://{parsed_input_url.netloc}"
+    parsed_ckan_site_url = urlparse(config.get('ckan.site_url'))
+    ckan_base_url = f"{parsed_ckan_site_url.scheme}://{parsed_ckan_site_url.netloc}"
+
+    xloader_ignore_regex = config.get('ckanext.xloader.site_url_ignore_path_regex')
+
+    #Don't alter non-matching base url's.
+    if input_base_url != ckan_base_url:
+        return input_url
+    #And not any urls on the ignore regex
+    elif xloader_ignore_regex and re.search(xloader_ignore_regex, input_url):
+        return input_url
+
+    return _modify_url(input_url, xloader_site_url)
 
 
 def set_resource_metadata(update_dict):

@@ -17,13 +17,7 @@ try:
 except ImportError:
     HAS_IPIPE_VALIDATION = False
 
-try:
-    config_declarations = toolkit.blanket.config_declarations
-except AttributeError:
-    # CKAN 2.9 does not have config_declarations.
-    # Remove when dropping support.
-    def config_declarations(cls):
-        return cls
+config_declarations = toolkit.blanket.config_declarations
 
 if toolkit.check_ckan_version(min_version='2.11'):
     from ckanext.datastore.interfaces import IDataDictionaryForm
@@ -75,14 +69,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
             self.ignore_hash = True
         else:
             self.ignore_hash = False
-
-        for config_option in ("ckan.site_url",):
-            if not config_.get(config_option):
-                raise Exception(
-                    "Config option `{0}` must be set to use ckanext-xloader.".format(
-                        config_option
-                    )
-                )
 
     # IPipeValidation
 
