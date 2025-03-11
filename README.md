@@ -437,6 +437,29 @@ Default value: `True`
 
 Controls whether or not a resource requires a Validation Schema to be present from the ckanext-validation plugin to be XLoadered.
 
+#### ckanext.xloader.site_url
+Provide an alternate site URL for the xloader_submit action.
+This is useful, for example, when the site is running within a docker network.
+    
+Note: This setting will not alter path. i.e ckan.root_path
+
+Example:
+
+```
+ckanext.xloader.site_url = http://ckan-dev:5000
+```
+
+##### ckanext.xloader.site_url_ignore_path_regex
+Provide the ability to ignore paths which can't be mapped to alternative site URL for resource access.
+This is useful, for example, when the site is running within a docker network and the cdn front door has
+Blob storage mapped to another path on the same domain.
+
+Example:
+
+```
+ckanext.xloader.site_url_ignore_path_regex = "(/PathToS3HostOriginIWantToGoDirectTo|/anotherPath)"
+```
+
 ## Data Dictionary Fields
 
 #### strip_extra_white
