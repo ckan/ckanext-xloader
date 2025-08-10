@@ -341,7 +341,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
 
     logger.info('Creating search index...')
     with engine.begin() as conn:
-        _populate_fulltext(conn, resource_id, fields=fields)
+        _populate_fulltext(conn, resource_id, fields=fields, logger=logger)
     logger.info('...search index created')
 
     return fields
