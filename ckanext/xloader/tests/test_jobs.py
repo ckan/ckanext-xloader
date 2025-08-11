@@ -201,6 +201,37 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
                 # make sure that the tmp file has been closed/deleted in job timeout exception handling
                 assert file_suffix not in f
 
+    @pytest.mark.ckan_config("ckanext.xloader.max_retries", "2")
+    def test_retry_on_timeout_error(self, cli, data):
+        """Test that timeout errors trigger retry attempts."""
+        
+        def mock_download_with_timeout(*args, **kwargs):
+            # Simulate timeout on first call, success on retry
+            if not hasattr(mock_download_with_timeout, 'call_count'):
+                mock_download_with_timeout.call_count = 0
+            mock_download_with_timeout.call_count += 1
+            
+            if mock_download_with_timeout.call_count == 1:
+                # First call - raise timeout error
+                raise jobs.XLoaderTimeoutError('Connection timed out after 30s')
+            else:
+                # Second call - return successful response
+                return get_response()
+        
+        self.enqueue(jobs.xloader_data_into_datastore, [data])
+        
+        with mock.patch("ckanext.xloader.jobs._download_resource_data", mock_download_with_timeout):
+            stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+            
+            # Check that retry was attempted
+            assert "Job failed due to temporary error" in stdout
+            assert "retrying" in stdout
+            assert "Express Load completed" in stdout
+        
+        # Verify resource was successfully loaded after retry
+        resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+        assert resource["datastore_contains_all_records_of_source_file"]
+
 
 @pytest.mark.usefixtures("clean_db")
 class TestSetResourceMetadata(object):
