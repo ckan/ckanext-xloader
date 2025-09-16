@@ -201,36 +201,90 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
                 # make sure that the tmp file has been closed/deleted in job timeout exception handling
                 assert file_suffix not in f
 
-    @pytest.mark.ckan_config("ckanext.xloader.max_retries", "2")
-    def test_retry_on_timeout_error(self, cli, data):
-        """Test that timeout errors trigger retry attempts."""
+    @pytest.mark.parametrize("error_type,should_retry", [
+        # Retryable errors from RETRYABLE_ERRORS
+        ("DeadlockDetected", True),
+        ("LockNotAvailable", True), 
+        ("ObjectInUse", True),
+        ("XLoaderTimeoutError", True),
+        # Retryable HTTP errors (status codes from is_retryable_error)
+        ("HTTPError_408", True),
+        ("HTTPError_429", True),
+        ("HTTPError_500", True),
+        ("HTTPError_502", True),
+        ("HTTPError_503", True),
+        ("HTTPError_504", True),
+        ("HTTPError_507", True),
+        ("HTTPError_522", True),
+        ("HTTPError_524", True),
+        # Non-retryable HTTP errors
+        ("HTTPError_400", False),
+        ("HTTPError_404", False),
+        ("HTTPError_403", False),
+        # Other non-retryable errors (not in RETRYABLE_ERRORS)
+        ("ValueError", False),
+        ("TypeError", False),
+    ])
+    def test_retry_behavior(self, cli, data, error_type, should_retry):
+        """Test retry behavior for different error types."""
         
-        def mock_download_with_timeout(*args, **kwargs):
-            # Simulate timeout on first call, success on retry
-            if not hasattr(mock_download_with_timeout, 'call_count'):
-                mock_download_with_timeout.call_count = 0
-            mock_download_with_timeout.call_count += 1
+        def create_mock_error(error_type):
+            if error_type == "DeadlockDetected":
+                from psycopg2 import errors
+                return errors.DeadlockDetected()
+            elif error_type == "LockNotAvailable":
+                from psycopg2 import errors
+                return errors.LockNotAvailable()
+            elif error_type == "ObjectInUse":
+                from psycopg2 import errors
+                return errors.ObjectInUse()
+            elif error_type == "XLoaderTimeoutError":
+                return jobs.XLoaderTimeoutError('Connection timed out after 30s')
+            elif error_type.startswith("HTTPError_"):
+                status_code = int(error_type.split("_")[1])
+                return jobs.HTTPError("HTTP Error", status_code=status_code, request_url="test", response=None)
+            elif error_type == "ValueError":
+                return ValueError("Test error")
+            elif error_type == "TypeError":
+                return TypeError("Test error")
+
+        
+        def mock_download_with_error(*args, **kwargs):
+            if not hasattr(mock_download_with_error, 'call_count'):
+                mock_download_with_error.call_count = 0
+            mock_download_with_error.call_count += 1
             
-            if mock_download_with_timeout.call_count == 1:
-                # First call - raise timeout error
-                raise jobs.XLoaderTimeoutError('Connection timed out after 30s')
+            if mock_download_with_error.call_count == 1:
+                # First call - raise the test error
+                raise create_mock_error(error_type)
+            elif should_retry:
+                # Second call - return successful response only if retryable
+                import tempfile
+                tmp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.csv')
+                tmp_file.write(_TEST_FILE_CONTENT)
+                tmp_file.flush()
+                return (tmp_file, 'd44fa65eda3675e11710682fdb5f1648')
             else:
-                # Second call - return successful response
-                return get_response()
+                # Non-retryable errors should not get a second chance
+                raise create_mock_error(error_type)
         
         self.enqueue(jobs.xloader_data_into_datastore, [data])
         
-        with mock.patch("ckanext.xloader.jobs._download_resource_data", mock_download_with_timeout):
+        with mock.patch("ckanext.xloader.jobs._download_resource_data", mock_download_with_error):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             
-            # Check that retry was attempted
-            assert "Job failed due to temporary error" in stdout
-            assert "retrying" in stdout
-            assert "Express Load completed" in stdout
-        
-        # Verify resource was successfully loaded after retry
-        resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
-        assert resource["datastore_contains_all_records_of_source_file"]
+            if should_retry:
+                # Check that retry was attempted
+                assert "Job failed due to temporary error" in stdout
+                assert "retrying" in stdout
+                assert "Express Load completed" in stdout
+                # Verify resource was successfully loaded after retry
+                resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
+                assert resource["datastore_contains_all_records_of_source_file"]
+            else:
+                # Check that job failed without retry - should have error messages
+                assert "xloader error:" in stdout or "error" in stdout.lower()
+                assert "Express Load completed" not in stdout
 
 
 @pytest.mark.usefixtures("clean_db")
