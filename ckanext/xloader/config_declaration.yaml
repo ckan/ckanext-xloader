@@ -189,12 +189,20 @@ groups:
         required: false
       - key: ckanext.xloader.search_update_chunks
         default: 100000
-        example: True
+        example: 1000
         description: |
           The number of rows to process in each batch when populating the full-text
           search index. Chunked processing prevents database timeouts and memory
           exhaustion when indexing very large datasets (4GB+ files with millions of rows).
           Smaller values reduce memory usage but increase processing time. Larger values
           improve performance but may cause timeouts on very large tables.
+        type: int
+        required: false
+      - key: ckanext.xloader.max_retries
+        default: 1
+        example: 3
+        description: |
+          Maximum number of retry attempts for failed jobs due to temporary errors
+          like database deadlocks or network timeouts. Set to 0 to disable retries.
         type: int
         required: false

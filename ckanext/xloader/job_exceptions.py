@@ -52,3 +52,7 @@ class HTTPError(JobError):
 class LoaderError(JobError):
     '''Exception that's raised if a load fails'''
     pass
+
+class XLoaderTimeoutError(JobError):
+    """Custom timeout exception that can be retried"""
+    pass
