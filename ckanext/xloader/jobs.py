@@ -323,18 +323,18 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.info('Trying again with tabulator')
                 tabulator_load()
     except JobTimeoutException:
-        try:
-            tmp_file.close()
-        except FileNotFoundError:
-            pass
         logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
         raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)
         raise JobError('Loading file raised an error: {}'.format(e))
-
-    tmp_file.close()
+    finally:
+        try:
+            tmp_file.close()
+            os.remove(tmp_file.name)
+        except FileNotFoundError:
+            pass
 
     logger.info('Express Load completed')
 
