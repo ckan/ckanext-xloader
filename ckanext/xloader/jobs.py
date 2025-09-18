@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config, h
 
 from . import db, loader
-from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError, XLoaderTimeoutError
+from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError, LoaderError, XLoaderTimeoutError
 from .utils import datastore_resource_exists, set_resource_metadata, modify_input_url
 
 
@@ -257,11 +257,12 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info('File hash: %s', file_hash)
     resource['hash'] = file_hash
 
-    def direct_load():
+    def direct_load(allow_type_guessing=False):
         fields = loader.load_csv(
             tmp_file.name,
             resource_id=resource['id'],
             mimetype=resource.get('format'),
+            allow_type_guessing=allow_type_guessing,
             logger=logger)
         loader.calculate_record_count(
             resource_id=resource['id'], logger=logger)
@@ -317,8 +318,8 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 direct_load()
         else:
             try:
-                direct_load()
-            except JobError as e:
+                direct_load(allow_type_guessing=True)
+            except (JobError, LoaderError) as e:
                 logger.warning('Load using COPY failed: %s', e)
                 logger.info('Trying again with tabulator')
                 tabulator_load()

@@ -13,7 +13,6 @@ from ckan.tests import helpers, factories
 from unittest import mock
 
 from ckanext.xloader import jobs
-from ckanext.xloader.utils import get_xloader_user_apitoken
 
 
 _TEST_FILE_CONTENT = "x, y\n1,2\n2,4\n3,6\n4,8\n5,10"
