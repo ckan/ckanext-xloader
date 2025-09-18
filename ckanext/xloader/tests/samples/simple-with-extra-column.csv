@@ -1,0 +1,7 @@
+date,temperature,place,foo
+2011-01-01,1,Galway,1
+2011-01-02,-1,Galway,2
+2011-01-03,0,Galway,3
+2011-01-01,6,Berkeley,4
+,,Berkeley,5
+2011-01-03,5,,6
