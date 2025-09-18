@@ -716,6 +716,28 @@ class TestLoadCsv(TestLoadBase):
         ]
         assert len(self._get_records(Session, resource_id)) == 6
 
+    def test_reload_fallback(self, Session):
+        csv_filepath = get_sample_filepath("simple.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        with pytest.raises(LoaderError):
+            # Loading a file with different structure should trigger an error
+            # so we fall back to Tabulator
+            loader.load_csv(
+                get_sample_filepath("simple-with-extra-column.csv"),
+                resource_id=resource_id,
+                mimetype="text/csv",
+                allow_type_guessing=True,
+                logger=logger,
+            )
+
     @pytest.mark.skipif(
         not p.toolkit.check_ckan_version(min_version="2.7"),
         reason="Requires CKAN 2.7 - see https://github.com/ckan/ckan/pull/3557",
