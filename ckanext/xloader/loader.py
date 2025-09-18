@@ -688,7 +688,7 @@ def _populate_fulltext(connection, resource_id, fields, logger):
         connection: Database connection object
         resource_id (str): The datastore table identifier
         fields (list): List of dicts with column 'id' (name) and 'type' 
-                      (text/numeric/timestamp)
+            (text/numeric/timestamp)
         logger: Logger instance for progress tracking
         
     Note:
@@ -726,8 +726,8 @@ def _populate_fulltext(connection, resource_id, fields, logger):
                                 identifier(field['id'])
                                 + ('::text' if field['type'] != 'text' else '')  # Cast non-text types
                             )
-                            for field in fields
-                            if not field['id'].startswith('_')  # Skip system columns like _id, _full_text
+                            # Skip system columns like _id, _full_text
+                            for field in fields if not field['id'].startswith('_')
                         ),
                         first=start,
                         end=start + chunks

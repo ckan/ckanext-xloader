@@ -247,7 +247,6 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
                 return ValueError("Test error")
             elif error_type == "TypeError":
                 return TypeError("Test error")
-
         
         def mock_download_with_error(*args, **kwargs):
             if not hasattr(mock_download_with_error, 'call_count'):
