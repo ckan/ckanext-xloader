@@ -40,7 +40,7 @@ def is_resource_supported_by_xloader(res_dict, check_access=True):
         try:
             is_supported_url_type = url_type not in toolkit.h.datastore_rw_resource_url_types()
         except AttributeError:
-            is_supported_url_type = (url_type == 'upload')
+            is_supported_url_type = (url_type in ['upload', 'None'])
     else:
         is_supported_url_type = True
     return (is_supported_format or is_datastore_active) and user_has_access and is_supported_url_type
