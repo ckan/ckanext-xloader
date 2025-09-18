@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckanext-xloader"
-version = "2.1.0"
+version = "2.2.0"
 description = "Express Loader - quickly load data into CKAN DataStore"
 classifiers = [ "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
