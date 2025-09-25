@@ -3,6 +3,7 @@ from unittest.mock import patch
 from ckan.plugins import toolkit
 from ckanext.xloader import utils
 
+
 def test_private_modify_url_no_change():
     url = "https://ckan.example.com/dataset"
     assert utils._modify_url(url, "https://ckan.example.com") == url
@@ -15,7 +16,7 @@ def test_private_modify_url_no_change():
     ("https://ckan.example.org/resource/123", "https://ckan.example.org", "https://ckan.example.org/resource/123"),
     ("http://old-ckan.com/resource/456", "http://new-ckan.com", "http://new-ckan.com/resource/456"),
     ("https://sub.example.com/path", "https://ckan.example.com", "https://ckan.example.com/path"),
-    ("ftp://fileserver.com/file", "https://ckan.example.com", "ftp://fileserver.com/file"), ##should never happen
+    ("ftp://fileserver.com/file", "https://ckan.example.com", "ftp://fileserver.com/file"),  # should never happen
     ("https://ckan.example.org/resource/789", "https://xloader.example.org", "https://xloader.example.org/resource/789"),
     ("https://ckan.example.org/dataset/data", "https://xloader.example.org", "https://xloader.example.org/dataset/data"),
     ("https://ckan.example.org/resource/123?foo=bar", "https://xloader.example.org", "https://xloader.example.org/resource/123?foo=bar"),
@@ -61,7 +62,6 @@ def test_modify_input_url(input_url, ckan_site_url, xloader_site_url, is_altered
             assert response == expected
         else:
             assert response == input_url
-
 
 
 def test_modify_input_url_no_xloader_site():

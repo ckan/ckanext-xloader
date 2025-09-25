@@ -14,6 +14,7 @@ from ckanext.xloader.utils import get_xloader_user_apitoken
 @pytest.mark.usefixtures("clean_db", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestAction(object):
+
     def test_submit(self):
         # checks that xloader_submit enqueues the resource (to be xloadered)
         user = factories.User()
@@ -117,7 +118,6 @@ class TestAction(object):
         )
 
         assert status["status"] == "pending"
-
 
     def test_xloader_user_api_token_from_config(self):
         sysadmin = factories.SysadminWithToken()

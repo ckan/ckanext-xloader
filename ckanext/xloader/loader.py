@@ -2,10 +2,10 @@
 from __future__ import absolute_import
 
 import datetime
+from enum import Enum
 import itertools
 from six import text_type as str, binary_type
 import os
-import os.path
 import tempfile
 from decimal import Decimal
 
@@ -34,6 +34,24 @@ MAX_COLUMN_LENGTH = 63
 tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 SINGLE_BYTE_ENCODING = 'cp1252'
+
+
+class FieldMatch(Enum):
+    """ Enumerates the possible match results between existing and new fields.
+
+    EXACT_MATCH indicates that the field count, names and types are identical,
+    allowing a datastore table to be truncated and reused.
+
+    NAME_MATCH indicates that the field count and names are the same,
+    but one or more field types have changed, so the table must be dropped
+    and recreated, but the Data Dictionary can be preserved if applicable.
+
+    MISMATCH indicates that the field count or names have changed,
+    so the table must be dropped and recreated by guessing the types.
+    """
+    EXACT_MATCH = 1,
+    NAME_MATCH = 2,
+    MISMATCH = 3
 
 
 class UnknownEncodingStream(object):
@@ -83,6 +101,8 @@ def detect_encoding(file_path):
 def _fields_match(fields, existing_fields, logger):
     ''' Check whether all columns have the same names and types as previously,
     independent of ordering.
+
+    Returns one of the values of FieldMatch.
     '''
     # drop the generated '_id' field
     for index in range(len(existing_fields)):
@@ -94,24 +114,24 @@ def _fields_match(fields, existing_fields, logger):
     field_count = len(fields)
     if field_count != len(existing_fields):
         logger.info("Fields do not match; there are now %s fields but previously %s", field_count, len(existing_fields))
-        return False
+        return FieldMatch.MISMATCH
 
-    # ensure each field is present in both collections with the same type
+    # ensure each field is present in both collections and check for type changes
+    type_changed = False
     for index in range(field_count):
         field_id = fields[index]['id']
         for existing_index in range(field_count):
             existing_field_id = existing_fields[existing_index]['id']
             if field_id == existing_field_id:
-                if fields[index]['type'] == existing_fields[existing_index]['type']:
-                    break
-                else:
-                    logger.info("Fields do not match; new type for %s field is %s but existing type is %s",
+                if fields[index]['type'] != existing_fields[existing_index]['type']:
+                    logger.info("Field has changed; new type for %s field is %s but existing type is %s",
                                 field_id, fields[index]["type"], existing_fields[existing_index]['type'])
-                    return False
+                    type_changed = True
+                break
         else:
             logger.info("Fields do not match; no existing entry found for %s", field_id)
-            return False
-    return True
+            return FieldMatch.MISMATCH
+    return FieldMatch.NAME_MATCH if type_changed else FieldMatch.EXACT_MATCH
 
 
 def _clear_datastore_resource(resource_id):
@@ -217,20 +237,23 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         infile.close()        
 
 
-def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
-    '''Loads a CSV into DataStore. Does not create the indexes.'''
-
-    decoding_result = detect_encoding(csv_filepath)
-    logger.info("load_csv: Decoded encoding: %s", decoding_result)
+def _read_metadata(table_filepath, mimetype, logger):
     # Determine the header row
+    logger.info('Determining column names and types')
+    decoding_result = detect_encoding(table_filepath)
+    logger.debug("Decoded encoding: %s", decoding_result)
     try:
-        file_format = os.path.splitext(csv_filepath)[1].strip('.')
-        with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
+        file_format = os.path.splitext(table_filepath)[1].strip('.')
+        with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                   skip_rows=[{'type': 'preset', 'value': 'blank'}],
+                                   post_parse=[TypeConverter().convert_types]) as stream:
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
             file_format = mimetype.lower().split('/')[-1]
-            with UnknownEncodingStream(csv_filepath, file_format, decoding_result) as stream:
+            with UnknownEncodingStream(table_filepath, file_format, decoding_result,
+                                       skip_rows=[{'type': 'preset', 'value': 'blank'}],
+                                       post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
             raise LoaderError('Tabulator error: {}'.format(e))
@@ -238,7 +261,43 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         raise FileCouldNotBeLoadedError(e)
 
     # Some headers might have been converted from strings to floats and such.
-    headers = encode_headers(headers)
+    return (
+        file_format,
+        decoding_result,
+        header_offset,
+        encode_headers(headers),
+        stream,
+    )
+
+
+def _read_existing_fields(resource_id):
+    # get column info from existing table
+    existing = datastore_resource_exists(resource_id)
+    if existing:
+        if p.toolkit.check_ckan_version(min_version='2.11'):
+            ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
+            existing_fields = ds_info.get('fields', [])
+        else:
+            existing_fields = existing.get('fields', [])
+        existing_info = dict((f['id'], f['info'])
+                             for f in existing_fields
+                             if 'info' in f)
+        existing_fields_by_headers = dict((f['id'], f)
+                                          for f in existing_fields)
+        return (True, existing_info, existing_fields, existing_fields_by_headers)
+    else:
+        return (False, None, None, None)
+
+
+def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing=False, logger=None):
+    '''Loads a CSV into DataStore. Does not create the indexes.
+
+    allow_type_guessing: Whether to fall back to Tabulator type-guessing
+    in the event that the resource already existed but its structure has
+    changed.
+    '''
+
+    file_format, decoding_result, header_offset, headers, stream = _read_metadata(csv_filepath, mimetype, logger)
 
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1.
@@ -251,10 +310,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
         logger.warning('Could not determine delimiter from file, use default ","')
         delimiter = ','
 
+    # Strip leading and trailing whitespace, then truncate to maximum length,
+    # then strip again in case the truncation exposed a space.
     headers = [
         header.strip()[:MAX_COLUMN_LENGTH].strip()
         for header in headers
-        if header.strip()
+        if header and header.strip()
     ]
 
     # TODO worry about csv header name problems
@@ -265,129 +326,119 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     # to one that pgloader will understand.
     logger.info('Ensuring character coding is UTF8')
     f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
-    try:
-        # datastore db connection
-        engine = get_write_engine()
 
-        # get column info from existing table
-        existing = datastore_resource_exists(resource_id)
-        existing_info = {}
-        if existing:
-            if p.toolkit.check_ckan_version(min_version='2.11'):
-                ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
-                existing_fields = ds_info.get('fields', [])
-            else:
-                existing_fields = existing.get('fields', [])
-            existing_info = dict((f['id'], f['info'])
-                                 for f in existing_fields
-                                 if 'info' in f)
-            existing_fields_by_headers = dict((f['id'], f)
-                                              for f in existing_fields)
+    # get column info from existing table
+    existing, existing_info, existing_fields, existing_fields_by_headers = _read_existing_fields(resource_id)
+    if existing:
+        # Column types are either set (overridden) in the Data Dictionary page
+        # or default to text type (which is robust)
+        fields = [
+            {'id': header_name,
+             'type': existing_info.get(header_name, {})
+                .get('type_override') or 'text',
+             }
+            for header_name in headers]
 
-            # Column types are either set (overridden) in the Data Dictionary page
-            # or default to text type (which is robust)
-            fields = [
-                {'id': header_name,
-                 'type': existing_info.get(header_name, {})
-                    .get('type_override') or 'text',
-                 }
-                for header_name in headers]
+        # Maintain data dictionaries from matching column names
+        for f in fields:
+            if f['id'] in existing_info:
+                f['info'] = existing_info[f['id']]
+                f['strip_extra_white'] = existing_info[f['id']].get('strip_extra_white') if 'strip_extra_white' in existing_info[f['id']] \
+                    else existing_fields_by_headers[f['id']].get('strip_extra_white', True)
 
-            # Maintain data dictionaries from matching column names
-            for f in fields:
-                if f['id'] in existing_info:
-                    f['info'] = existing_info[f['id']]
-                    f['strip_extra_white'] = existing_info[f['id']].get('strip_extra_white') if 'strip_extra_white' in existing_info[f['id']] \
-                        else existing_fields_by_headers[f['id']].get('strip_extra_white', True)
-
-            '''
-            Delete or truncate existing datastore table before proceeding,
-            depending on whether any fields have changed.
-            Otherwise the COPY will append to the existing table.
-            And if the fields have significantly changed, it may also fail.
-            '''
-            if _fields_match(fields, existing_fields, logger):
-                logger.info('Clearing records for "%s" from DataStore.', resource_id)
-                _clear_datastore_resource(resource_id)
-            else:
-                logger.info('Deleting "%s" from DataStore.', resource_id)
-                delete_datastore_resource(resource_id)
+        '''
+        Delete or truncate existing datastore table before proceeding,
+        depending on whether any fields have changed.
+        Otherwise the COPY will append to the existing table.
+        And if the fields have significantly changed, it may also fail.
+        '''
+        fields_match = _fields_match(fields, existing_fields, logger)
+        if fields_match == FieldMatch.EXACT_MATCH:
+            logger.info('Clearing records for "%s" from DataStore.', resource_id)
+            _clear_datastore_resource(resource_id)
         else:
-            fields = [
-                {'id': header_name,
-                 'type': 'text',
-                 'strip_extra_white': True}
-                for header_name in headers]
+            logger.info('Deleting "%s" from DataStore.', resource_id)
+            delete_datastore_resource(resource_id)
+            # if file structure has changed,
+            # and it wasn't just from a Data Dictionary override,
+            # then we need to re-guess types
+            if allow_type_guessing and fields_match == FieldMatch.MISMATCH:
+                raise LoaderError("File structure has changed, reverting to Tabulator")
+    else:
+        fields = [
+            {'id': header_name,
+             'type': 'text',
+             'strip_extra_white': True}
+            for header_name in headers]
 
-        logger.info('Fields: %s', fields)
+    logger.info('Fields: %s', fields)
 
-        def _make_whitespace_stripping_iter(super_iter):
-            def strip_white_space_iter():
-                for row in super_iter():
-                    if len(row) == len(fields):
-                        for _index, _cell in enumerate(row):
-                            # only strip white space if strip_extra_white is True
-                            if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
-                                row[_index] = _cell.strip()
-                    yield row
-            return strip_white_space_iter
+    def _make_whitespace_stripping_iter(super_iter):
+        def strip_white_space_iter():
+            for row in super_iter():
+                if len(row) == len(fields):
+                    for _index, _cell in enumerate(row):
+                        # only strip white space if strip_extra_white is True
+                        if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
+                            row[_index] = _cell.strip()
+                yield row
+        return strip_white_space_iter
 
-        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
-        try:
-            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
-                                       skip_rows=skip_rows) as stream:
-                stream.iter = _make_whitespace_stripping_iter(stream.iter)
-                stream.save(**save_args)
-        except (EncodingError, UnicodeDecodeError):
-            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
-                        skip_rows=skip_rows) as stream:
-                stream.iter = _make_whitespace_stripping_iter(stream.iter)
-                stream.save(**save_args)
-        csv_filepath = f_write.name
+    save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+    try:
+        with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
+                                   skip_rows=skip_rows) as stream:
+            stream.iter = _make_whitespace_stripping_iter(stream.iter)
+            stream.save(**save_args)
+    except (EncodingError, UnicodeDecodeError):
+        with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
+                    skip_rows=skip_rows) as stream:
+            stream.iter = _make_whitespace_stripping_iter(stream.iter)
+            stream.save(**save_args)
+    csv_filepath = f_write.name
 
-        # Create table
-        from ckan import model
-        context = {'model': model, 'ignore_auth': True}
-        data_dict = dict(
-            resource_id=resource_id,
-            fields=fields,
-        )
-        data_dict['records'] = None  # just create an empty table
-        data_dict['force'] = True  # TODO check this - I don't fully
-        # understand read-only/datastore resources
-        try:
-            p.toolkit.get_action('datastore_create')(context, data_dict)
-        except p.toolkit.ValidationError as e:
-            if 'fields' in e.error_dict:
-                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}  # noqa
-                error_message = e.error_dict['fields'][0]
-                raise LoaderError('Error with field definition: {}'
-                                  .format(error_message))
-            else:
-                raise LoaderError(
-                    'Validation error when creating the database table: {}'
-                    .format(str(e)))
-        except Exception as e:
-            raise LoaderError('Could not create the database table: {}'
-                              .format(e))
+    # Create table
+    from ckan import model
+    context = {'model': model, 'ignore_auth': True}
+    data_dict = dict(
+        resource_id=resource_id,
+        fields=fields,
+    )
+    data_dict['records'] = None  # just create an empty table
+    data_dict['force'] = True  # TODO check this - I don't fully
+    # understand read-only/datastore resources
+    try:
+        p.toolkit.get_action('datastore_create')(context, data_dict)
+    except p.toolkit.ValidationError as e:
+        if 'fields' in e.error_dict:
+            # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}  # noqa
+            error_message = e.error_dict['fields'][0]
+            raise LoaderError('Error with field definition: {}'
+                              .format(error_message))
+        else:
+            raise LoaderError(
+                'Validation error when creating the database table: {}'
+                .format(str(e)))
+    except Exception as e:
+        raise LoaderError('Could not create the database table: {}'
+                          .format(e))
 
-        # datastore_active is switched on by datastore_create
-        # TODO temporarily disable it until the load is complete
+    # datastore_active is switched on by datastore_create
+    # TODO temporarily disable it until the load is complete
 
-        with engine.begin() as conn:
-            _disable_fulltext_trigger(conn, resource_id)
+    engine = get_write_engine()
+    with engine.begin() as conn:
+        _disable_fulltext_trigger(conn, resource_id)
 
-        with engine.begin() as conn:
-            context['connection'] = conn
-            _drop_indexes(context, data_dict, False)
+    with engine.begin() as conn:
+        context['connection'] = conn
+        _drop_indexes(context, data_dict, False)
 
-        logger.info('Copying to database...')
+    logger.info('Copying to database...')
 
-        # Copy file to datastore db, split to chunks.
-        max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
-        split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
-    finally:
-        os.remove(csv_filepath)  # i.e. the tempfile
+    # Copy file to datastore db, split to chunks.
+    max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
+    split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
 
     logger.info('...copying done')
 
@@ -435,44 +486,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     Largely copied from datapusher - see below. Is slower than load_csv.
     '''
 
-    # Determine the header row
-    logger.info('Determining column names and types')
-    decoding_result = detect_encoding(table_filepath)
-    logger.info("load_table: Decoded encoding: %s", decoding_result)
-    try:
-        file_format = os.path.splitext(table_filepath)[1].strip('.')
-        with UnknownEncodingStream(table_filepath, file_format, decoding_result,
-                                   skip_rows=[{'type': 'preset', 'value': 'blank'}],
-                                   post_parse=[TypeConverter().convert_types]) as stream:
-            header_offset, headers = headers_guess(stream.sample)
-    except TabulatorException:
-        try:
-            file_format = mimetype.lower().split('/')[-1]
-            with UnknownEncodingStream(table_filepath, file_format, decoding_result,
-                                       skip_rows=[{'type': 'preset', 'value': 'blank'}],
-                                       post_parse=[TypeConverter().convert_types]) as stream:
-                header_offset, headers = headers_guess(stream.sample)
-        except TabulatorException as e:
-            raise LoaderError('Tabulator error: {}'.format(e))
-    except Exception as e:
-        raise FileCouldNotBeLoadedError(e)
+    file_format, decoding_result, header_offset, headers, stream = _read_metadata(table_filepath, mimetype, logger)
 
-    existing = datastore_resource_exists(resource_id)
-    existing_info = None
-    if existing:
-        if p.toolkit.check_ckan_version(min_version='2.11'):
-            ds_info = p.toolkit.get_action('datastore_info')({'ignore_auth': True}, {'id': resource_id})
-            existing_fields = ds_info.get('fields', [])
-        else:
-            existing_fields = existing.get('fields', [])
-        existing_info = dict(
-            (f['id'], f['info'])
-            for f in existing_fields if 'info' in f)
-        existing_fields_by_headers = dict((f['id'], f)
-                                          for f in existing_fields)
-
-    # Some headers might have been converted from strings to floats and such.
-    headers = encode_headers(headers)
+    existing, existing_info, existing_fields, existing_fields_by_headers = _read_existing_fields(resource_id)
 
     # Get the list of rows to skip. The rows in the tabulator stream are
     # numbered starting with 1. We also want to skip the header row.
@@ -486,7 +502,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
     fields = []
 
     # override with types user requested
-    if existing_info:
+    if existing:
         types = [
             {
                 'text': str,
@@ -537,7 +553,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                          for field in zip(headers, types)]
 
         # Maintain data dictionaries from matching column names
-        if existing_info:
+        if existing:
             for h in headers_dicts:
                 if h['id'] in existing_info:
                     h['info'] = existing_info[h['id']]
@@ -564,7 +580,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         And if the fields have significantly changed, it may also fail.
         '''
         if existing:
-            if _fields_match(headers_dicts, existing_fields, logger):
+            if _fields_match(headers_dicts, existing_fields, logger) == FieldMatch.EXACT_MATCH:
                 logger.info('Clearing records for "%s" from DataStore.', resource_id)
                 _clear_datastore_resource(resource_id)
             else:
@@ -740,7 +756,7 @@ def _populate_fulltext(connection, resource_id, fields, logger):
         connection: Database connection object
         resource_id (str): The datastore table identifier
         fields (list): List of dicts with column 'id' (name) and 'type' 
-                      (text/numeric/timestamp)
+            (text/numeric/timestamp)
         logger: Logger instance for progress tracking
         
     Note:
@@ -778,8 +794,8 @@ def _populate_fulltext(connection, resource_id, fields, logger):
                                 identifier(field['id'])
                                 + ('::text' if field['type'] != 'text' else '')  # Cast non-text types
                             )
-                            for field in fields
-                            if not field['id'].startswith('_')  # Skip system columns like _id, _full_text
+                            # Skip system columns like _id, _full_text
+                            for field in fields if not field['id'].startswith('_')
                         ),
                         first=start,
                         end=start + chunks
