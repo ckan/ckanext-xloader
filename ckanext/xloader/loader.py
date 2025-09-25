@@ -166,7 +166,6 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
                     # but logging and exceptions need a normal (7 bit) str
                     error_str = str(e)
                     logger.warning('{id}: {error_str}'.format(id=resource_id, error_str=error_str))
-                    jobs.write_log('{id}: {error_str}'.format(id=resource_id, error_str=error_str))
                     raise LoaderError('Error during the load into PostgreSQL:'
                                         ' {}'.format(error_str))  
         finally:
@@ -217,7 +216,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
     if infile:
         infile.close()        
 
-        
+
 def load_csv(csv_filepath, resource_id, mimetype='text/csv', logger=None):
     '''Loads a CSV into DataStore. Does not create the indexes.'''
 
