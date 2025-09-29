@@ -205,6 +205,10 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         connection (str, optional): Connection string for the PostgreSQL database. Defaults to an empty string.
         delimiter (str, optional): Delimiter character used in the CSV file. Defaults to ','.
     """
+    
+    chunk_count = 0
+    file_size = os.path.getsize(input_file)
+    logger.info('Starting chunked processing for file size: {} bytes with chunk size: {} bytes'.format(file_size, max_size))
 
     with open(input_file, 'r', encoding='utf-8') as infile:
         current_file = None
@@ -214,9 +218,10 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
             if current_file is None or current_file.tell() >= max_size:
                 # Close previous file if necessary
                 if current_file:
-                    logger.info('Before copying file: {}'.format(output_filename))
+                    chunk_count += 1
+                    logger.debug('Before copying chunk {}: {}'.format(chunk_count, output_filename))
                     copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
-                    logger.info('Copied file: {}'.format(output_filename))
+                    logger.debug('Copied chunk {}: {}'.format(chunk_count, output_filename))
                     current_file.close()
                     header = True
 
@@ -231,8 +236,13 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
             current_file.close()
 
         # Copy the last file
+        chunk_count += 1
+        logger.debug('Before copying final chunk {}: {}'.format(chunk_count, output_filename))
         copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
+        logger.debug('Copied final chunk {}: {}'.format(chunk_count, output_filename))
         os.remove(output_filename)
+        
+    logger.info('Completed chunked processing: {} chunks processed for file size {} bytes'.format(chunk_count, file_size))
     if infile:
         infile.close()        
 
@@ -438,6 +448,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
     # Copy file to datastore db, split to chunks.
     max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
+    logger.info('Using chunk size: {} bytes for resource {}'.format(int(max_size), resource_id))
     split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
 
     logger.info('...copying done')
