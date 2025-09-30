@@ -117,8 +117,10 @@ class TestChunkedLoading(TestLoadBase):
             assert column_names == expected_columns
             
             # Verify first and last records to ensure data integrity
-            first_record = records[0]
-            last_record = records[-1]
+            # Sort records by the 'id' column (index 1) to ensure consistent ordering
+            sorted_records = sorted(records, key=lambda x: int(x[1]))
+            first_record = sorted_records[0]
+            last_record = sorted_records[-1]
             
             # Check first record (excluding _id and _full_text columns)
             # The _get_records method excludes _full_text by default, so indices are:
