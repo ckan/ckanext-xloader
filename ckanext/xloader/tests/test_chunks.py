@@ -105,7 +105,7 @@ class TestChunkedLoading(TestLoadBase):
                     )
             
             # Verify chunking occurred (should have multiple copy calls)
-            assert len(copy_calls) > 1, f"Expected multiple chunks, got {len(copy_calls)} copy calls"
+            assert len(copy_calls) > 1, "Expected multiple chunks but file was not chunked"
             
             # Verify data integrity - check that all rows were loaded
             records = self._get_records(Session, resource_id)

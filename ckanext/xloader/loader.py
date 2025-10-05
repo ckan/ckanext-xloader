@@ -219,9 +219,9 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
                 # Close previous file if necessary
                 if current_file:
                     chunk_count += 1
-                    logger.debug('Before copying chunk {}: {}'.format(chunk_count, output_filename))
+                    logger.debug('Before copying chunk %s: %s', chunk_count, output_filename)
                     copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
-                    logger.debug('Copied chunk {}: {}'.format(chunk_count, output_filename))
+                    logger.debug('Copied chunk %s: %s', chunk_count, output_filename)
                     current_file.close()
                     header = True
 
@@ -237,9 +237,9 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
 
         # Copy the last file
         chunk_count += 1
-        logger.debug('Before copying final chunk {}: {}'.format(chunk_count, output_filename))
+        logger.debug('Before copying final chunk %s: %s', chunk_count, output_filename)
         copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
-        logger.debug('Copied final chunk {}: {}'.format(chunk_count, output_filename))
+        logger.debug('Copied final chunk %s: %s', chunk_count, output_filename)
         os.remove(output_filename)
         
     logger.info('Completed chunked processing: {} chunks processed for file size {} bytes'.format(chunk_count, file_size))
@@ -448,7 +448,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
     # Copy file to datastore db, split to chunks.
     max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
-    logger.info('Using chunk size: {} bytes for resource {}'.format(int(max_size), resource_id))
+    logger.debug('Using chunk size: %s bytes for resource %s', int(max_size), resource_id)
     split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
 
     logger.info('...copying done')
