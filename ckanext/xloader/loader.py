@@ -185,7 +185,7 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
                     # 'extra data: "paul,pa\xc3\xbcl"\n'
                     # but logging and exceptions need a normal (7 bit) str
                     error_str = str(e)
-                    logger.warning('{id}: {error_str}'.format(id=resource_id, error_str=error_str))
+                    logger.warning('%s: %s', resource_id, error_str)
                     raise LoaderError('Error during the load into PostgreSQL:'
                                         ' {}'.format(error_str))  
         finally:
@@ -208,7 +208,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
     
     chunk_count = 0
     file_size = os.path.getsize(input_file)
-    logger.info('Starting chunked processing for file size: {} bytes with chunk size: {} bytes'.format(file_size, max_size))
+    logger.info('Starting chunked processing for file size: %s bytes with chunk size: %s bytes', file_size, max_size)
 
     with open(input_file, 'r', encoding='utf-8') as infile:
         current_file = None
@@ -242,7 +242,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         logger.debug('Copied final chunk %s: %s', chunk_count, output_filename)
         os.remove(output_filename)
         
-    logger.info('Completed chunked processing: {} chunks processed for file size {} bytes'.format(chunk_count, file_size))
+    logger.info('Completed chunked processing: %s chunks processed for file size %s bytes', chunk_count, file_size)
     if infile:
         infile.close()        
 
@@ -448,7 +448,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
     # Copy file to datastore db, split to chunks.
     max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
-    logger.debug('Using chunk size: %s bytes for resource %s', int(max_size), resource_id)
+    logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
     split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
 
     logger.info('...copying done')
