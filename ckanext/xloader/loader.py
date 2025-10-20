@@ -191,8 +191,7 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
         finally:
             cur.close()
 
-            
-def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimiter = ',',  max_size=1024**3):  # 1 Gigabyte
+def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimiter = ',',  max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
     """
     Reads a CSV file, splits it into chunks of maximum size, and writes each chunk
     to PostgreSQL COPY command to load the data into a table.
@@ -210,7 +209,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
     file_size = os.path.getsize(input_file)
     logger.info('Starting chunked processing for file size: %s bytes with chunk size: %s bytes', file_size, max_size)
 
-    with open(input_file, 'r', encoding='utf-8') as infile:
+    with open(input_file, 'r', encoding = encoding) as infile:
         current_file = None
         output_filename = f'/tmp/output_{resource_id}.csv'
         header = False
