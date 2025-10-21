@@ -206,3 +206,13 @@ groups:
           like database deadlocks or network timeouts. Set to 0 to disable retries.
         type: int
         required: false
+      - key: ckanext.xloader.copy_chunk_size
+        default: 1073741824
+        example: 536870912
+        description: |
+          Maximum size in bytes for each chunk when processing files.
+          Files are split into chunks to prevent memory exhaustion and
+          system freezing. Default is 1GB (1073741824 bytes). Smaller values
+          use less memory but create more chunks.
+        type: int
+        required: false

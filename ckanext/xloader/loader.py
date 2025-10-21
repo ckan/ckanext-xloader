@@ -143,6 +143,109 @@ def _clear_datastore_resource(resource_id):
         conn.execute(sa.text('TRUNCATE TABLE "{}" RESTART IDENTITY'.format(resource_id)))
 
 
+def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
+    # Options for loading into postgres:
+    # 1. \copy - can't use as that is a psql meta-command and not accessible
+    #    via psycopg2
+    # 2. COPY - requires the db user to have superuser privileges. This is
+    #    dangerous. It is also not available on AWS, for example.
+    # 3. pgloader method? - as described in its docs:
+    #
+    #    Note that while the COPY command is restricted to read either from
+    #    its standard input or from a local file on the server's file system,
+    #    the command line tool psql implements a \copy command that knows
+    #    how to stream a file local to the client over the network and into
+    #    the PostgreSQL server, using the same protocol as pgloader uses.
+    # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
+    #    the superuser issue. <-- picked
+
+    with engine.begin() as conn:
+        cur = conn.connection.cursor()
+        #cur.execute('SET DATESTYLE TO "SQL , MDY"')
+        try:
+            with open(csv_filepath, 'rb') as f:
+                # can't use :param for table name because params are only
+                # for filter values that are single quoted.
+                try:
+                    cur.copy_expert(
+                        "COPY \"{resource_id}\" ({column_names}) "
+                        "FROM STDIN "
+                        "WITH (DELIMITER '{delimiter}', FORMAT csv, HEADER 1, "
+                        "      ENCODING '{encoding}');"
+                        .format(
+                            resource_id=resource_id,
+                            column_names=', '.join(['"{}"'.format(h)
+                                                    for h in headers]),
+                            delimiter=delimiter,
+                            encoding='UTF8',
+                        ),
+                        f)
+                except psycopg2.DataError as e:
+                    # e is a str but with foreign chars e.g.
+                    # 'extra data: "paul,pa\xc3\xbcl"\n'
+                    # but logging and exceptions need a normal (7 bit) str
+                    error_str = str(e)
+                    logger.warning('%s: %s', resource_id, error_str)
+                    raise LoaderError('Error during the load into PostgreSQL:'
+                                        ' {}'.format(error_str))  
+        finally:
+            cur.close()
+
+def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimiter = ',',  max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
+    """
+    Reads a CSV file, splits it into chunks of maximum size, and writes each chunk
+    to PostgreSQL COPY command to load the data into a table.
+
+    Args:
+        input_file (str): Path to the input CSV file.
+        max_size (int, optional): Maximum size (in bytes) of each output file. Defaults to 1 Gigabyte.
+        tablename (str, optional): Name of the target table in PostgreSQL for the COPY command. Defaults to None.
+        columns (list, optional): List of column names for the COPY command, matching the CSV header. Defaults to None.
+        connection (str, optional): Connection string for the PostgreSQL database. Defaults to an empty string.
+        delimiter (str, optional): Delimiter character used in the CSV file. Defaults to ','.
+    """
+    
+    chunk_count = 0
+    file_size = os.path.getsize(input_file)
+    logger.info('Starting chunked processing for file size: %s bytes with chunk size: %s bytes', file_size, max_size)
+
+    with open(input_file, 'r', encoding = encoding) as infile:
+        current_file = None
+        output_filename = f'/tmp/output_{resource_id}.csv'
+        header = False
+        for row in infile:
+            if current_file is None or current_file.tell() >= max_size:
+                # Close previous file if necessary
+                if current_file:
+                    chunk_count += 1
+                    logger.debug('Before copying chunk %s: %s', chunk_count, output_filename)
+                    copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
+                    logger.debug('Copied chunk %s: %s', chunk_count, output_filename)
+                    current_file.close()
+                    header = True
+
+                current_file = open(output_filename, 'w')
+                if header:
+                    current_file.write(delimiter.join(headers) + '\n')
+            current_file.write(row)
+            
+
+        # Close the last file if open
+        if current_file:
+            current_file.close()
+
+        # Copy the last file
+        chunk_count += 1
+        logger.debug('Before copying final chunk %s: %s', chunk_count, output_filename)
+        copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
+        logger.debug('Copied final chunk %s: %s', chunk_count, output_filename)
+        os.remove(output_filename)
+        
+    logger.info('Completed chunked processing: %s chunks processed for file size %s bytes', chunk_count, file_size)
+    if infile:
+        infile.close()        
+
+
 def _read_metadata(table_filepath, mimetype, logger):
     # Determine the header row
     logger.info('Determining column names and types')
@@ -342,51 +445,10 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
     logger.info('Copying to database...')
 
-    # Options for loading into postgres:
-    # 1. \copy - can't use as that is a psql meta-command and not accessible
-    #    via psycopg2
-    # 2. COPY - requires the db user to have superuser privileges. This is
-    #    dangerous. It is also not available on AWS, for example.
-    # 3. pgloader method? - as described in its docs:
-    #    Note that while the COPY command is restricted to read either from
-    #    its standard input or from a local file on the server's file system,
-    #    the command line tool psql implements a \copy command that knows
-    #    how to stream a file local to the client over the network and into
-    #    the PostgreSQL server, using the same protocol as pgloader uses.
-    # 4. COPY FROM STDIN - not quite as fast as COPY from a file, but avoids
-    #    the superuser issue. <-- picked
-
-    with engine.begin() as conn:
-        cur = conn.connection.cursor()
-        try:
-            with open(csv_filepath, 'rb') as f:
-                # can't use :param for table name because params are only
-                # for filter values that are single quoted.
-                try:
-                    cur.copy_expert(
-                        "COPY \"{resource_id}\" ({column_names}) "
-                        "FROM STDIN "
-                        "WITH (DELIMITER '{delimiter}', FORMAT csv, HEADER 1, "
-                        "      ENCODING '{encoding}');"
-                        .format(
-                            resource_id=resource_id,
-                            column_names=', '.join(['"{}"'.format(h)
-                                                    for h in headers]),
-                            delimiter=delimiter,
-                            encoding='UTF8',
-                        ),
-                        f)
-                except psycopg2.DataError as e:
-                    # e is a str but with foreign chars e.g.
-                    # 'extra data: "paul,pa\xc3\xbcl"\n'
-                    # but logging and exceptions need a normal (7 bit) str
-                    error_str = str(e)
-                    logger.warning(error_str)
-                    raise LoaderError('Error during the load into PostgreSQL:'
-                                      ' {}'.format(error_str))
-
-        finally:
-            cur.close()
+    # Copy file to datastore db, split to chunks.
+    max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
+    logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
+    split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
 
     logger.info('...copying done')
 
