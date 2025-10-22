@@ -46,14 +46,27 @@ class XloaderCmd:
         # submit every package
         # for each package in the package list,
         #   submit each resource w/ _submit_package
-        package_list = tk.get_action('package_search')(
-            {'ignore_auth': True}, {'include_private': True, 'rows': 1000})
-        package_list = [pkg['id'] for pkg in package_list['results']]
+        arguments = {'include_private': True, 'start': 0, 'rows': 10}
+
+        response = tk.get_action('package_search')({'ignore_auth': True}, {'include_private': True})
+        num_pages = (response['count'] + 999) // 1000
+        arguments['rows'] = 1000
+        package_list = []
+
+        for page in range(0, num_pages):
+            paged_response = tk.get_action('package_search')({'ignore_auth': True}, arguments)
+            package_list.extend([pkg['id'] for pkg in paged_response['results']])
+            arguments['start'] += 1000
+
         print('Processing %d datasets' % len(package_list))
-        user = tk.get_action('get_site_user')(
-            {'ignore_auth': True}, {})
-        for p_id in package_list:
-            self._submit_package(p_id, user, indent=2, sync=sync, queue=queue)
+        check_start = input('This action could take a few minuts depending on the number of DataSets:\nDid you want to start the process? y/N\n')
+
+        if check_start == 'y':
+            user = tk.get_action('get_site_user')({'ignore_auth': True}, {})
+            for p_id in package_list:
+                self._submit_package(p_id, user, indent=2, sync=sync, queue=queue)
+        else:
+            print('Submit all process stoped')
 
     def _submit_package(self, pkg_id, user=None, indent=0, sync=False, queue=None):
         indentation = ' ' * indent
