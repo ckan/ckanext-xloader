@@ -88,54 +88,53 @@ class xloaderPlugin(plugins.SingletonPlugin):
     # IDomainObjectModification
 
     def notify(self, entity, operation):
-        # type: (Package|Resource, DomainObjectOperation) -> None
+        """Handler for all Resource operations (create, update, delete).
+
+        Catches resources created via:
+        - Direct resource_create/update API calls
+        - Resources bundled in package_create
+        - Resources added in package_update
+        - Resource modifications
+
+        This runs before_commit to database.
         """
-        Runs before_commit to database for Packages and Resources.
-        We only want to check for changed Resources for this.
-        We want to check if values have changed, namely the url and the format.
-        See: ckan/model/modification.py.DomainObjectModificationExtension
-        """
-        if operation != DomainObjectOperation.changed \
-                or not isinstance(entity, Resource):
+        if not isinstance(entity, Resource):
             return
 
-        context = {
-            "ignore_auth": True,
-        }
-        resource_dict = toolkit.get_action("resource_show")(
-            context,
-            {
-                "id": entity.id,
-            },
-        )
+        # Handle resource deletion
+        if operation == DomainObjectOperation.deleted:
+            log.debug("Resource %s deleted, skipping xloader", entity.id)
+            return
 
-        if _should_remove_unsupported_resource_from_datastore(resource_dict):
-            toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
+        context = {"ignore_auth": True}
+        resource_dict = toolkit.get_action("resource_show")(context, {"id": entity.id})
 
         if utils.requires_successful_validation_report():
-            # If the resource requires validation, stop here if validation
-            # has not been performed or did not succeed. The Validation
-            # extension will call resource_patch and this method should
-            # be called again. However, url_changed will not be in the entity
-            # once Validation does the patch.
             log.debug("Deferring xloading resource %s because the "
-                      "resource did not pass validation yet.", resource_dict.get('id'))
+                        "resource did not pass validation yet.", resource_dict.get('id'))
             return
-        elif not getattr(entity, 'url_changed', False):
-            # do not submit to xloader if the url has not changed.
-            return
+
+        # Handle resource creation (new resources from any source)
+        if operation == DomainObjectOperation.new:
+            log.debug("New resource %s detected, submitting to xloader", entity.id)
+
+        # Handle resource updates
+        elif operation == DomainObjectOperation.changed:
+            # Clean up datastore for unsupported formats
+            if _should_remove_unsupported_resource_from_datastore(resource_dict):
+                toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
+
+            # Only submit if URL has changed
+            if not getattr(entity, 'url_changed', False):
+                sync_datastore_flag(resource_dict)
+                log.debug("Resource %s changed but URL unchanged, skipping xloader", entity.id)
+                return
+
+            log.debug("Resource %s URL changed, submitting to xloader", entity.id)
 
         self._submit_to_xloader(resource_dict)
 
     # IResourceController
-
-    def after_resource_create(self, context, resource_dict):
-        if utils.requires_successful_validation_report():
-            log.debug("Deferring xloading resource %s because the "
-                      "resource did not pass validation yet.", resource_dict.get('id'))
-            return
-
-        self._submit_to_xloader(resource_dict)
 
     def before_resource_show(self, resource_dict):
         resource_dict[
@@ -144,38 +143,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
             resource_dict.get("datastore_contains_all_records_of_source_file")
         )
 
-    def after_resource_update(self, context, resource_dict):
-        """ Check whether the datastore is out of sync with the
-        'datastore_active' flag. This can occur due to race conditions
-        like https://github.com/ckan/ckan/issues/4663
-        """
-        datastore_active = resource_dict.get('datastore_active', False)
-        try:
-            context = {'ignore_auth': True}
-            if toolkit.get_action('datastore_info')(
-                    context=context, data_dict={'id': resource_dict['id']}):
-                datastore_exists = True
-            else:
-                datastore_exists = False
-        except toolkit.ObjectNotFound:
-            datastore_exists = False
-
-        if datastore_active != datastore_exists:
-            # flag is out of sync with datastore; update it
-            utils.set_resource_metadata(
-                {'resource_id': resource_dict['id'],
-                 'datastore_active': datastore_exists})
-
     if not toolkit.check_ckan_version("2.10"):
-
-        def after_create(self, context, resource_dict):
-            self.after_resource_create(context, resource_dict)
 
         def before_show(self, resource_dict):
             self.before_resource_show(resource_dict)
-
-        def after_update(self, context, resource_dict):
-            self.after_resource_update(context, resource_dict)
 
     def _submit_to_xloader(self, resource_dict, sync=False):
         context = {"ignore_auth": True, "defer_commit": True}
@@ -298,3 +269,31 @@ def _remove_unsupported_resource_from_datastore(resource_id):
             log.info('Datastore table dropped for resource %s', res['id'])
         except toolkit.ObjectNotFound:
             log.error('Datastore table for resource %s does not exist', res['id'])
+
+
+def sync_datastore_flag(resource_dict):
+    """ Check whether the datastore is out of sync with the
+    'datastore_active' flag. This can occur due to race conditions
+    like https://github.com/ckan/ckan/issues/4663
+    """
+    datastore_active = resource_dict.get('datastore_active', False)
+    try:
+        datastore_info = toolkit.get_action('datastore_info')(
+            context={"ignore_auth": True},
+            data_dict={'id': resource_dict['id']}
+        )
+        datastore_exists = bool(datastore_info)
+    except toolkit.ObjectNotFound:
+        datastore_exists = False
+
+    if datastore_active != datastore_exists:
+        # Flag is out of sync; update metadata
+        utils.set_resource_metadata({
+            'resource_id': resource_dict['id'],
+            'datastore_active': datastore_exists
+        })
+        log.debug(
+            "Resource %s: datastore_active flag synced to %s",
+            resource_dict['id'],
+            datastore_exists
+        )
