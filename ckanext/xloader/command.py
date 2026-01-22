@@ -7,6 +7,8 @@ import ckan.plugins.toolkit as tk
 from ckanext.xloader.jobs import xloader_data_into_datastore_
 from ckanext.xloader.utils import XLoaderFormats, get_xloader_user_apitoken
 
+log = logging.getLogger(__name__)
+
 
 class XloaderCmd:
     def __init__(self, dry_run=False):
@@ -133,17 +135,37 @@ class XloaderCmd:
 
     def print_status(self):
         import ckan.lib.jobs as rq_jobs
+
         jobs = rq_jobs.get_queue().jobs
         if not jobs:
             print('No jobs currently queued')
+            return
+
         for job in jobs:
-            job_params = eval(job.description.replace(
-                'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
-            job_metadata = job_params['metadata']
+            # FIX DEFINITIVO:
+            # Non usare job.description (non è un canale dati stabile e può essere troncato).
+            # I parametri veri stanno in job.args / job.kwargs.
+            metadata = {}
+
+            try:
+                if getattr(job, 'args', None) and len(job.args) >= 1:
+                    payload = job.args[0] or {}
+                    if isinstance(payload, dict):
+                        metadata = payload.get('metadata') or {}
+                elif getattr(job, 'kwargs', None) and isinstance(job.kwargs, dict):
+                    payload = job.kwargs.get('data') or job.kwargs
+                    if isinstance(payload, dict):
+                        metadata = payload.get('metadata') or {}
+            except Exception:
+                metadata = {}
+
+            res_id = metadata.get('resource_id', 'N/A')
+            url = metadata.get('original_url') or metadata.get('url') or 'N/A'
+
             print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
                   'url={url}'.format(
-                      id=job._id,
+                      id=getattr(job, '_id', None),
                       enqueued=job.enqueued_at,
-                      res_id=job_metadata['resource_id'],
-                      url=job_metadata['original_url'],
+                      res_id=res_id,
+                      url=url,
                   ))
