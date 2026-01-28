@@ -95,8 +95,10 @@ class xloaderPlugin(plugins.SingletonPlugin):
         We want to check if values have changed, namely the url and the format.
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
-        if operation != DomainObjectOperation.changed \
-                or not isinstance(entity, Resource):
+        if operation not in [
+            DomainObjectOperation.changed,
+            DomainObjectOperation.new,
+        ] or not isinstance(entity, Resource):
             return
 
         context = {
@@ -129,14 +131,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
 
     # IResourceController
 
-    def after_resource_create(self, context, resource_dict):
-        if utils.requires_successful_validation_report():
-            log.debug("Deferring xloading resource %s because the "
-                      "resource did not pass validation yet.", resource_dict.get('id'))
-            return
-
-        self._submit_to_xloader(resource_dict)
-
     def before_resource_show(self, resource_dict):
         resource_dict[
             "datastore_contains_all_records_of_source_file"
@@ -167,9 +161,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
                  'datastore_active': datastore_exists})
 
     if not toolkit.check_ckan_version("2.10"):
-
-        def after_create(self, context, resource_dict):
-            self.after_resource_create(context, resource_dict)
 
         def before_show(self, resource_dict):
             self.before_resource_show(resource_dict)
