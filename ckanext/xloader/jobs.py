@@ -29,50 +29,37 @@ from ckan.lib.api_token import get_user_from_token
 
 log = logging.getLogger(__name__)
 
-SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
-if not SSL_VERIFY:
-    requests.packages.urllib3.disable_warnings()
-
-MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
-# Don't try Tabulator load on large files
-MAX_TYPE_GUESSING_LENGTH = int(config.get('ckanext.xloader.max_type_guessing_length') or MAX_CONTENT_LENGTH / 10)
-MAX_EXCERPT_LINES = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
 CHUNK_SIZE = 16 * 1024  # 16kb
 DOWNLOAD_TIMEOUT = 30
 
-MAX_RETRIES = int(config.get('ckanext.xloader.max_retries', 1))
 RETRYABLE_ERRORS = (
     errors.DeadlockDetected,
     errors.LockNotAvailable,
     errors.ObjectInUse,
     HTTPError,
-    XLoaderTimeoutError 
+    XLoaderTimeoutError
 )
-# Retries can only occur in cases where the datastore entry exists,
-# so use the standard timeout
-RETRIED_JOB_TIMEOUT = config.get('ckanext.xloader.job_timeout', '3600')
-APITOKEN_HEADER_NAME = config.get('apitoken_header_name', 'Authorization')
 
 
 def is_retryable_error(error):
     """
     Determine if an error should trigger a retry attempt.
-    
+
     Checks if the error is a temporary/transient condition that might
     succeed on retry. Returns True for retryable HTTP status codes and
     other temporary errors.
-    
+
     Retryable HTTP status codes:
     - 408 Request Timeout
-    - 429 Too Many Requests  
+    - 429 Too Many Requests
     - 500 Internal Server Error
-    - 502 Bad Gateway 
+    - 502 Bad Gateway
     - 503 Service Unavailable
     - 504 Gateway Timeout
     - 507 Insufficient Storage
     - 522 Connection Timed Out (Cloudflare)
     - 524 A Timeout Occurred (Cloudflare)
-    
+
     :param error: Exception object to check
     :type error: Exception
     :return: True if error should be retried, False otherwise
@@ -163,11 +150,11 @@ def xloader_data_into_datastore(input):
 def handle_retryable_error(e, input, job_id, job_dict, logger, error_state):
     """
     Handle retryable errors by attempting to retry the job or marking it as failed.
-    
+
     Checks if the error is retryable (database deadlocks, HTTP timeouts, etc.) and
     within the retry limit. If so, enqueues a new job attempt. Otherwise, marks
     the job as errored.
-    
+
     :param e: The exception that occurred
     :type e: Exception
     :param input: Job input data containing metadata and API key
@@ -180,13 +167,15 @@ def handle_retryable_error(e, input, job_id, job_dict, logger, error_state):
     :type logger: logging.Logger
     :param error_state: Mutable dict to track error state {'errored': bool}
     :type error_state: dict
-    
+
     :returns: True if job was retried, None otherwise
     :rtype: bool or None
     """
     if isinstance(e, RETRYABLE_ERRORS) and is_retryable_error(e):
         tries = job_dict['metadata'].get('tries', 0)
-        if tries < MAX_RETRIES:
+        max_retries = int(config.get('ckanext.xloader.max_retries', 1))
+        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
+        if tries < max_retries:
             tries = tries + 1
             log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
             logger.info("Job failed due to temporary error [%s], retrying", e)
@@ -197,7 +186,7 @@ def handle_retryable_error(e, input, job_id, job_dict, logger, error_state):
                 [input],
                 title="retry xloader_data_into_datastore: resource: {} attempt {}".format(
                     job_dict['metadata']['resource_id'], tries),
-                rq_kwargs=dict(timeout=RETRIED_JOB_TIMEOUT)
+                rq_kwargs=dict(timeout=retried_job_timeout)
             )
             return True
     db.mark_job_as_errored(
@@ -302,12 +291,15 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info('Loading CSV')
     # If ckanext.xloader.use_type_guessing is not configured, fall back to
     # deprecated ckanext.xloader.just_load_with_messytables
+    max_content_length = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+    max_type_guessing_length = int(config.get('ckanext.xloader.max_type_guessing_length') or max_content_length / 10)
     use_type_guessing = asbool(
         config.get('ckanext.xloader.use_type_guessing', config.get(
             'ckanext.xloader.just_load_with_messytables', False))) \
-        and not datastore_resource_exists(resource['id']) \
-        and os.path.getsize(tmp_file.name) <= MAX_TYPE_GUESSING_LENGTH
+                        and not datastore_resource_exists(resource['id']) \
+                        and os.path.getsize(tmp_file.name) <= max_type_guessing_length
     logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
+
     try:
         if use_type_guessing:
             try:
@@ -324,8 +316,9 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.info('Trying again with tabulator')
                 tabulator_load()
     except JobTimeoutException:
-        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
-        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
+        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
+        logger.warning('Job timed out after %ss', retried_job_timeout)
+        raise JobError('Job timed out after {}s'.format(retried_job_timeout))
     except FileCouldNotBeLoadedError as e:
         logger.warning('Loading excerpt for this format not supported.')
         logger.error('Loading file raised an error: %s', e)
@@ -348,8 +341,8 @@ def _download_resource_data(resource, data, api_key, logger):
     :param api_key: CKAN api key - needed to obtain resources that are private
     :param logger:
 
-    If the download is bigger than MAX_CONTENT_LENGTH then it just downloads a
-    excerpt (of MAX_EXCERPT_LINES) for preview, and flags it by setting
+    If the download is bigger than max_content_length then it just downloads a
+    excerpt (of max_excerpt_lines) for preview, and flags it by setting
     data['datastore_contains_all_records_of_source_file'] = False
     which will be saved to the resource later on.
     '''
@@ -363,6 +356,10 @@ def _download_resource_data(resource, data, api_key, logger):
             'Only http, https, and ftp resources may be fetched.'
         )
 
+    # set max values from config
+    max_content_length = int(config.get('ckanext.xloader.max_content_length') or 1e9)
+    max_excerpt_lines = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
+
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
     tmp_file = get_tmp_file(url)
@@ -374,7 +371,8 @@ def _download_resource_data(resource, data, api_key, logger):
         if resource.get('url_type') == 'upload':
             # If this is an uploaded file to CKAN, authenticate the request,
             # otherwise we won't get file from private resources
-            headers[APITOKEN_HEADER_NAME] = api_key
+            apitoken_header_name = config.get('apitoken_header_name', 'Authorization')
+            headers[apitoken_header_name] = api_key
 
             # Add a constantly changing parameter to bypass URL caching.
             # If we're running XLoader, then either the resource has
@@ -389,14 +387,14 @@ def _download_resource_data(resource, data, api_key, logger):
         response = get_response(download_url, headers)
 
         cl = response.headers.get('content-length')
-        if cl and int(cl) > MAX_CONTENT_LENGTH:
+        if cl and int(cl) > max_content_length:
             response.close()
             raise DataTooBigError()
 
         # download the file to a tempfile on disk
         for chunk in response.iter_content(CHUNK_SIZE):
             length += len(chunk)
-            if length > MAX_CONTENT_LENGTH:
+            if length > max_content_length:
                 raise DataTooBigError
             tmp_file.write(chunk)
             m.update(chunk)
@@ -406,14 +404,14 @@ def _download_resource_data(resource, data, api_key, logger):
     except DataTooBigError:
         tmp_file.close()
         message = 'Data too large to load into Datastore: ' \
-            '{cl} bytes > max {max_cl} bytes.' \
-            .format(cl=cl or length, max_cl=MAX_CONTENT_LENGTH)
+                  '{cl} bytes > max {max_cl} bytes.' \
+            .format(cl=cl or length, max_cl=max_content_length)
         logger.warning(message)
-        if MAX_EXCERPT_LINES <= 0:
+        if max_excerpt_lines <= 0:
             raise JobError(message)
         logger.info('Loading excerpt of ~{max_lines} lines to '
                     'DataStore.'
-                    .format(max_lines=MAX_EXCERPT_LINES))
+                    .format(max_lines=max_excerpt_lines))
         tmp_file = get_tmp_file(url)
         response = get_response(url, headers)
         length = 0
@@ -424,7 +422,7 @@ def _download_resource_data(resource, data, api_key, logger):
             m.update(line)
             length += len(line)
             line_count += 1
-            if length > MAX_CONTENT_LENGTH or line_count >= MAX_EXCERPT_LINES:
+            if length > max_content_length or line_count >= max_excerpt_lines:
                 break
         response.close()
         data['datastore_contains_all_records_of_source_file'] = False
@@ -439,7 +437,7 @@ def _download_resource_data(resource, data, api_key, logger):
     except requests.exceptions.Timeout:
         logger.warning('URL time out after %ss', DOWNLOAD_TIMEOUT)
         raise XLoaderTimeoutError('Connection timed out after {}s'.format(
-                                  DOWNLOAD_TIMEOUT))
+            DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
         tmp_file.close()
         try:
@@ -452,8 +450,9 @@ def _download_resource_data(resource, data, api_key, logger):
             request_url=url, response=None)
     except JobTimeoutException:
         tmp_file.close()
-        logger.warning('Job timed out after %ss', RETRIED_JOB_TIMEOUT)
-        raise JobError('Job timed out after {}s'.format(RETRIED_JOB_TIMEOUT))
+        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
+        logger.warning('Job timed out after %ss', retried_job_timeout)
+        raise JobError('Job timed out after {}s'.format(retried_job_timeout))
 
     logger.info('Downloaded ok - %s', printable_file_size(length))
     file_hash = m.hexdigest()
@@ -463,8 +462,11 @@ def _download_resource_data(resource, data, api_key, logger):
 
 def get_response(url, headers):
     def get_url():
+        ssl_verify = asbool(config.get('ckanext.xloader.ssl_verify', True))
+        if not ssl_verify:
+            requests.packages.urllib3.disable_warnings()
         kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
-                  'verify': SSL_VERIFY, 'stream': True}  # just gets the headers for now
+                  'verify': ssl_verify, 'stream': True}  # just gets the headers for now
         if 'ckan.download_proxy' in config:
             proxy = config.get('ckan.download_proxy')
             kwargs['proxies'] = {'http': proxy, 'https': proxy}
@@ -520,14 +522,19 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         if ':' in api_key:
             header, key = api_key.split(':')
         else:
-            header, key = APITOKEN_HEADER_NAME, api_key
+            apitoken_header_name = config.get('apitoken_header_name', 'Authorization')
+            header, key = apitoken_header_name, api_key
         headers[header] = key
+
+    ssl_verify = asbool(config.get('ckanext.xloader.ssl_verify', True))
+    if not ssl_verify:
+        requests.packages.urllib3.disable_warnings()
 
     try:
         result = requests.post(
             modify_input_url(result_url),  # modify with local config
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
-            verify=SSL_VERIFY,
+            verify=ssl_verify,
             headers=headers)
     except requests.ConnectionError:
         return False
