@@ -181,12 +181,13 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "Data too large to load into Datastore:" in stdout
 
+
+    @pytest.mark.ckan_config("ckanext.xloader.max_excerpt_lines", 1)
     def test_data_max_excerpt_lines_config(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_response):
-            with mock.patch("ckanext.xloader.jobs.MAX_EXCERPT_LINES", 1):
-                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-                assert "Loading excerpt of ~1 lines to DataStore." in stdout
+            stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+            assert "Loading excerpt of ~1 lines to DataStore." in stdout
 
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"] is False
