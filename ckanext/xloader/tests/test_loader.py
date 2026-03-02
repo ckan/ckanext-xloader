@@ -1522,6 +1522,18 @@ class TestLoadTabulator(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 1
 
+    def test_with_extra_blank_cells_data_only(self, Session):
+        csv_filepath = get_sample_filepath("extra_fields.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 2
+
     def test_with_mixed_quotes(self, Session):
         csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")
         resource = factories.Resource()
