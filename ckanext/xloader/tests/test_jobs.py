@@ -217,7 +217,6 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         # Retryable HTTP errors (status codes from is_retryable_error)
         ("HTTPError_408", True),
         ("HTTPError_429", True),
-        ("HTTPError_500", True),
         ("HTTPError_502", True),
         ("HTTPError_503", True),
         ("HTTPError_504", True),
@@ -228,6 +227,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         ("HTTPError_400", False),
         ("HTTPError_404", False),
         ("HTTPError_403", False),
+        ("HTTPError_500", False),
         # Other non-retryable errors (not in RETRYABLE_ERRORS)
         ("ValueError", False),
         ("TypeError", False),

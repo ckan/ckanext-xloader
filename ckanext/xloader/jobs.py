@@ -67,7 +67,6 @@ def is_retryable_error(error):
     Retryable HTTP status codes:
     - 408 Request Timeout
     - 429 Too Many Requests  
-    - 500 Internal Server Error
     - 502 Bad Gateway 
     - 503 Service Unavailable
     - 504 Gateway Timeout
@@ -81,7 +80,7 @@ def is_retryable_error(error):
     :rtype: bool
     """
     if isinstance(error, HTTPError):
-        retryable_status_codes = {408, 429, 500, 502, 503, 504, 507, 522, 524}
+        retryable_status_codes = {408, 429, 502, 503, 504, 507, 522, 524}
         return error.status_code in retryable_status_codes
     else:
         return True
