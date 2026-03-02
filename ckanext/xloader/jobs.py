@@ -40,6 +40,15 @@ RETRYABLE_ERRORS = (
     XLoaderTimeoutError
 )
 
+# Variables that are set from config values and must be available to all jobs
+ssl_verify = None
+max_content_length = None
+max_type_guessing_length = None
+max_excerpt_lines = None
+max_retries = None
+retried_job_timeout = None
+apitoken_header_name = None
+
 
 def is_retryable_error(error):
     """
@@ -173,8 +182,6 @@ def handle_retryable_error(e, input, job_id, job_dict, logger, error_state):
     """
     if isinstance(e, RETRYABLE_ERRORS) and is_retryable_error(e):
         tries = job_dict['metadata'].get('tries', 0)
-        max_retries = int(config.get('ckanext.xloader.max_retries', 1))
-        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
         if tries < max_retries:
             tries = tries + 1
             log.info("Job %s failed due to temporary error [%s], retrying", job_id, e)
@@ -291,8 +298,6 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     logger.info('Loading CSV')
     # If ckanext.xloader.use_type_guessing is not configured, fall back to
     # deprecated ckanext.xloader.just_load_with_messytables
-    max_content_length = int(config.get('ckanext.xloader.max_content_length') or 1e9)
-    max_type_guessing_length = int(config.get('ckanext.xloader.max_type_guessing_length') or max_content_length / 10)
     use_type_guessing = asbool(
         config.get('ckanext.xloader.use_type_guessing', config.get(
             'ckanext.xloader.just_load_with_messytables', False))) \
@@ -316,7 +321,6 @@ def xloader_data_into_datastore_(input, job_dict, logger):
                 logger.info('Trying again with tabulator')
                 tabulator_load()
     except JobTimeoutException:
-        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
         logger.warning('Job timed out after %ss', retried_job_timeout)
         raise JobError('Job timed out after {}s'.format(retried_job_timeout))
     except FileCouldNotBeLoadedError as e:
@@ -356,10 +360,6 @@ def _download_resource_data(resource, data, api_key, logger):
             'Only http, https, and ftp resources may be fetched.'
         )
 
-    # set max values from config
-    max_content_length = int(config.get('ckanext.xloader.max_content_length') or 1e9)
-    max_excerpt_lines = int(config.get('ckanext.xloader.max_excerpt_lines') or 0)
-
     # fetch the resource data
     logger.info('Fetching from: {0}'.format(url))
     tmp_file = get_tmp_file(url)
@@ -371,7 +371,6 @@ def _download_resource_data(resource, data, api_key, logger):
         if resource.get('url_type') == 'upload':
             # If this is an uploaded file to CKAN, authenticate the request,
             # otherwise we won't get file from private resources
-            apitoken_header_name = config.get('apitoken_header_name', 'Authorization')
             headers[apitoken_header_name] = api_key
 
             # Add a constantly changing parameter to bypass URL caching.
@@ -450,7 +449,6 @@ def _download_resource_data(resource, data, api_key, logger):
             request_url=url, response=None)
     except JobTimeoutException:
         tmp_file.close()
-        retried_job_timeout = config.get('ckanext.xloader.job_timeout', '3600')
         logger.warning('Job timed out after %ss', retried_job_timeout)
         raise JobError('Job timed out after {}s'.format(retried_job_timeout))
 
@@ -462,9 +460,6 @@ def _download_resource_data(resource, data, api_key, logger):
 
 def get_response(url, headers):
     def get_url():
-        ssl_verify = asbool(config.get('ckanext.xloader.ssl_verify', True))
-        if not ssl_verify:
-            requests.packages.urllib3.disable_warnings()
         kwargs = {'headers': headers, 'timeout': DOWNLOAD_TIMEOUT,
                   'verify': ssl_verify, 'stream': True}  # just gets the headers for now
         if 'ckan.download_proxy' in config:
@@ -522,13 +517,8 @@ def callback_xloader_hook(result_url, api_key, job_dict):
         if ':' in api_key:
             header, key = api_key.split(':')
         else:
-            apitoken_header_name = config.get('apitoken_header_name', 'Authorization')
             header, key = apitoken_header_name, api_key
         headers[header] = key
-
-    ssl_verify = asbool(config.get('ckanext.xloader.ssl_verify', True))
-    if not ssl_verify:
-        requests.packages.urllib3.disable_warnings()
 
     try:
         result = requests.post(
