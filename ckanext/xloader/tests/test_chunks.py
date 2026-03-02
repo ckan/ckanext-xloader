@@ -4,7 +4,7 @@ import pytest
 import tempfile
 import logging
 from typing import Callable, List, Tuple, Any
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import csv
 import sqlalchemy.orm as orm
 
@@ -97,7 +97,7 @@ class TestChunkedLoading(TestLoadBase):
             with patch('ckanext.xloader.loader.split_copy_by_size', side_effect=mock_split_copy):
                 with patch('ckanext.xloader.loader.copy_file', side_effect=mock_copy_file):
                     # Load the CSV with chunked processing
-                    fields = loader.load_csv(
+                    loader.load_csv(
                         csv_filepath,
                         resource_id=resource_id,
                         mimetype="text/csv",
@@ -153,7 +153,7 @@ class TestChunkedLoading(TestLoadBase):
         
         with patch('ckanext.xloader.loader.split_copy_by_size', side_effect=mock_split_copy):
             with patch('ckanext.xloader.loader.copy_file', side_effect=mock_copy_file):
-                fields = loader.load_csv(
+                loader.load_csv(
                     csv_filepath,
                     resource_id=resource_id,
                     mimetype="text/csv",
@@ -166,4 +166,3 @@ class TestChunkedLoading(TestLoadBase):
         # Verify data loaded correctly
         records = self._get_records(Session, resource_id)
         assert len(records) == 6  # Known number of records in simple.csv
-
