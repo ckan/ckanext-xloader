@@ -32,6 +32,20 @@ class TestAction(object):
                 resource_id=res["id"],
             )
             assert 1 == enqueue_mock.call_count
+            assert enqueue_mock.call_args[1].get('queue') == 'default{}'.format(ord(res['package_id'][0]) % 2)
+
+    def test_submit_nonexistent_resource(self):
+        user = factories.User()
+        with mock.patch(
+            "ckanext.xloader.action.enqueue_job",
+            return_value=mock.MagicMock(id=123),
+        ) as enqueue_mock:
+            assert helpers.call_action(
+                "xloader_submit",
+                context=dict(user=user["name"]),
+                resource_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            ) is False
+            assert enqueue_mock.call_count == 0
 
     def test_submit_to_custom_queue_without_auth(self):
         # check that xloader_submit doesn't allow regular users to change queues

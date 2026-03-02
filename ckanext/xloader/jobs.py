@@ -18,6 +18,7 @@ from rq import get_current_job
 from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
+from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config, h
 
 from . import db, loader
@@ -33,6 +34,7 @@ SSL_VERIFY = asbool(config.get('ckanext.xloader.ssl_verify', True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
+DEFAULT_QUEUE_NAMES = config.get('ckanext.xloader.queue_names', DEFAULT_QUEUE_NAME).split()
 MAX_CONTENT_LENGTH = int(config.get('ckanext.xloader.max_content_length') or 1e9)
 # Don't try Tabulator load on large files
 MAX_TYPE_GUESSING_LENGTH = int(config.get('ckanext.xloader.max_type_guessing_length') or MAX_CONTENT_LENGTH / 10)
@@ -99,6 +101,25 @@ def is_retryable_error(error):
 #     'original_url': resource_dict.get('url'),
 #     }
 # }
+
+
+def get_default_queue_name(package_id=None):
+    """ Retrieve the queue to be used in submitting jobs for the specified dataset.
+
+    By sending all jobs for a dataset to the same queue, lock conflicts are reduced.
+    """
+    if not DEFAULT_QUEUE_NAMES:
+        return DEFAULT_QUEUE_NAME
+    if not package_id:
+        return DEFAULT_QUEUE_NAMES[0]
+
+    # Pick a queue by taking the first character of the package name
+    # and converting it into a numeric index to the list of queue names.
+    # We don't want a proper hash function, because those tend to add
+    # complications for the sake of (unnecessary) cryptographic strength.
+    queue_index = ord(package_id[0]) % len(DEFAULT_QUEUE_NAMES)
+    return DEFAULT_QUEUE_NAMES[queue_index]
+
 
 def xloader_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
