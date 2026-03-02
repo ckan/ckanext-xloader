@@ -88,7 +88,6 @@ class xloaderPlugin(plugins.SingletonPlugin):
         # so use the standard timeout
         jobs.retried_job_timeout = config_.get('ckanext.xloader.job_timeout', '3600')
         jobs.apitoken_header_name = config_.get('apitoken_header_name', 'Authorization')
-        log.warning(jobs.apitoken_header_name)
 
     # IPipeValidation
 
