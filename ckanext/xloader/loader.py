@@ -161,7 +161,6 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
 
     with engine.begin() as conn:
         cur = conn.connection.cursor()
-        #cur.execute('SET DATESTYLE TO "SQL , MDY"')
         try:
             with open(csv_filepath, 'rb') as f:
                 # can't use :param for table name because params are only
@@ -186,12 +185,12 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
                     # but logging and exceptions need a normal (7 bit) str
                     error_str = str(e)
                     logger.warning('%s: %s', resource_id, error_str)
-                    raise LoaderError('Error during the load into PostgreSQL:'
-                                        ' {}'.format(error_str))  
+                    raise LoaderError('Error during the load into PostgreSQL: {}'.format(error_str))
         finally:
             cur.close()
 
-def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimiter = ',',  max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
+
+def split_copy_by_size(input_file, engine, logger, resource_id, headers, delimiter=',', max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
     """
     Reads a CSV file, splits it into chunks of maximum size, and writes each chunk
     to PostgreSQL COPY command to load the data into a table.
@@ -204,12 +203,12 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         connection (str, optional): Connection string for the PostgreSQL database. Defaults to an empty string.
         delimiter (str, optional): Delimiter character used in the CSV file. Defaults to ','.
     """
-    
+
     chunk_count = 0
     file_size = os.path.getsize(input_file)
     logger.info('Starting chunked processing for file size: %s bytes with chunk size: %s bytes', file_size, max_size)
 
-    with open(input_file, 'r', encoding = encoding) as infile:
+    with open(input_file, 'r', encoding=encoding) as infile:
         current_file = None
         output_filename = f'/tmp/output_{resource_id}.csv'
         header = False
@@ -228,7 +227,6 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
                 if header:
                     current_file.write(delimiter.join(headers) + '\n')
             current_file.write(row)
-            
 
         # Close the last file if open
         if current_file:
@@ -240,7 +238,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         copy_file(output_filename, engine, logger, resource_id, headers, delimiter)
         logger.debug('Copied final chunk %s: %s', chunk_count, output_filename)
         os.remove(output_filename)
-        
+
     logger.info('Completed chunked processing: %s chunks processed for file size %s bytes', chunk_count, file_size)
     if infile:
         infile.close()
@@ -440,16 +438,18 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
         with engine.begin() as conn:
             _disable_fulltext_trigger(conn, resource_id)
 
-    with engine.begin() as conn:
-        context['connection'] = conn
-        _drop_indexes(context, data_dict, False)
+        with engine.begin() as conn:
+            context['connection'] = conn
+            _drop_indexes(context, data_dict, False)
 
-    logger.info('Copying to database...')
+        logger.info('Copying to database...')
 
-    # Copy file to datastore db, split to chunks.
-    max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
-    logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
-    split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
+        # Copy file to datastore db, split to chunks.
+        max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
+        logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
+        split_copy_by_size(csv_filepath, engine, logger, resource_id, headers, delimiter, int(max_size))
+    finally:
+        cleanup_temp_file(f_write)
 
     logger.info('...copying done')
 
