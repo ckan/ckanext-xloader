@@ -5,10 +5,11 @@ import datetime
 import json
 import logging
 
-import ckan.lib.jobs as rq_jobs
+from ckan.lib.jobs import get_queue
 import ckan.lib.navl.dictization_functions
 from ckan.logic import side_effect_free
 import ckan.plugins as p
+from ckan.plugins.toolkit import config, enqueue_job, get_or_bust
 from dateutil.parser import parse as parse_date
 from dateutil.parser import isoparse as parse_iso_date
 
@@ -16,13 +17,8 @@ import ckanext.xloader.schema
 
 from . import interfaces as xloader_interfaces, jobs, db, utils
 
-enqueue_job = p.toolkit.enqueue_job
-get_queue = rq_jobs.get_queue
-
 log = logging.getLogger(__name__)
-config = p.toolkit.config
 
-_get_or_bust = p.toolkit.get_or_bust
 _validate = ckan.lib.navl.dictization_functions.validate
 
 
@@ -48,7 +44,6 @@ def xloader_submit(context, data_dict):
     '''
     p.toolkit.check_access('xloader_submit', context, data_dict)
     api_key = utils.get_xloader_user_apitoken()
-    custom_queue = data_dict.pop('queue', rq_jobs.DEFAULT_QUEUE_NAME)
     schema = context.get('schema', ckanext.xloader.schema.xloader_submit_schema())
     data_dict, errors = _validate(data_dict, schema, context)
     if errors:
@@ -68,6 +63,8 @@ def xloader_submit(context, data_dict):
         })
     except p.toolkit.ObjectNotFound:
         return False
+    package_id = resource_dict.get('package_id')
+    custom_queue = data_dict.pop('queue', jobs.get_default_queue_name(package_id))
 
     for plugin in p.PluginImplementations(xloader_interfaces.IXloader):
         upload = plugin.can_upload(res_id)
@@ -158,9 +155,10 @@ def xloader_submit(context, data_dict):
             'set_url_type': data_dict.get('set_url_type', False),
             'task_created': task['last_updated'],
             'original_url': resource_dict.get('url'),
+            'queue_name': custom_queue,
         }
     }
-    if custom_queue != rq_jobs.DEFAULT_QUEUE_NAME:
+    if custom_queue not in jobs.DEFAULT_QUEUE_NAMES:
         # Don't automatically retry if it's a custom run
         data['metadata']['tries'] = jobs.MAX_RETRIES
 
@@ -173,7 +171,7 @@ def xloader_submit(context, data_dict):
     try:
         job = enqueue_job(
             jobs.xloader_data_into_datastore, [data], queue=custom_queue,
-            title="xloader_submit: package: {} resource: {}".format(resource_dict.get('package_id'), res_id),
+            title="xloader_submit: package: {} resource: {}".format(package_id, res_id),
             rq_kwargs=dict(timeout=timeout, at_front=sync)
         )
     except Exception:
@@ -198,29 +196,6 @@ def xloader_submit(context, data_dict):
     )
 
     return True
-
-
-def _enqueue(fn, args=None, kwargs=None, title=None, queue='default',
-             timeout=180):
-    '''Same as latest ckan.lib.jobs.enqueue - earlier CKAN versions dont have
-    the timeout param
-
-    This function can be removed when dropping support for 2.7
-    '''
-    if args is None:
-        args = []
-    if kwargs is None:
-        kwargs = {}
-    job = get_queue(queue).enqueue_call(func=fn, args=args, kwargs=kwargs,
-                                        timeout=timeout)
-    job.meta[u'title'] = title
-    job.save()
-    msg = u'Added background job {}'.format(job.id)
-    if title:
-        msg = u'{} ("{}")'.format(msg, title)
-    msg = u'{} to queue "{}"'.format(msg, queue)
-    log.info(msg)
-    return job
 
 
 def xloader_hook(context, data_dict):
@@ -254,9 +229,9 @@ def xloader_hook(context, data_dict):
 
     '''
 
-    metadata, status = _get_or_bust(data_dict, ['metadata', 'status'])
+    metadata, status = get_or_bust(data_dict, ['metadata', 'status'])
 
-    res_id = _get_or_bust(metadata, 'resource_id')
+    res_id = get_or_bust(metadata, 'resource_id')
 
     # Pass metadata, not data_dict, as it contains the resource id needed
     # on the auth checks
@@ -338,7 +313,7 @@ def xloader_status(context, data_dict):
 
     if 'id' in data_dict:
         data_dict['resource_id'] = data_dict['id']
-    res_id = _get_or_bust(data_dict, 'resource_id')
+    res_id = get_or_bust(data_dict, 'resource_id')
 
     task = p.toolkit.get_action('task_status_show')(context, {
         'entity_id': res_id,

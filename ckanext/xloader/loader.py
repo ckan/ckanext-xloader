@@ -20,7 +20,7 @@ import ckan.plugins as p
 
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import CSV_SAMPLE_LINES, TypeConverter
-from .utils import datastore_resource_exists, headers_guess, type_guess
+from .utils import cleanup_temp_file, datastore_resource_exists, headers_guess, type_guess
 
 from ckan.plugins.toolkit import config
 
@@ -161,7 +161,6 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
 
     with engine.begin() as conn:
         cur = conn.connection.cursor()
-        #cur.execute('SET DATESTYLE TO "SQL , MDY"')
         try:
             with open(csv_filepath, 'rb') as f:
                 # can't use :param for table name because params are only
@@ -186,12 +185,12 @@ def copy_file(csv_filepath, engine, logger, resource_id, headers, delimiter):
                     # but logging and exceptions need a normal (7 bit) str
                     error_str = str(e)
                     logger.warning('%s: %s', resource_id, error_str)
-                    raise LoaderError('Error during the load into PostgreSQL:'
-                                        ' {}'.format(error_str))  
+                    raise LoaderError('Error during the load into PostgreSQL: {}'.format(error_str))
         finally:
             cur.close()
 
-def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimiter = ',',  max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
+
+def split_copy_by_size(input_file, engine, logger, resource_id, headers, delimiter=',', max_size=1024**3, encoding='utf-8'):  # 1 Gigabyte
     """
     Reads a CSV file, splits it into chunks of maximum size, and writes each chunk
     to PostgreSQL COPY command to load the data into a table.
@@ -209,7 +208,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
     file_size = os.path.getsize(input_file)
     logger.info('Starting chunked processing for file size: %s bytes with chunk size: %s bytes', file_size, max_size)
 
-    with open(input_file, 'r', encoding = encoding) as infile:
+    with open(input_file, 'r', encoding=encoding) as infile:
         current_file = None
         output_filename = f'/tmp/output_{resource_id}.csv'
         header = False
@@ -228,7 +227,6 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
                 if header:
                     current_file.write(delimiter.join(headers) + '\n')
             current_file.write(row)
-            
 
         # Close the last file if open
         if current_file:
@@ -243,7 +241,7 @@ def split_copy_by_size(input_file, engine, logger,  resource_id, headers, delimi
         
     logger.info('Completed chunked processing: %s chunks processed for file size %s bytes', chunk_count, file_size)
     if infile:
-        infile.close()        
+        cleanup_temp_file(infile)
 
 
 def _read_metadata(table_filepath, mimetype, logger):
@@ -330,12 +328,6 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
     # TODO worry about csv header name problems
     # e.g. duplicate names
 
-    # encoding (and line ending?)- use chardet
-    # It is easier to reencode it as UTF8 than convert the name of the encoding
-    # to one that pgloader will understand.
-    logger.info('Ensuring character coding is UTF8')
-    f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
-
     # get column info from existing table
     existing, existing_info, existing_fields, existing_fields_by_headers = _read_existing_fields(resource_id)
     if existing:
@@ -393,62 +385,70 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
                 yield row
         return strip_white_space_iter
 
-    save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+    # encoding (and line ending?)- use chardet
+    # It is easier to reencode it as UTF8 than convert the name of the encoding
+    # to one that pgloader will understand.
+    logger.info('Ensuring character coding is UTF8')
+    f_write = tempfile.NamedTemporaryFile(suffix=file_format, delete=False)
     try:
-        with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
-                                   skip_rows=skip_rows) as stream:
-            stream.iter = _make_whitespace_stripping_iter(stream.iter)
-            stream.save(**save_args)
-    except (EncodingError, UnicodeDecodeError):
-        with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
-                    skip_rows=skip_rows) as stream:
-            stream.iter = _make_whitespace_stripping_iter(stream.iter)
-            stream.save(**save_args)
-    csv_filepath = f_write.name
+        save_args = {'target': f_write.name, 'format': 'csv', 'encoding': 'utf-8', 'delimiter': delimiter}
+        try:
+            with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
+                                       skip_rows=skip_rows) as stream:
+                stream.iter = _make_whitespace_stripping_iter(stream.iter)
+                stream.save(**save_args)
+        except (EncodingError, UnicodeDecodeError):
+            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
+                        skip_rows=skip_rows) as stream:
+                stream.iter = _make_whitespace_stripping_iter(stream.iter)
+                stream.save(**save_args)
+        csv_filepath = f_write.name
 
-    # Create table
-    from ckan import model
-    context = {'model': model, 'ignore_auth': True}
-    data_dict = dict(
-        resource_id=resource_id,
-        fields=fields,
-    )
-    data_dict['records'] = None  # just create an empty table
-    data_dict['force'] = True  # TODO check this - I don't fully
-    # understand read-only/datastore resources
-    try:
-        p.toolkit.get_action('datastore_create')(context, data_dict)
-    except p.toolkit.ValidationError as e:
-        if 'fields' in e.error_dict:
-            # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}  # noqa
-            error_message = e.error_dict['fields'][0]
-            raise LoaderError('Error with field definition: {}'
-                              .format(error_message))
-        else:
-            raise LoaderError(
-                'Validation error when creating the database table: {}'
-                .format(str(e)))
-    except Exception as e:
-        raise LoaderError('Could not create the database table: {}'
-                          .format(e))
+        # Create table
+        from ckan import model
+        context = {'model': model, 'ignore_auth': True}
+        data_dict = dict(
+            resource_id=resource_id,
+            fields=fields,
+        )
+        data_dict['records'] = None  # just create an empty table
+        data_dict['force'] = True  # TODO check this - I don't fully
+        # understand read-only/datastore resources
+        try:
+            p.toolkit.get_action('datastore_create')(context, data_dict)
+        except p.toolkit.ValidationError as e:
+            if 'fields' in e.error_dict:
+                # e.g. {'message': None, 'error_dict': {'fields': [u'"***" is not a valid field name']}, '_error_summary': None}  # noqa
+                error_message = e.error_dict['fields'][0]
+                raise LoaderError('Error with field definition: {}'
+                                  .format(error_message))
+            else:
+                raise LoaderError(
+                    'Validation error when creating the database table: {}'
+                    .format(str(e)))
+        except Exception as e:
+            raise LoaderError('Could not create the database table: {}'
+                              .format(e))
 
-    # datastore_active is switched on by datastore_create
-    # TODO temporarily disable it until the load is complete
+        # datastore_active is switched on by datastore_create
+        # TODO temporarily disable it until the load is complete
 
-    engine = get_write_engine()
-    with engine.begin() as conn:
-        _disable_fulltext_trigger(conn, resource_id)
+        engine = get_write_engine()
+        with engine.begin() as conn:
+            _disable_fulltext_trigger(conn, resource_id)
 
-    with engine.begin() as conn:
-        context['connection'] = conn
-        _drop_indexes(context, data_dict, False)
+        with engine.begin() as conn:
+            context['connection'] = conn
+            _drop_indexes(context, data_dict, False)
 
-    logger.info('Copying to database...')
+        logger.info('Copying to database...')
 
-    # Copy file to datastore db, split to chunks.
-    max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
-    logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
-    split_copy_by_size(csv_filepath, engine, logger,  resource_id, headers, delimiter, int(max_size))
+        # Copy file to datastore db, split to chunks.
+        max_size = config.get('ckanext.xloader.copy_chunk_size', 1024**3)
+        logger.debug('Using chunk size: %s bytes for resource %s', max_size, resource_id)
+        split_copy_by_size(csv_filepath, engine, logger, resource_id, headers, delimiter, int(max_size))
+    finally:
+        cleanup_temp_file(f_write)
 
     logger.info('...copying done')
 
