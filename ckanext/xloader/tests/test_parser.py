@@ -146,7 +146,7 @@ class TestParser(object):
 
     def test_trailing_cells(self):
         csv_filepath = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "samples", "extra-fields.csv")
+            os.path.join(os.path.dirname(__file__), "samples", "extra_fields.csv")
         )
         with Stream(csv_filepath, format='csv',
                     post_parse=[TypeConverter().convert_types]) as stream:
