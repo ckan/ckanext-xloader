@@ -5,6 +5,7 @@ from decimal import Decimal
 import json
 import datetime
 import logging
+import os
 import re
 from six import text_type as str, binary_type
 from urllib.parse import urlunparse, urlparse
@@ -390,3 +391,11 @@ def datastore_resource_exists(resource_id):
     except tk.ObjectNotFound:
         return False
     return response or {'fields': []}
+
+
+def cleanup_temp_file(tmp_file):
+    try:
+        tmp_file.close()
+        os.remove(tmp_file.name)
+    except FileNotFoundError:
+        pass

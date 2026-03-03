@@ -32,7 +32,7 @@ class TypeConverter:
             for cell_index, cell_value in enumerate(row):
                 if cell_value is None:
                     row[cell_index] = ''
-                if self.fields:
+                if self.fields and cell_index < len(self.fields):
                     # only strip white space if strip_extra_white is True
                     if self.fields[cell_index].get('info', {}).get('strip_extra_white', True) and isinstance(cell_value, six.text_type):
                         cell_value = cell_value.strip()

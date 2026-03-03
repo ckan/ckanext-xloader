@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 import pytest
 import io
 import os
@@ -87,15 +89,20 @@ def data(create_with_upload, apikey):
 @pytest.mark.ckan_config("ckan.jobs.timeout", 2)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
+    def test_derive_queue_name(self):
+        assert jobs.get_default_queue_name() == "default0"
+        assert jobs.get_default_queue_name("foo") == "default0"
+        assert jobs.get_default_queue_name("meh") == "default1"
+
     def test_xloader_data_into_datastore(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
         with mock.patch("ckanext.xloader.jobs.get_response", get_response):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-            assert "File hash: d44fa65eda3675e11710682fdb5f1648" in stdout
-            assert "Fields: [{'id': 'x', 'type': 'text', 'strip_extra_white': True}, {'id': 'y', 'type': 'text', 'strip_extra_white': True}]" in stdout
-            assert "Copying to database..." in stdout
-            assert "Creating search index..." in stdout
-            assert "Express Load completed" in stdout
+        assert "File hash: d44fa65eda3675e11710682fdb5f1648" in stdout
+        assert "Fields: [{'id': 'x', 'type': 'text', 'strip_extra_white': True}, {'id': 'y', 'type': 'text', 'strip_extra_white': True}]" in stdout
+        assert "Copying to database..." in stdout
+        assert "Creating search index..." in stdout
+        assert "Express Load completed" in stdout
 
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"]
@@ -181,7 +188,6 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "Data too large to load into Datastore:" in stdout
 
-
     @pytest.mark.ckan_config("ckanext.xloader.max_excerpt_lines", 1)
     def test_data_max_excerpt_lines_config(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
@@ -205,13 +211,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
     @pytest.mark.parametrize("error_type,should_retry", [
         # Retryable errors from RETRYABLE_ERRORS
         ("DeadlockDetected", True),
-        ("LockNotAvailable", True), 
+        ("LockNotAvailable", True),
         ("ObjectInUse", True),
         ("XLoaderTimeoutError", True),
         # Retryable HTTP errors (status codes from is_retryable_error)
         ("HTTPError_408", True),
         ("HTTPError_429", True),
-        ("HTTPError_500", True),
         ("HTTPError_502", True),
         ("HTTPError_503", True),
         ("HTTPError_504", True),
@@ -222,13 +227,14 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         ("HTTPError_400", False),
         ("HTTPError_404", False),
         ("HTTPError_403", False),
+        ("HTTPError_500", False),
         # Other non-retryable errors (not in RETRYABLE_ERRORS)
         ("ValueError", False),
         ("TypeError", False),
     ])
     def test_retry_behavior(self, cli, data, error_type, should_retry):
         """Test retry behavior for different error types."""
-        
+
         def create_mock_error(error_type):
             if error_type == "DeadlockDetected":
                 from psycopg2 import errors
@@ -248,12 +254,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
                 return ValueError("Test error")
             elif error_type == "TypeError":
                 return TypeError("Test error")
-        
+
         def mock_download_with_error(*args, **kwargs):
             if not hasattr(mock_download_with_error, 'call_count'):
                 mock_download_with_error.call_count = 0
             mock_download_with_error.call_count += 1
-            
+
             if mock_download_with_error.call_count == 1:
                 # First call - raise the test error
                 raise create_mock_error(error_type)
@@ -267,12 +273,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
             else:
                 # Non-retryable errors should not get a second chance
                 raise create_mock_error(error_type)
-        
+
         self.enqueue(jobs.xloader_data_into_datastore, [data])
-        
+
         with mock.patch("ckanext.xloader.jobs._download_resource_data", mock_download_with_error):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-            
+
             if should_retry:
                 # Check that retry was attempted
                 assert "Job failed due to temporary error" in stdout
