@@ -49,7 +49,7 @@ max_excerpt_lines = None
 max_retries = None
 retried_job_timeout = None
 apitoken_header_name = None
-default_queue_names = None
+default_queue_names = DEFAULT_QUEUE_NAME.split()
 
 
 def is_retryable_error(error):
