@@ -143,3 +143,32 @@ class TestParser(object):
                     'Berkeley'
                 ],
             ]
+
+    def test_trailing_cells(self):
+        """ The parser should ignore the presence of extra cells beyond the header row.
+        These will be handled instead by the loader.
+        """
+        csv_filepath = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "samples", "extra_fields.csv")
+        )
+        with Stream(csv_filepath, format='csv',
+                    post_parse=[TypeConverter().convert_types]) as stream:
+            assert stream.sample == [
+                [
+                    'col1',
+                    'col2',
+                    'col3'
+                ],
+                [
+                    'value1',
+                    'value2',
+                    'value3',
+                    ''
+                ],
+                [
+                    'value4',
+                    'value5',
+                    'value6',
+                    ''
+                ]
+            ]

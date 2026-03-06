@@ -11,6 +11,7 @@ from ckan.model.resource import Resource
 
 from . import action, auth, helpers as xloader_helpers, jobs, utils
 from ckanext.xloader.utils import XLoaderFormats
+from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 
 try:
     from ckanext.validation.interfaces import IPipeValidation
@@ -88,6 +89,7 @@ class xloaderPlugin(plugins.SingletonPlugin):
         # so use the standard timeout
         jobs.retried_job_timeout = config_.get('ckanext.xloader.job_timeout', '3600')
         jobs.apitoken_header_name = config_.get('apitoken_header_name', 'Authorization')
+        jobs.default_queue_names = config_.get('ckanext.xloader.queue_names', DEFAULT_QUEUE_NAME).split()
 
     # IPipeValidation
 

@@ -18,11 +18,12 @@ from rq import get_current_job
 from rq.timeouts import JobTimeoutException
 import sqlalchemy as sa
 
+from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 from ckan.plugins.toolkit import get_action, asbool, enqueue_job, ObjectNotFound, config, h
 
 from . import db, loader
 from .job_exceptions import JobError, HTTPError, DataTooBigError, FileCouldNotBeLoadedError, LoaderError, XLoaderTimeoutError
-from .utils import datastore_resource_exists, set_resource_metadata, modify_input_url
+from .utils import cleanup_temp_file, datastore_resource_exists, set_resource_metadata, modify_input_url
 
 
 from ckan.lib.api_token import get_user_from_token
@@ -48,6 +49,7 @@ max_excerpt_lines = None
 max_retries = None
 retried_job_timeout = None
 apitoken_header_name = None
+default_queue_names = DEFAULT_QUEUE_NAME.split()
 
 
 def is_retryable_error(error):
@@ -61,7 +63,6 @@ def is_retryable_error(error):
     Retryable HTTP status codes:
     - 408 Request Timeout
     - 429 Too Many Requests
-    - 500 Internal Server Error
     - 502 Bad Gateway
     - 503 Service Unavailable
     - 504 Gateway Timeout
@@ -75,7 +76,7 @@ def is_retryable_error(error):
     :rtype: bool
     """
     if isinstance(error, HTTPError):
-        retryable_status_codes = {408, 429, 500, 502, 503, 504, 507, 522, 524}
+        retryable_status_codes = {408, 429, 502, 503, 504, 507, 522, 524}
         return error.status_code in retryable_status_codes
     else:
         return True
@@ -95,6 +96,25 @@ def is_retryable_error(error):
 #     'original_url': resource_dict.get('url'),
 #     }
 # }
+
+
+def get_default_queue_name(package_id=None):
+    """ Retrieve the queue to be used in submitting jobs for the specified dataset.
+
+    By sending all jobs for a dataset to the same queue, lock conflicts are reduced.
+    """
+    if not default_queue_names:
+        return DEFAULT_QUEUE_NAME
+    if not package_id:
+        return default_queue_names[0]
+
+    # Pick a queue by taking the first character of the package name
+    # and converting it into a numeric index to the list of queue names.
+    # We don't want a proper hash function, because those tend to add
+    # complications for the sake of (unnecessary) cryptographic strength.
+    queue_index = ord(package_id[0]) % len(default_queue_names)
+    return default_queue_names[queue_index]
+
 
 def xloader_data_into_datastore(input):
     '''This is the func that is queued. It is a wrapper for
@@ -245,94 +265,90 @@ def xloader_data_into_datastore_(input, job_dict, logger):
     tmp_file, file_hash = _download_resource_data(resource, data, api_key,
                                                   logger)
 
-    if (resource.get('hash') == file_hash
-            and not data.get('ignore_hash')):
-        logger.info('Ignoring resource - the file hash hasn\'t changed: '
-                    '{hash}.'.format(hash=file_hash))
-        return
-    logger.info('File hash: %s', file_hash)
-    resource['hash'] = file_hash
-
-    def direct_load(allow_type_guessing=False):
-        fields = loader.load_csv(
-            tmp_file.name,
-            resource_id=resource['id'],
-            mimetype=resource.get('format'),
-            allow_type_guessing=allow_type_guessing,
-            logger=logger)
-        loader.calculate_record_count(
-            resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, logger)
-        if 'result_url' in input:
-            job_dict['status'] = 'running_but_viewable'
-            callback_xloader_hook(result_url=input['result_url'],
-                                  api_key=api_key,
-                                  job_dict=job_dict)
-        logger.info('Data now available to users: %s', resource_ckan_url)
-        loader.create_column_indexes(
-            fields=fields,
-            resource_id=resource['id'],
-            logger=logger)
-        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
-                        patch_only=True)
-        logger.info('File Hash updated for resource: %s', resource['hash'])
-
-    def tabulator_load():
-        try:
-            loader.load_table(tmp_file.name,
-                              resource_id=resource['id'],
-                              mimetype=resource.get('format'),
-                              logger=logger)
-        except JobError as e:
-            logger.error('Error during tabulator load: %s', e)
-            raise
-        loader.calculate_record_count(
-            resource_id=resource['id'], logger=logger)
-        set_datastore_active(data, resource, logger)
-        logger.info('Finished loading with tabulator')
-        update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
-                        patch_only=True)
-        logger.info('File Hash updated for resource: %s', resource['hash'])
-
-    # Load it
-    logger.info('Loading CSV')
-    # If ckanext.xloader.use_type_guessing is not configured, fall back to
-    # deprecated ckanext.xloader.just_load_with_messytables
-    use_type_guessing = asbool(
-        config.get('ckanext.xloader.use_type_guessing', config.get(
-            'ckanext.xloader.just_load_with_messytables', False))) \
-                        and not datastore_resource_exists(resource['id']) \
-                        and os.path.getsize(tmp_file.name) <= max_type_guessing_length
-    logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
-
     try:
-        if use_type_guessing:
+        if (resource.get('hash') == file_hash
+                and not data.get('ignore_hash')):
+            logger.info('Ignoring resource - the file hash hasn\'t changed: '
+                        '{hash}.'.format(hash=file_hash))
+            return
+        logger.info('File hash: %s', file_hash)
+        resource['hash'] = file_hash
+
+        def direct_load(allow_type_guessing=False):
+            fields = loader.load_csv(
+                tmp_file.name,
+                resource_id=resource['id'],
+                mimetype=resource.get('format'),
+                allow_type_guessing=allow_type_guessing,
+                logger=logger)
+            loader.calculate_record_count(
+                resource_id=resource['id'], logger=logger)
+            set_datastore_active(data, resource, logger)
+            if 'result_url' in input:
+                job_dict['status'] = 'running_but_viewable'
+                callback_xloader_hook(result_url=input['result_url'],
+                                      api_key=api_key,
+                                      job_dict=job_dict)
+            logger.info('Data now available to users: %s', resource_ckan_url)
+            loader.create_column_indexes(
+                fields=fields,
+                resource_id=resource['id'],
+                logger=logger)
+            update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                            patch_only=True)
+            logger.info('File Hash updated for resource: %s', resource['hash'])
+
+        def tabulator_load():
             try:
-                tabulator_load()
+                loader.load_table(tmp_file.name,
+                                  resource_id=resource['id'],
+                                  mimetype=resource.get('format'),
+                                  logger=logger)
             except JobError as e:
-                logger.warning('Load using tabulator failed: %s', e)
-                logger.info('Trying again with direct COPY')
-                direct_load()
-        else:
-            try:
-                direct_load(allow_type_guessing=True)
-            except (JobError, LoaderError) as e:
-                logger.warning('Load using COPY failed: %s', e)
-                logger.info('Trying again with tabulator')
-                tabulator_load()
-    except JobTimeoutException:
-        logger.warning('Job timed out after %ss', retried_job_timeout)
-        raise JobError('Job timed out after {}s'.format(retried_job_timeout))
-    except FileCouldNotBeLoadedError as e:
-        logger.warning('Loading excerpt for this format not supported.')
-        logger.error('Loading file raised an error: %s', e)
-        raise JobError('Loading file raised an error: {}'.format(e))
-    finally:
+                logger.error('Error during tabulator load: %s', e)
+                raise
+            loader.calculate_record_count(
+                resource_id=resource['id'], logger=logger)
+            set_datastore_active(data, resource, logger)
+            logger.info('Finished loading with tabulator')
+            update_resource(resource={'id': resource['id'], 'hash': resource['hash']},
+                            patch_only=True)
+            logger.info('File Hash updated for resource: %s', resource['hash'])
+
+        # Load it
+        logger.info('Loading CSV')
+        # If ckanext.xloader.use_type_guessing is not configured, fall back to
+        # deprecated ckanext.xloader.just_load_with_messytables
+        use_type_guessing = asbool(
+            config.get('ckanext.xloader.use_type_guessing', config.get(
+                'ckanext.xloader.just_load_with_messytables', False))) \
+            and not datastore_resource_exists(resource['id']) \
+            and os.path.getsize(tmp_file.name) <= max_type_guessing_length
+        logger.info("'use_type_guessing' mode is: %s", use_type_guessing)
         try:
-            tmp_file.close()
-            os.remove(tmp_file.name)
-        except FileNotFoundError:
-            pass
+            if use_type_guessing:
+                try:
+                    tabulator_load()
+                except JobError as e:
+                    logger.warning('Load using tabulator failed: %s', e)
+                    logger.info('Trying again with direct COPY')
+                    direct_load()
+            else:
+                try:
+                    direct_load(allow_type_guessing=True)
+                except (JobError, LoaderError) as e:
+                    logger.warning('Load using COPY failed: %s', e)
+                    logger.info('Trying again with tabulator')
+                    tabulator_load()
+        except JobTimeoutException:
+            logger.warning('Job timed out after %ss', retried_job_timeout)
+            raise JobError('Job timed out after {}s'.format(retried_job_timeout))
+        except FileCouldNotBeLoadedError as e:
+            logger.warning('Loading excerpt for this format not supported.')
+            logger.error('Loading file raised an error: %s', e)
+            raise JobError('Loading file raised an error: {}'.format(e))
+    finally:
+        cleanup_temp_file(tmp_file)
 
     logger.info('Express Load completed')
 
@@ -364,7 +380,7 @@ def _download_resource_data(resource, data, api_key, logger):
     logger.info('Fetching from: {0}'.format(url))
     tmp_file = get_tmp_file(url)
     length = 0
-    m = hashlib.md5()
+    m = hashlib.md5(usedforsecurity=False)
     cl = None
     try:
         headers = {}
@@ -401,9 +417,9 @@ def _download_resource_data(resource, data, api_key, logger):
         data['datastore_contains_all_records_of_source_file'] = True
 
     except DataTooBigError:
-        tmp_file.close()
+        cleanup_temp_file(tmp_file)
         message = 'Data too large to load into Datastore: ' \
-                  '{cl} bytes > max {max_cl} bytes.' \
+            '{cl} bytes > max {max_cl} bytes.' \
             .format(cl=cl or length, max_cl=max_content_length)
         logger.warning(message)
         if max_excerpt_lines <= 0:
@@ -426,7 +442,7 @@ def _download_resource_data(resource, data, api_key, logger):
         response.close()
         data['datastore_contains_all_records_of_source_file'] = False
     except requests.exceptions.HTTPError as error:
-        tmp_file.close()
+        cleanup_temp_file(tmp_file)
         # status code error
         logger.debug('HTTP error: %s', error)
         raise HTTPError(
@@ -436,9 +452,9 @@ def _download_resource_data(resource, data, api_key, logger):
     except requests.exceptions.Timeout:
         logger.warning('URL time out after %ss', DOWNLOAD_TIMEOUT)
         raise XLoaderTimeoutError('Connection timed out after {}s'.format(
-            DOWNLOAD_TIMEOUT))
+                                  DOWNLOAD_TIMEOUT))
     except requests.exceptions.RequestException as e:
-        tmp_file.close()
+        cleanup_temp_file(tmp_file)
         try:
             err_message = str(e.reason)
         except AttributeError:
@@ -448,7 +464,7 @@ def _download_resource_data(resource, data, api_key, logger):
             message=err_message, status_code=None,
             request_url=url, response=None)
     except JobTimeoutException:
-        tmp_file.close()
+        cleanup_temp_file(tmp_file)
         logger.warning('Job timed out after %ss', retried_job_timeout)
         raise JobError('Job timed out after {}s'.format(retried_job_timeout))
 
