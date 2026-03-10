@@ -10,9 +10,13 @@ registries:
 updates:
 - package-ecosystem: pip
   directory: "/"
+  # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#insecure-external-code-execution
+  # PIP needs this flag.
+  insecure-external-code-execution: allow
   schedule:
     interval: daily
-    time: "19:00"
+    time: "08:00"
+    timezone: "Australia/Brisbane"
   open-pull-requests-limit: 10
   registries:
   - python-index-pypi-org

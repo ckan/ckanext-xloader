@@ -2,14 +2,16 @@
 
 import logging
 
+import requests
 from ckan import plugins
 from ckan.plugins import toolkit
 
 from ckan.model.domain_object import DomainObjectOperation
 from ckan.model.resource import Resource
 
-from . import action, auth, helpers as xloader_helpers, utils
+from . import action, auth, helpers as xloader_helpers, jobs, utils
 from ckanext.xloader.utils import XLoaderFormats
+from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 
 try:
     from ckanext.validation.interfaces import IPipeValidation
@@ -69,6 +71,25 @@ class xloaderPlugin(plugins.SingletonPlugin):
             self.ignore_hash = True
         else:
             self.ignore_hash = False
+
+        # Set config values that need to be available to all jobs, without loading
+        # the config itself in every single job
+        jobs.ssl_verify = toolkit.asbool(config_.get('ckanext.xloader.ssl_verify', True))
+        if not jobs.ssl_verify:
+            requests.packages.urllib3.disable_warnings()
+
+        jobs.max_content_length = int(config_.get('ckanext.xloader.max_content_length') or 1e9)
+        # Don't try Tabulator load on large files
+        jobs.max_type_guessing_length = int(
+            config_.get('ckanext.xloader.max_type_guessing_length') or jobs.max_content_length / 10
+        )
+        jobs.max_excerpt_lines = int(config_.get('ckanext.xloader.max_excerpt_lines') or 0)
+        jobs.max_retries = int(config_.get('ckanext.xloader.max_retries', 1))
+        # Retries can only occur in cases where the datastore entry exists,
+        # so use the standard timeout
+        jobs.retried_job_timeout = config_.get('ckanext.xloader.job_timeout', '3600')
+        jobs.apitoken_header_name = config_.get('apitoken_header_name', 'Authorization')
+        jobs.default_queue_names = config_.get('ckanext.xloader.queue_names', DEFAULT_QUEUE_NAME).split()
 
     # IPipeValidation
 

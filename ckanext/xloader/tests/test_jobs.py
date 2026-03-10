@@ -188,12 +188,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
             assert "Data too large to load into Datastore:" in stdout
 
+    @pytest.mark.ckan_config("ckanext.xloader.max_excerpt_lines", 1)
     def test_data_max_excerpt_lines_config(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_response):
-            with mock.patch("ckanext.xloader.jobs.MAX_EXCERPT_LINES", 1):
-                stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-                assert "Loading excerpt of ~1 lines to DataStore." in stdout
+            stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
+            assert "Loading excerpt of ~1 lines to DataStore." in stdout
 
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"] is False
@@ -211,7 +211,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
     @pytest.mark.parametrize("error_type,should_retry", [
         # Retryable errors from RETRYABLE_ERRORS
         ("DeadlockDetected", True),
-        ("LockNotAvailable", True), 
+        ("LockNotAvailable", True),
         ("ObjectInUse", True),
         ("XLoaderTimeoutError", True),
         # Retryable HTTP errors (status codes from is_retryable_error)
@@ -234,7 +234,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
     ])
     def test_retry_behavior(self, cli, data, error_type, should_retry):
         """Test retry behavior for different error types."""
-        
+
         def create_mock_error(error_type):
             if error_type == "DeadlockDetected":
                 from psycopg2 import errors
@@ -254,12 +254,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
                 return ValueError("Test error")
             elif error_type == "TypeError":
                 return TypeError("Test error")
-        
+
         def mock_download_with_error(*args, **kwargs):
             if not hasattr(mock_download_with_error, 'call_count'):
                 mock_download_with_error.call_count = 0
             mock_download_with_error.call_count += 1
-            
+
             if mock_download_with_error.call_count == 1:
                 # First call - raise the test error
                 raise create_mock_error(error_type)
@@ -273,12 +273,12 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
             else:
                 # Non-retryable errors should not get a second chance
                 raise create_mock_error(error_type)
-        
+
         self.enqueue(jobs.xloader_data_into_datastore, [data])
-        
+
         with mock.patch("ckanext.xloader.jobs._download_resource_data", mock_download_with_error):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-            
+
             if should_retry:
                 # Check that retry was attempted
                 assert "Job failed due to temporary error" in stdout

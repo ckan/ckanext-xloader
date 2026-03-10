@@ -468,7 +468,7 @@ Controls whether or not a resource requires a Validation Schema to be present fr
 #### ckanext.xloader.site_url
 Provide an alternate site URL for the xloader_submit action.
 This is useful, for example, when the site is running within a docker network.
-    
+
 Note: This setting will not alter path. i.e ckan.root_path
 
 Example:

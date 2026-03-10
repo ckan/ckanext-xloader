@@ -158,9 +158,9 @@ def xloader_submit(context, data_dict):
             'queue_name': custom_queue,
         }
     }
-    if custom_queue not in jobs.DEFAULT_QUEUE_NAMES:
+    if custom_queue not in jobs.default_queue_names:
         # Don't automatically retry if it's a custom run
-        data['metadata']['tries'] = jobs.MAX_RETRIES
+        data['metadata']['tries'] = jobs.max_retries
 
     # Expand timeout for resources that have to be type-guessed
     timeout = config.get(
