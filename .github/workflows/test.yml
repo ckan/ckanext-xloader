@@ -95,3 +95,35 @@ jobs:
       with:
         paths: "/tmp/artifacts/junit/*.xml"
       if: always()
+
+    - name: Install packages required for codecov
+      continue-on-error: ${{ matrix.experimental }}
+      if: ${{ !cancelled() }}
+      run: |
+        #ubuntu based images
+        apt-get update
+        apt-get install -y --no-install-recommends curl gpg
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      if: ${{ !cancelled() }}
+      continue-on-error: ${{ matrix.experimental }}
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: false # optional (default = false)
+
+    - name: Get Cover
+      uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac  # v3.2
+      if: ${{ !cancelled() }}
+      continue-on-error: ${{ matrix.experimental }}
+      with:
+        coverageFile: coverage.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload test results to Codecov
+      uses: codecov/test-results-action@v1
+      if: ${{ !cancelled() }}
+      continue-on-error: ${{ matrix.experimental }}
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: false  # optional (default = false)

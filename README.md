@@ -253,6 +253,20 @@ Default value: `1000000000`
 
 The maximum file size that XLoader will attempt to load.
 
+#### ckanext.xloader.queue_names
+
+Example:
+
+```
+ckanext.xloader.queue_names = foo baz
+```
+
+Default value: `default`
+
+A whitespace-separated list of worker queues that XLoader jobs can be sent to.
+
+By default, jobs for the same package will be sent to the same queue,
+to reduce database lock contention.
 
 #### ckanext.xloader.use_type_guessing
 
@@ -409,6 +423,20 @@ Controls whether or not the status badges display all of the statuses. By defaul
 the badges will display "pending", "running", and "error". With debug_badges enabled,
 they will also display "complete", "active", "inactive", and "unknown".
 
+#### ckanext.xloader.queue_names
+
+Example:
+
+```
+ckanext.xloader.queue_names = foo,baz
+```
+
+Default value: 'default'
+
+Defines the queue(s) available to use for XLoader jobs.
+Jobs for the same package will be sent to the same queue,
+to reduce lock contention.
+
 #### ckanext.xloader.validation.requires_successful_report
 
 Supports: __ckanext-validation__
@@ -440,7 +468,7 @@ Controls whether or not a resource requires a Validation Schema to be present fr
 #### ckanext.xloader.site_url
 Provide an alternate site URL for the xloader_submit action.
 This is useful, for example, when the site is running within a docker network.
-    
+
 Note: This setting will not alter path. i.e ckan.root_path
 
 Example:
