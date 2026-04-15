@@ -387,6 +387,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
              'type': 'text',
              'strip_extra_white': True}
             for header_name in headers]
+        _notify_datastore_before_update(resource_id, None, fields)
 
     logger.info('Fields: %s', fields)
 
