@@ -18,9 +18,22 @@ import sqlalchemy as sa
 
 import ckan.plugins as p
 
+from .interfaces import IXloader
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import CSV_SAMPLE_LINES, TypeConverter
 from .utils import cleanup_temp_file, datastore_resource_exists, headers_guess, type_guess
+
+
+def _notify_datastore_before_update(resource_id, existing_info, new_headers):
+    """Notify IXloader plugins that the DataStore table for ``resource_id``
+    is about to change. See ``IXloader.datastore_before_update``.
+    """
+    for plugin in p.PluginImplementations(IXloader):
+        plugin.datastore_before_update(
+            resource_id=resource_id,
+            existing_info=existing_info,
+            new_headers=new_headers,
+        )
 
 from ckan.plugins.toolkit import config
 
@@ -356,6 +369,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
         '''
         fields_match = _fields_match(fields, existing_fields, logger)
         if fields_match == FieldMatch.EXACT_MATCH:
+            _notify_datastore_before_update(resource_id, existing_info, fields)
             logger.info('Clearing records for "%s" from DataStore.', resource_id)
             _clear_datastore_resource(resource_id)
         else:
@@ -366,6 +380,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
             # then we need to re-guess types
             if allow_type_guessing and fields_match == FieldMatch.MISMATCH:
                 raise LoaderError("File structure has changed, reverting to Tabulator")
+            _notify_datastore_before_update(resource_id, existing_info, fields)
     else:
         fields = [
             {'id': header_name,
@@ -590,6 +605,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
         Otherwise 'datastore_create' will append to the existing datastore.
         And if the fields have significantly changed, it may also fail.
         '''
+        _notify_datastore_before_update(resource_id, existing_info, headers_dicts)
         if existing:
             if _fields_match(headers_dicts, existing_fields, logger) == FieldMatch.EXACT_MATCH:
                 logger.info('Clearing records for "%s" from DataStore.', resource_id)

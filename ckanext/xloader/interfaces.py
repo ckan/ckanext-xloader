@@ -47,3 +47,30 @@ class IXloader(Interface):
             the resource that was uploaded
         """
         pass
+
+    def datastore_before_update(self, resource_id, existing_info, new_headers):
+        """ Called by the loader just before it is about to modify the
+        DataStore table for a resource (truncate, drop+recreate, or create).
+        It allows plugins to inspect the difference between the current
+        DataStore columns and the ones detected in the incoming file, for
+        example to log an activity when columns are added, removed or
+        renamed.
+
+        :param resource_id: the ID of the resource whose DataStore table is
+            about to be updated.
+        :type resource_id: string
+
+        :param existing_info: a mapping of ``{field_id: info_dict}`` built
+            from the existing DataStore table's Data Dictionary, or ``None``
+            if the DataStore table does not yet exist.
+        :type existing_info: dict or None
+
+        :param new_headers: the list of field dicts that will be written to
+            the DataStore. Each dict has at least an ``id`` and ``type``
+            key, and may include an ``info`` dict for fields that already
+            existed.
+        :type new_headers: list of dicts
+
+        The return value is ignored.
+        """
+        pass
