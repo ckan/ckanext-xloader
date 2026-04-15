@@ -1113,13 +1113,14 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
         notify.assert_called_once()
         resource_id, existing_info, new_headers = notify.call_args.args
         assert resource_id == resource['id']
-        assert existing_info is None
+        assert not existing_info
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
     def test_fires_on_reload_with_existing_info(self):
         resource = factories.Resource()
         resource_id = resource['id']
-        # First load populates the datastore.
+        # First load populates the datastore. No 'info' is set on the fields
+        # during this load, so on reload existing_info must be an empty dict.
         loader.load_csv(
             get_sample_filepath("simple.csv"),
             resource_id=resource_id,
@@ -1139,9 +1140,36 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
         notify.assert_called_once()
         called_resource_id, existing_info, new_headers = notify.call_args.args
         assert called_resource_id == resource_id
-        # existing_info is a dict (possibly empty) when the table exists.
-        assert isinstance(existing_info, dict)
+        assert not existing_info
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+
+    def test_fires_on_reload_with_changed_columns(self):
+        """ Reload the resource with a renamed column (place -> city) and
+        verify the hook sees the new column names BEFORE the DataStore is
+        updated. This is the signal downstream plugins use to log a
+        'columns changed' activity.
+        """
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            get_sample_filepath("simple.csv"),
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple2.csv"),
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        called_resource_id, _, new_headers = notify.call_args.args
+        assert called_resource_id == resource_id
+        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'city']
 
     def test_fires_for_load_table(self):
         resource = factories.Resource()
@@ -1156,7 +1184,7 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
         notify.assert_called_once()
         resource_id, existing_info, new_headers = notify.call_args.args
         assert resource_id == resource['id']
-        assert existing_info is None
+        assert not existing_info
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
 
