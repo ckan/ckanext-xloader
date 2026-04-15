@@ -1097,7 +1097,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
 
 class TestDatastoreBeforeUpdateHook(TestLoadBase):
     """ Verify that loader.load_csv / loader.load_table invoke
-    IXloader.datastore_before_update with the documented payload shape
+    IXloader.datastore_before_update with the documented payload shape.
     """
 
     def test_fires_on_new_table_with_no_existing_info(self):
