@@ -2,6 +2,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 import os
+from unittest import mock
 import pytest
 import six
 import sqlalchemy as sa
@@ -1092,6 +1093,71 @@ class TestLoadUnhandledTypes(TestLoadBase):
             '_full_text',
             'UTF-8'
         ]
+
+
+class TestDatastoreBeforeUpdateHook(TestLoadBase):
+    """ Verify that loader.load_csv / loader.load_table invoke
+    IXloader.datastore_before_update with the documented payload shape
+    """
+
+    def test_fires_on_new_table_with_no_existing_info(self):
+        resource = factories.Resource()
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple.csv"),
+                resource_id=resource['id'],
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        resource_id, existing_info, new_headers = notify.call_args.args
+        assert resource_id == resource['id']
+        assert existing_info is None
+        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+
+    def test_fires_on_reload_with_existing_info(self):
+        resource = factories.Resource()
+        resource_id = resource['id']
+        # First load populates the datastore.
+        loader.load_csv(
+            get_sample_filepath("simple.csv"),
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        # Patch only around the reload so we capture just that call.
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple.csv"),
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        called_resource_id, existing_info, new_headers = notify.call_args.args
+        assert called_resource_id == resource_id
+        # existing_info is a dict (possibly empty) when the table exists.
+        assert isinstance(existing_info, dict)
+        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+
+    def test_fires_for_load_table(self):
+        resource = factories.Resource()
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_table(
+                get_sample_filepath("simple.xls"),
+                resource_id=resource['id'],
+                mimetype="xls",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        resource_id, existing_info, new_headers = notify.call_args.args
+        assert resource_id == resource['id']
+        assert existing_info is None
+        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
 
 class TestLoadTabulator(TestLoadBase):
