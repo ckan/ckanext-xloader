@@ -1100,7 +1100,10 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
     IXloader.datastore_before_update with the documented payload shape.
     """
 
-    def test_fires_on_new_table_with_no_existing_info(self):
+    def test_fires_on_new_table(self):
+        """ First load of a resource: no prior DataStore table, so
+        existing_fields is None and new_headers reflects the file columns.
+        """
         resource = factories.Resource()
         with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
             loader.load_csv(
@@ -1111,16 +1114,18 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        resource_id, existing_info, new_headers = notify.call_args.args
+        resource_id, existing_fields, new_headers = notify.call_args.args
         assert resource_id == resource['id']
-        assert not existing_info
+        assert not existing_fields
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
-    def test_fires_on_reload_with_existing_info(self):
+    def test_fires_on_reload_same_columns(self):
+        """ Reload with the same file: existing_fields and new_headers
+        expose the same column ids, so a consumer computing
+        ``set(existing) ^ set(new)`` sees no diff.
+        """
         resource = factories.Resource()
         resource_id = resource['id']
-        # First load populates the datastore. No 'info' is set on the fields
-        # during this load, so on reload existing_info must be an empty dict.
         loader.load_csv(
             get_sample_filepath("simple.csv"),
             resource_id=resource_id,
@@ -1128,7 +1133,6 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             logger=logger,
         )
 
-        # Patch only around the reload so we capture just that call.
         with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
             loader.load_csv(
                 get_sample_filepath("simple.csv"),
@@ -1138,16 +1142,16 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        called_resource_id, existing_info, new_headers = notify.call_args.args
+        called_resource_id, existing_fields, new_headers = notify.call_args.args
         assert called_resource_id == resource_id
-        assert not existing_info
+        assert [f['id'] for f in existing_fields] == ['date', 'temperature', 'place']
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
     def test_fires_on_reload_with_changed_columns(self):
         """ Reload the resource with a renamed column (place -> city) and
-        verify the hook sees the new column names BEFORE the DataStore is
-        updated. This is the signal downstream plugins use to log a
-        'columns changed' activity.
+        verify the hook exposes both sides BEFORE the DataStore is updated,
+        so downstream plugins can diff them and log a 'columns changed'
+        activity.
         """
         resource = factories.Resource()
         resource_id = resource['id']
@@ -1167,9 +1171,13 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        called_resource_id, _, new_headers = notify.call_args.args
+        called_resource_id, existing_fields, new_headers = notify.call_args.args
         assert called_resource_id == resource_id
-        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'city']
+
+        old_ids = [f['id'] for f in existing_fields]
+        new_ids = [h['id'] for h in new_headers]
+        assert old_ids == ['date', 'temperature', 'place']
+        assert new_ids == ['date', 'temperature', 'city']
 
     def test_fires_for_load_table(self):
         resource = factories.Resource()
@@ -1182,9 +1190,9 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        resource_id, existing_info, new_headers = notify.call_args.args
+        resource_id, existing_fields, new_headers = notify.call_args.args
         assert resource_id == resource['id']
-        assert not existing_info
+        assert not existing_fields
         assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
 
 
