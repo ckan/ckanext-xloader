@@ -82,14 +82,10 @@ class IXloader(Interface):
             existed.
         :type new_headers: list of dicts
 
-        .. warning::
-
-            The ``existing_fields`` and ``new_headers`` lists are the
-            same objects that the loader will use after this hook returns.
-            Mutating them (e.g. adding, removing or renaming fields) will
-            affect the subsequent DataStore operation.  This hook is
-            intended for **read-only observation**; modify the lists only
-            if you fully understand the downstream consequences.
+        The ``existing_fields`` and ``new_headers`` lists are the same
+        objects the loader will use after this hook returns, so mutating
+        them (e.g. adding, removing or renaming fields) will affect the
+        subsequent DataStore operation.
 
         The return value is ignored.
         """
