@@ -1169,7 +1169,6 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
                 mimetype="text/csv",
                 logger=logger,
             )
-
         notify.assert_called_once()
         called_resource_id, existing_fields, new_headers = notify.call_args.args
         assert called_resource_id == resource_id
