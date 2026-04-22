@@ -384,16 +384,16 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
         else:
             logger.info('Deleting "%s" from DataStore.', resource_id)
             delete_datastore_resource(resource_id)
-            # if file structure has changed,
-            # and it wasn't just from a Data Dictionary override,
-            # then we need to re-guess types
-            if allow_type_guessing and fields_match == FieldMatch.MISMATCH:
-                raise LoaderError("File structure has changed, reverting to Tabulator")
             _notify_datastore_before_update(
                 resource_id=resource_id,
                 existing_fields=existing_fields,
                 new_headers=fields,
             )
+            # if file structure has changed,
+            # and it wasn't just from a Data Dictionary override,
+            # then we need to re-guess types
+            if allow_type_guessing and fields_match == FieldMatch.MISMATCH:
+                raise LoaderError("File structure has changed, reverting to Tabulator")
     else:
         fields = [
             {'id': header_name,
