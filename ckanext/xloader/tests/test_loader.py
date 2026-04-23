@@ -1114,10 +1114,10 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        resource_id, existing_fields, new_headers = notify.call_args.args
-        assert resource_id == resource['id']
-        assert not existing_fields
-        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource['id']
+        assert not kwargs['existing_fields']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
 
     def test_fires_on_reload_same_columns(self):
         """ Reload with the same file: existing_fields and new_headers
@@ -1142,10 +1142,10 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        called_resource_id, existing_fields, new_headers = notify.call_args.args
-        assert called_resource_id == resource_id
-        assert [f['id'] for f in existing_fields] == ['date', 'temperature', 'place']
-        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource_id
+        assert [f['id'] for f in kwargs['existing_fields']] == ['date', 'temperature', 'place']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
 
     def test_fires_on_reload_with_changed_columns(self):
         """ Reload the resource with a renamed column (place -> city) and
@@ -1170,11 +1170,11 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
                 logger=logger,
             )
         notify.assert_called_once()
-        called_resource_id, existing_fields, new_headers = notify.call_args.args
-        assert called_resource_id == resource_id
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource_id
 
-        old_ids = [f['id'] for f in existing_fields]
-        new_ids = [h['id'] for h in new_headers]
+        old_ids = [f['id'] for f in kwargs['existing_fields']]
+        new_ids = [h['id'] for h in kwargs['new_headers']]
         assert old_ids == ['date', 'temperature', 'place']
         assert new_ids == ['date', 'temperature', 'city']
 
@@ -1189,10 +1189,10 @@ class TestDatastoreBeforeUpdateHook(TestLoadBase):
             )
 
         notify.assert_called_once()
-        resource_id, existing_fields, new_headers = notify.call_args.args
-        assert resource_id == resource['id']
-        assert not existing_fields
-        assert [h['id'] for h in new_headers] == ['date', 'temperature', 'place']
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource['id']
+        assert not kwargs['existing_fields']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
 
 
 class TestLoadTabulator(TestLoadBase):
