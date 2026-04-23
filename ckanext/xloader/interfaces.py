@@ -47,3 +47,47 @@ class IXloader(Interface):
             the resource that was uploaded
         """
         pass
+
+    def datastore_before_update(self, resource_id, existing_fields, new_headers):
+        """ Called by the loader just before it is about to modify the
+        DataStore table for a resource (truncate, drop+recreate, or create).
+        It allows plugins to inspect the difference between the current
+        DataStore columns and the ones detected in the incoming file, for
+        example to log an activity when columns are added, removed or
+        renamed.
+
+        Both ``existing_fields`` and ``new_headers`` are lists of field
+        dicts that contain at least an ``id`` key, so a plugin can compute
+        the diff symmetrically::
+
+            old_ids = {f['id'] for f in existing_fields or []}
+            new_ids = {h['id'] for h in new_headers}
+            added = new_ids - old_ids
+            removed = old_ids - new_ids
+
+        :param resource_id: the ID of the resource whose DataStore table is
+            about to be updated.
+        :type resource_id: string
+
+        :param existing_fields: the current columns of the DataStore table
+            (the internal ``_id`` column is excluded), or ``None`` if the
+            DataStore table does not yet exist. Each dict contains at least
+            ``id`` and ``type`` and may include ``info`` for fields with a
+            Data Dictionary entry.
+        :type existing_fields: list of dicts or None
+
+        :param new_headers: the list of field dicts that will be written to
+            the DataStore. Each dict has at least an ``id`` and ``type``
+            key, and may include an ``info`` dict for fields that already
+            existed.
+        :type new_headers: list of dicts
+
+        The ``new_headers`` param is the same list the loader will use after the
+        hook returns, so mutating it (adding, removing, renaming fields)
+        will affect the subsequent DataStore operation.
+        The ``existing_fields`` is a snapshot with the internal ``_id`` column
+        excluded and should be treated as read-only.
+
+        The return value is ignored.
+        """
+        pass
