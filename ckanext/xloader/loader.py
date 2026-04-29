@@ -259,8 +259,7 @@ def split_copy_by_size(input_file, engine, logger, resource_id, headers, delimit
 
     logger.info('Completed chunked processing: %s chunks processed for file size %s bytes', chunk_count, file_size)
     if infile:
-        infile.close()
-        os.remove(infile.name)
+        cleanup_temp_file(infile)
 
 
 def _read_metadata(table_filepath, mimetype, logger):
