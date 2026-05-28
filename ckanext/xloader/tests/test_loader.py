@@ -2,6 +2,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 import os
+from unittest import mock
 import pytest
 import six
 import sqlalchemy as sa
@@ -1092,6 +1093,106 @@ class TestLoadUnhandledTypes(TestLoadBase):
             '_full_text',
             'UTF-8'
         ]
+
+
+class TestDatastoreBeforeUpdateHook(TestLoadBase):
+    """ Verify that loader.load_csv / loader.load_table invoke
+    IXloader.datastore_before_update with the documented payload shape.
+    """
+
+    def test_fires_on_new_table(self):
+        """ First load of a resource: no prior DataStore table, so
+        existing_fields is None and new_headers reflects the file columns.
+        """
+        resource = factories.Resource()
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple.csv"),
+                resource_id=resource['id'],
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource['id']
+        assert not kwargs['existing_fields']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
+
+    def test_fires_on_reload_same_columns(self):
+        """ Reload with the same file: existing_fields and new_headers
+        expose the same column ids, so a consumer computing
+        ``set(existing) ^ set(new)`` sees no diff.
+        """
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            get_sample_filepath("simple.csv"),
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple.csv"),
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource_id
+        assert [f['id'] for f in kwargs['existing_fields']] == ['date', 'temperature', 'place']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
+
+    def test_fires_on_reload_with_changed_columns(self):
+        """ Reload the resource with a renamed column (place -> city) and
+        verify the hook exposes both sides BEFORE the DataStore is updated,
+        so downstream plugins can diff them and log a 'columns changed'
+        activity.
+        """
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            get_sample_filepath("simple.csv"),
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_csv(
+                get_sample_filepath("simple2.csv"),
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+        notify.assert_called_once()
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource_id
+
+        old_ids = [f['id'] for f in kwargs['existing_fields']]
+        new_ids = [h['id'] for h in kwargs['new_headers']]
+        assert old_ids == ['date', 'temperature', 'place']
+        assert new_ids == ['date', 'temperature', 'city']
+
+    def test_fires_for_load_table(self):
+        resource = factories.Resource()
+        with mock.patch.object(loader, '_notify_datastore_before_update') as notify:
+            loader.load_table(
+                get_sample_filepath("simple.xls"),
+                resource_id=resource['id'],
+                mimetype="xls",
+                logger=logger,
+            )
+
+        notify.assert_called_once()
+        kwargs = notify.call_args.kwargs
+        assert kwargs['resource_id'] == resource['id']
+        assert not kwargs['existing_fields']
+        assert [h['id'] for h in kwargs['new_headers']] == ['date', 'temperature', 'place']
 
 
 class TestLoadTabulator(TestLoadBase):
