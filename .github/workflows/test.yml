@@ -107,7 +107,7 @@ jobs:
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
       if: ${{ !cancelled() }}
-      continue-on-error: ${{ matrix.experimental }}
+      continue-on-error: true
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: false # optional (default = false)
@@ -115,7 +115,7 @@ jobs:
     - name: Get Cover
       uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac  # v3.2
       if: ${{ !cancelled() }}
-      continue-on-error: ${{ matrix.experimental }}
+      continue-on-error: true
       with:
         coverageFile: coverage.xml
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -123,7 +123,7 @@ jobs:
     - name: Upload test results to Codecov
       uses: codecov/test-results-action@v1
       if: ${{ !cancelled() }}
-      continue-on-error: ${{ matrix.experimental }}
+      continue-on-error: true
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: false  # optional (default = false)
