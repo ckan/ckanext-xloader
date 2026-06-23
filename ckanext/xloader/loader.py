@@ -439,7 +439,9 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
         # Create table
         from ckan import model
-        context = {'model': model, 'ignore_auth': True}
+
+        user = p.toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+        context = {'model': model, 'ignore_auth': True, "user": user["name"]}
         data_dict = dict(
             resource_id=resource_id,
             fields=fields,
@@ -776,10 +778,9 @@ def _enable_fulltext_trigger(connection, resource_id):
 
 
 def _get_rows_count_of_resource(connection, table):
-    count_query = ''' SELECT count(_id) from {table} '''.format(table=table)
-    results = connection.execute(count_query)
-    rows_count = int(results.first()[0])
-    return rows_count
+    tbl = sa.table(table, sa.column("_id"))
+    rows_count = connection.scalar(sa.select(sa.func.count(tbl.c._id)).select_from(tbl))
+    return rows_count or 0
 
 
 def _populate_fulltext(connection, resource_id, fields, logger):
@@ -813,7 +814,7 @@ def _populate_fulltext(connection, resource_id, fields, logger):
     '''
     try:
         # Get total row count to determine chunking strategy
-        rows_count = _get_rows_count_of_resource(connection, identifier(resource_id))
+        rows_count = _get_rows_count_of_resource(connection, resource_id)
     except Exception as e:
         rows_count = ''
         logger.info("Failed to get resource rows count: {} ".format(str(e)))
@@ -829,7 +830,7 @@ def _populate_fulltext(connection, resource_id, fields, logger):
         for start in range(0, rows_count, chunks):
             try:
                 # Build SQL to update _full_text column with concatenated searchable content
-                sql = \
+                sql = sa.text(
                     '''
                     UPDATE {table}
                     SET _full_text = to_tsvector({cols}) WHERE _id BETWEEN {first} and {end};
@@ -847,7 +848,7 @@ def _populate_fulltext(connection, resource_id, fields, logger):
                         ),
                         first=start,
                         end=start + chunks
-                    )
+                    ))
                 connection.execute(sql)
                 logger.info("Indexed rows {first} to {end} of {total}".format(
                     first=start, end=min(start + chunks, rows_count), total=rows_count))
@@ -865,8 +866,8 @@ def calculate_record_count(resource_id, logger):
     '''
     logger.info('Calculating record count (running ANALYZE on the table)')
     engine = get_write_engine()
-    conn = engine.connect()
-    conn.execute(sa.text("ANALYZE \"{resource_id}\";"
+    with engine.connect() as conn:
+        conn.execute(sa.text("ANALYZE \"{resource_id}\";"
                          .format(resource_id=resource_id)))
 
 

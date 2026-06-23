@@ -11,11 +11,18 @@ from ckan.tests import helpers, factories
 from ckanext.xloader.utils import get_xloader_user_apitoken
 
 
+@pytest.fixture
+def with_api_token(monkeypatch, ckan_config):
+    sysadmin = factories.SysadminWithToken()
+    apikey = sysadmin["token"]
+    monkeypatch.setitem(ckan_config, 'ckanext.xloader.api_token', apikey)
+
+
 @pytest.mark.usefixtures("clean_db", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "datastore xloader")
 class TestAction(object):
 
-    def test_submit(self):
+    def test_submit(self, with_api_token):
         # checks that xloader_submit enqueues the resource (to be xloadered)
         user = factories.User()
         # normally creating a resource causes xloader_submit to be called,
@@ -34,7 +41,7 @@ class TestAction(object):
             assert 1 == enqueue_mock.call_count
             assert enqueue_mock.call_args[1].get('queue') == 'default{}'.format(ord(res['package_id'][0]) % 2)
 
-    def test_submit_nonexistent_resource(self):
+    def test_submit_nonexistent_resource(self, with_api_token):
         user = factories.User()
         with mock.patch(
             "ckanext.xloader.action.enqueue_job",
@@ -66,7 +73,7 @@ class TestAction(object):
             queue='foo',
         ) is True
 
-    def test_duplicated_submits(self):
+    def test_duplicated_submits(self, with_api_token):
         def submit(res, user):
             return helpers.call_action(
                 "xloader_submit",
@@ -121,7 +128,7 @@ class TestAction(object):
         )
         assert task_status["state"] == "complete"
 
-    def test_status(self):
+    def test_status(self, with_api_token):
 
         # Trigger an xloader job
         res = factories.Resource(format="CSV")

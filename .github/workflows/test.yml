@@ -25,6 +25,9 @@ jobs:
     strategy:
       matrix:
         include: #ckan-image see https://github.com/ckan/ckan-docker-base, ckan-version controls other image tags
+          - ckan-version: "2.12"
+            ckan-image: "2.12"
+            experimental: false
           - ckan-version: "2.11"
             ckan-image: "2.11-py3.10"
             experimental: false

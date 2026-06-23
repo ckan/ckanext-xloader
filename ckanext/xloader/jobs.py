@@ -136,7 +136,6 @@ def xloader_data_into_datastore(input):
 
     job_id = get_current_job().id
     errored = False
-
     # Set-up logging to the db
     handler = StoringHandler(job_id, input)
     level = logging.DEBUG
@@ -149,6 +148,7 @@ def xloader_data_into_datastore(input):
     logger.setLevel(logging.DEBUG)
 
     db.init(config)
+
     try:
         # Store details of the job in the db
         db.add_pending_job(job_id, **input)
@@ -159,13 +159,14 @@ def xloader_data_into_datastore(input):
         db.mark_job_as_errored(job_id, str(e))
         job_dict['status'] = 'error'
         job_dict['error'] = str(e)
-        log.error('xloader error: job_id %s already exists', job_id)
+        logger.error('xloader error: job_id %s already exists', job_id)
         errored = True
     except Exception as e:
         error_state = {'errored': errored}
         retry = handle_retryable_error(e, input, job_id, job_dict, logger, error_state)
         if retry:
             return None
+        logger.error('xloader error: %s', e)
         errored = error_state['errored']
     finally:
         # job_dict is defined in xloader_hook's docstring
@@ -656,7 +657,7 @@ class StoringHandler(logging.Handler):
         self.input = input
 
     def emit(self, record):
-        with db.ENGINE.connect() as conn:
+        with db.ENGINE.begin() as conn:
             # Turn strings into unicode to stop SQLAlchemy
             # "Unicode type received non-unicode bind param value" warnings.
             message = str(record.getMessage())

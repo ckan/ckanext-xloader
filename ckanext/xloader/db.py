@@ -11,7 +11,6 @@ import json
 import six
 import sqlalchemy
 
-
 ENGINE = None
 _METADATA = None
 JOBS_TABLE = None
@@ -111,17 +110,19 @@ def get_job(job_id):
     if job_id:
         job_id = six.text_type(job_id)
 
+    if JOBS_TABLE is None or ENGINE is None:
+        raise RuntimeError("DB is not initialized")
+
+    stmt = sqlalchemy.select(JOBS_TABLE).where(JOBS_TABLE.c.job_id == job_id)
     with ENGINE.connect() as conn:
-        result = conn.execute(
-            JOBS_TABLE.select().where(JOBS_TABLE.c.job_id == job_id)
-        ).first()
+        result = conn.execute(stmt).first()
 
     if not result:
         return None
 
     # Turn the result into a dictionary representation of the job.
     result_dict = {}
-    for field in list(result.keys()):
+    for field in stmt.columns.keys():
         value = getattr(result, field)
         if value is None:
             result_dict[field] = value
@@ -445,6 +446,8 @@ def _get_metadata(job_id):
     # Avoid SQLAlchemy "Unicode type received non-unicode bind param value"
     # warnings.
     job_id = six.text_type(job_id)
+    if ENGINE is None or METADATA_TABLE is None:
+        raise RuntimeError("DB is not initialized")
 
     with ENGINE.connect() as conn:
         results = conn.execute(
@@ -452,10 +455,10 @@ def _get_metadata(job_id):
                 METADATA_TABLE.c.job_id == job_id)).fetchall()
     metadata = {}
     for row in results:
-        value = row['value']
-        if row['type'] == 'json':
+        value = row.value
+        if row.type == 'json':
             value = json.loads(value)
-        metadata[row['key']] = value
+        metadata[row.key] = value
     return metadata
 
 
@@ -464,12 +467,14 @@ def _get_logs(job_id):
     # Avoid SQLAlchemy "Unicode type received non-unicode bind param value"
     # warnings.
     job_id = six.text_type(job_id)
+    if ENGINE is None or LOGS_TABLE is None:
+        raise RuntimeError("DB is not initialized")
 
     with ENGINE.connect() as conn:
         results = conn.execute(
             LOGS_TABLE.select().where(LOGS_TABLE.c.job_id == job_id)).fetchall()
 
-    results = [dict(result) for result in results]
+    results = [dict(result._mapping) for result in results]  # pyright: ignore[reportPrivateUsage]
 
     for result in results:
         result.pop("job_id")
