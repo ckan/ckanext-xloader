@@ -241,9 +241,14 @@ def set_resource_metadata(update_dict):
 
     Called after creation or deletion of DataStore table.
     '''
-    # We're modifying the resource extra directly here to avoid a
-    # race condition, see issue #3245 for details and plan for a
-    # better fix
+    if tk.check_ckan_version(min_version="2.11.99"):
+        # ckan v2.12 has optimized resource updates that skip validation for
+        # the rest of dataset resources, so using update/patch here will be
+        # more readable.
+        user = tk.get_action("get_site_user")({"ignore_auth": True}, {})
+        patch = dict(update_dict, id=update_dict["resource_id"])
+        tk.get_action("resource_patch")({"user": user["name"]}, patch)
+        return
 
     q = model.Session.query(model.Resource). \
         with_for_update(of=model.Resource). \
@@ -275,7 +280,6 @@ def set_resource_metadata(update_dict):
                 resource.update(update_dict)
                 psi.index_package(solr_data_dict)
                 break
-
 
 def column_count_modal(rows):
     """ Return the modal value of columns in the row_set's

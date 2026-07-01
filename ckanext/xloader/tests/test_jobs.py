@@ -1,11 +1,14 @@
-# encoding: utf-8
+from __future__ import annotations
 
+from collections import namedtuple
+from typing import Any
 import pytest
 import io
 import os
 
 from datetime import datetime
 
+from faker import Faker
 from requests import Response
 
 from ckan.cli.cli import ckan
@@ -88,11 +91,22 @@ def data(create_with_upload, apikey):
 @pytest.mark.ckan_config("ckanext.xloader.copy_chunk_size", 5120)
 @pytest.mark.ckan_config("ckan.jobs.timeout", 2)
 class TestXLoaderJobs(helpers.FunctionalRQTestBase):
-
     def test_derive_queue_name(self):
         assert jobs.get_default_queue_name() == "default0"
         assert jobs.get_default_queue_name("foo") == "default0"
         assert jobs.get_default_queue_name("meh") == "default1"
+
+    def test_job_duplicate(self, data: dict[str, Any], monkeypatch: pytest.MonkeyPatch, faker: Faker):
+        job = namedtuple("Job", ["id"])(id=faker.uuid4())
+        stub = mock.Mock()
+        monkeypatch.setattr(jobs, "get_current_job", lambda: job)
+        monkeypatch.setattr(jobs, "callback_xloader_hook", stub)
+        jobs.xloader_data_into_datastore(data)
+        jobs.xloader_data_into_datastore(data)
+
+        job_dict = stub.call_args.kwargs["job_dict"]
+        assert job_dict["status"] == "error"
+        assert "UNIQUE" in job_dict["error"]
 
     def test_xloader_data_into_datastore(self, cli, data):
         self.enqueue(jobs.xloader_data_into_datastore, [data])
@@ -232,6 +246,7 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         ("ValueError", False),
         ("TypeError", False),
     ])
+    @pytest.mark.usefixtures("with_extended_cli")
     def test_retry_behavior(self, cli, data, error_type, should_retry):
         """Test retry behavior for different error types."""
 
