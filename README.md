@@ -112,13 +112,14 @@ type -offers to contribute this are welcomed.
 
 Compatibility with core CKAN versions:
 
-  | CKAN version   | Compatibility                                         |
-  | -------------- |-------------------------------------------------------|
-  | 2.7            | no longer supported (last supported version: 0.12.2)  |
-  | 2.8            | no longer supported (last supported version: 0.12.2)  |
-  | 2.9            | no longer supported (last supported version: 1.2.x)   |
-  | 2.10           | yes                                                   |
-  | 2.11           | yes                                                   |
+  | CKAN version | Compatibility                                         |
+  |--------------|-------------------------------------------------------|
+  | 2.7          | no longer supported (last supported version: 0.12.2)  |
+  | 2.8          | no longer supported (last supported version: 0.12.2)  |
+  | 2.9          | no longer supported (last supported version: 1.2.x)   |
+  | 2.10         | yes                                                   |
+  | 2.11         | yes                                                   |
+  | 2.12         | yes                                                   |
 
 ## Installation
 
