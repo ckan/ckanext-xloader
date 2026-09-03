@@ -685,12 +685,21 @@ def get_types():
 
 
 def encode_headers(headers):
+    # By default, transliterate headers to ASCII with unidecode, so that
+    # e.g. accented Latin characters are simplified rather than dropped.
+    # For non-Latin scripts (Hebrew, Arabic, Cyrillic, CJK, ...) unidecode
+    # can mangle or empty out a header entirely, so setting
+    # ckanext.xloader.unicode_headers = True keeps the original text as-is.
+    if p.toolkit.asbool(config.get('ckanext.xloader.unicode_headers')):
+        decode_func = str
+    else:
+        decode_func = unidecode
     encoded_headers = []
     for header in headers:
         try:
-            encoded_headers.append(unidecode(header))
+            encoded_headers.append(decode_func(header))
         except AttributeError:
-            encoded_headers.append(unidecode(str(header)))
+            encoded_headers.append(decode_func(str(header)))
 
     return encoded_headers
 
