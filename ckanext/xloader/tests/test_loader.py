@@ -818,19 +818,22 @@ class TestLoadCsv(TestLoadBase):
         assert "3" in test_result_int_headers
 
     def test_encode_headers_transliterates_by_default(self):
-        # By default (unicode_headers unset/False) non-Latin headers are
-        # transliterated to ASCII by unidecode, so a Hebrew header is not
-        # preserved as-is.
         hebrew_header = u"שם"
         result = loader.encode_headers([u"id", hebrew_header])
 
         assert "id" in result
         assert hebrew_header not in result
 
-    @pytest.mark.ckan_config("ckanext.xloader.unicode_headers", True)
-    def test_encode_headers_preserves_unicode_when_enabled(self):
-        # With ckanext.xloader.unicode_headers = True the original header text
-        # is kept as-is, so a Hebrew header is preserved.
+    @pytest.mark.ckan_config("ckanext.xloader.unidecode_headers", True)
+    def test_encode_headers_transliterates_by_when_unicode_headers_true(self):
+        hebrew_header = u"שם"
+        result = loader.encode_headers([u"id", hebrew_header])
+
+        assert "id" in result
+        assert hebrew_header not in result
+
+    @pytest.mark.ckan_config("ckanext.xloader.unidecode_headers", False)
+    def test_encode_headers_preserves_unicode_when_unicode_headers_false(self):
         hebrew_header = u"שם"
         result = loader.encode_headers([u"id", hebrew_header])
 

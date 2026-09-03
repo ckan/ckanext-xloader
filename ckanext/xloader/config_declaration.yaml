@@ -71,15 +71,16 @@ groups:
 
             Strict means that a type will not be guessed if parsing fails for a single cell in the column.
         type: bool
-      - key: ckanext.xloader.unicode_headers
-        default: False
+      - key: ckanext.xloader.unidecode_headers
+        default: True
         example: True
         description: |
-            By default, xloader transliterates column headers to ASCII using
-            unidecode. This works well for accented Latin characters, but it
-            mangles or empties out headers written in non-Latin scripts such as
-            Hebrew, Arabic, Cyrillic or CJK. Set this option to True to keep the
-            original header text as-is (unicode) instead of transliterating it.
+            By default, xloader transliterates column headers to ASCII using 
+            unidecode. This supports accented Latin characters but may mangle 
+            non-Latin scripts (Hebrew, Arabic, Cyrillic, CJK). 
+            Set to False to leave strings as-is. 
+            Warning: Use at your own risk; When disabled: Unicode manipulation can be used 
+            to hide malware from users and AI/LLM systems.
         type: bool
         required: false
       - key: ckanext.xloader.max_type_guessing_length
