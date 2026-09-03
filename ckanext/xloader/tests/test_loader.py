@@ -825,7 +825,7 @@ class TestLoadCsv(TestLoadBase):
         assert hebrew_header not in result
 
     @pytest.mark.ckan_config("ckanext.xloader.unidecode_headers", True)
-    def test_encode_headers_transliterates_by_when_unicode_headers_true(self):
+    def test_encode_headers_transliterates_when_unidecode_headers_true(self):
         hebrew_header = u"שם"
         result = loader.encode_headers([u"id", hebrew_header])
 
