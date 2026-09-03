@@ -690,7 +690,7 @@ def encode_headers(headers):
     # For non-Latin scripts (Hebrew, Arabic, Cyrillic, CJK, ...) unidecode
     # can mangle or empty out a header entirely, so setting
     # ckanext.xloader.unicode_headers = True keeps the original text as-is.
-    if p.toolkit.asbool(config.get('ckanext.xloader.unicode_headers', False)):
+    if p.toolkit.asbool(config.get('ckanext.xloader.unicode_headers')):
         decode_func = str
     else:
         decode_func = unidecode
