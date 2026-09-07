@@ -634,6 +634,37 @@ class TestLoadCsv(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 3
 
+    def test_with_extra_blank_cells(self, Session):
+        # Rows wider than the header, padded with trailing empty cells
+        # (e.g. Excel exports). load_csv's row-normalizing iter should drop
+        # the surplus blank cells so COPY doesn't fail with "extra data after
+        # last expected column". This exercises the load_csv path; the
+        # equivalent load_table coverage lives in TestLoadTabulator.
+        csv_filepath = get_sample_filepath("sample_with_extra_blank_cells.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 1
+
+    def test_with_extra_blank_cells_data_only(self, Session):
+        # Header has 3 columns; each data row carries a single trailing blank
+        # cell. The surplus blanks should be dropped and both rows loaded.
+        csv_filepath = get_sample_filepath("extra_fields.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        loader.load_csv(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert len(self._get_records(Session, resource_id)) == 2
+
     def test_with_empty_lines(self, Session):
         csv_filepath = get_sample_filepath("sample_with_empty_lines.csv")
         resource = factories.Resource()
@@ -1051,11 +1082,12 @@ class TestLoadUnhandledTypes(TestLoadBase):
                 mimetype="text/csv",
                 logger=logger,
             )
-        assert "Error with field definition" in str(exception.value)
-        assert (
-            '"<?xml version="1.0" encoding="utf-8" ?>" is not a valid field name'
-            in str(exception.value)
-        )
+        # The KML file parses as a single-column CSV whose body rows are wider
+        # than that one header. Surplus cells holding real data are now rejected
+        # up-front by _should_keep_cell (see load_csv's row-normalizing iter),
+        # so the load fails here rather than later at field-definition validation.
+        assert "Found data in column" in str(exception.value)
+        assert "resource only has 1 header(s)" in str(exception.value)
 
     def test_geojson(self):
         filepath = get_sample_filepath("polling_locations.geojson")

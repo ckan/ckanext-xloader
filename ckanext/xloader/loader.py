@@ -54,6 +54,33 @@ tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 SINGLE_BYTE_ENCODING = 'cp1252'
 
 
+def _should_keep_cell(index, cell, header_count):
+    """Decide what to do with a cell whose position may exceed the headers.
+
+    Some exporters (notably Microsoft Excel) append extra empty cells to the
+    header and/or body, so a row can be wider than the declared columns. Blank
+    header cells don't produce a column, which is why the row length no longer
+    matches the column count.
+
+    Shared by both load paths (``load_csv`` and ``load_table``) so they treat
+    surplus cells identically.
+
+    :returns: ``True`` if the cell is within the declared columns and should be
+        used, ``False`` if it is a surplus blank cell that should be ignored.
+    :raises LoaderError: if the surplus cell holds real data, since dropping it
+        would silently lose data.
+    """
+    if index < header_count:
+        return True
+    # Out of bounds. Ignore it only if it's blank; a real value here means the
+    # row genuinely has more data than the header describes.
+    if cell is None or str(cell).strip() == '':
+        return False
+    raise LoaderError(
+        "Found data in column %s but resource only has %s header(s)"
+        % (index + 1, header_count))
+
+
 class FieldMatch(Enum):
     """ Enumerates the possible match results between existing and new fields.
 
@@ -407,16 +434,30 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
 
     logger.info('Fields: %s', fields)
 
-    def _make_whitespace_stripping_iter(super_iter):
-        def strip_white_space_iter():
+    field_count = len(fields)
+
+    def _make_row_normalizing_iter(super_iter):
+        # Drop surplus blank cells so rows that are wider than the header
+        # (e.g. Excel exports that append empty trailing cells) still line up
+        # with the declared columns instead of failing COPY with "extra data
+        # after last expected column". A surplus cell holding real data raises
+        # a LoaderError via _should_keep_cell rather than being dropped.
+        def normalize_row_iter():
             for row in super_iter():
-                if len(row) == len(fields):
+                # Trim trailing cells beyond the header. _should_keep_cell
+                # returns False for a surplus blank (safe to drop) and raises
+                # if a surplus cell holds real data.
+                while len(row) > field_count and \
+                        not _should_keep_cell(len(row) - 1, row[-1], field_count):
+                    row.pop()
+
+                if len(row) == field_count:
                     for _index, _cell in enumerate(row):
                         # only strip white space if strip_extra_white is True
                         if fields[_index].get('strip_extra_white', True) and isinstance(_cell, str):
                             row[_index] = _cell.strip()
                 yield row
-        return strip_white_space_iter
+        return normalize_row_iter
 
     # encoding (and line ending?)- use chardet
     # It is easier to reencode it as UTF8 than convert the name of the encoding
@@ -428,12 +469,12 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
         try:
             with UnknownEncodingStream(csv_filepath, file_format, decoding_result,
                                        skip_rows=skip_rows) as stream:
-                stream.iter = _make_whitespace_stripping_iter(stream.iter)
+                stream.iter = _make_row_normalizing_iter(stream.iter)
                 stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
             with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
                         skip_rows=skip_rows) as stream:
-                stream.iter = _make_whitespace_stripping_iter(stream.iter)
+                stream.iter = _make_row_normalizing_iter(stream.iter)
                 stream.save(**save_args)
         csv_filepath = f_write.name
 
@@ -579,17 +620,9 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
             for row in stream:
                 data_row = {}
                 for index, cell in enumerate(row):
-                    # Handle files that have extra blank cells in heading and body
-                    # eg from Microsoft Excel adding lots of empty cells on export.
-                    # Blank header cells won't generate a column,
-                    # so row length won't match column count.
-                    if index >= header_count:
-                        # error if there's actual data out of bounds, otherwise ignore
-                        if cell:
-                            raise LoaderError("Found data in column %s but resource only has %s header(s)",
-                                              index + 1, header_count)
-                        else:
-                            continue
+                    # Ignore surplus blank cells, error on surplus real data.
+                    if not _should_keep_cell(index, cell, header_count):
+                        continue
                     data_row[headers[index]] = cell
                 yield data_row
         result = row_iterator()
