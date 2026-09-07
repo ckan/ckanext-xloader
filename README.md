@@ -489,6 +489,22 @@ Example:
 ckanext.xloader.site_url_ignore_path_regex = "(/PathToS3HostOriginIWantToGoDirectTo|/anotherPath)"
 ```
 
+##### ckanext.xloader.unidecode_headers
+By default, xloader transliterates column headers to ASCII using 
+unidecode. This supports accented Latin characters but may mangle 
+non-Latin scripts (Hebrew, Arabic, Cyrillic, CJK). 
+
+Set to False to leave strings as-is. 
+
+Warning: Use at your own risk; When disabled: Unicode manipulation can be used 
+to hide malware from users and AI/LLM systems.
+
+Example:
+
+```
+ckanext.xloader.unidecode_headers = False
+```
+
 ## Data Dictionary Fields
 
 #### strip_extra_white
