@@ -54,7 +54,7 @@ tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 SINGLE_BYTE_ENCODING = 'cp1252'
 
 
-def _classify_extra_cell(index, cell, header_count):
+def _should_keep_cell(index, cell, header_count):
     """Decide what to do with a cell whose position may exceed the headers.
 
     Some exporters (notably Microsoft Excel) append extra empty cells to the
@@ -441,14 +441,14 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
         # (e.g. Excel exports that append empty trailing cells) still line up
         # with the declared columns instead of failing COPY with "extra data
         # after last expected column". A surplus cell holding real data raises
-        # a LoaderError via _classify_extra_cell rather than being dropped.
+        # a LoaderError via _should_keep_cell rather than being dropped.
         def normalize_row_iter():
             for row in super_iter():
-                # Trim trailing cells beyond the header. _classify_extra_cell
+                # Trim trailing cells beyond the header. _should_keep_cell
                 # returns False for a surplus blank (safe to drop) and raises
                 # if a surplus cell holds real data.
                 while len(row) > field_count and \
-                        not _classify_extra_cell(len(row) - 1, row[-1], field_count):
+                        not _should_keep_cell(len(row) - 1, row[-1], field_count):
                     row.pop()
 
                 if len(row) == field_count:
@@ -621,7 +621,7 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                 data_row = {}
                 for index, cell in enumerate(row):
                     # Ignore surplus blank cells, error on surplus real data.
-                    if not _classify_extra_cell(index, cell, header_count):
+                    if not _should_keep_cell(index, cell, header_count):
                         continue
                     data_row[headers[index]] = cell
                 yield data_row

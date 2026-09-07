@@ -1061,7 +1061,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
             )
         # The KML file parses as a single-column CSV whose body rows are wider
         # than that one header. Surplus cells holding real data are now rejected
-        # up-front by _classify_extra_cell (see load_csv's row-normalizing iter),
+        # up-front by _should_keep_cell (see load_csv's row-normalizing iter),
         # so the load fails here rather than later at field-definition validation.
         assert "Found data in column" in str(exception.value)
         assert "resource only has 1 header(s)" in str(exception.value)
