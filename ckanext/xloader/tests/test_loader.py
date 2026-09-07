@@ -817,6 +817,29 @@ class TestLoadCsv(TestLoadBase):
         assert "nom" in test_result_int_headers
         assert "3" in test_result_int_headers
 
+    def test_encode_headers_transliterates_by_default(self):
+        hebrew_header = u"שם"
+        result = loader.encode_headers([u"id", hebrew_header])
+
+        assert "id" in result
+        assert hebrew_header not in result
+
+    @pytest.mark.ckan_config("ckanext.xloader.unidecode_headers", True)
+    def test_encode_headers_transliterates_when_unidecode_headers_true(self):
+        hebrew_header = u"שם"
+        result = loader.encode_headers([u"id", hebrew_header])
+
+        assert "id" in result
+        assert hebrew_header not in result
+
+    @pytest.mark.ckan_config("ckanext.xloader.unidecode_headers", False)
+    def test_encode_headers_preserves_unicode_when_unicode_headers_false(self):
+        hebrew_header = u"שם"
+        result = loader.encode_headers([u"id", hebrew_header])
+
+        assert "id" in result
+        assert hebrew_header in result
+
     def test_column_names(self, Session):
         csv_filepath = get_sample_filepath("column_names.csv")
         resource = factories.Resource()
