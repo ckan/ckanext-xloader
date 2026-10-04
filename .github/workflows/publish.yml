@@ -111,14 +111,14 @@ jobs:
           python -m build
       - name: Publish package distributions to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags') && steps.version.outputs.environment == 'pypi' && github.event.inputs.dryRun != 'true' }}
-        uses: pypa/gh-action-pypi-publish@release/dc37677b2e1c63e2034f94d8a5b11f265b73ba33 #v1.14.2
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 #v1.14.2
 #        with:
 #          skip-existing: true
 #          verbose: true
 #          print-hash: true
       - name: Test Publish package distributions to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags') && steps.version.outputs.environment == 'testpypi' && github.event.inputs.dryRun == 'true' }}
-        uses: pypa/gh-action-pypi-publish@release/dc37677b2e1c63e2034f94d8a5b11f265b73ba33 #v1.14.2
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 #v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
 #          skip-existing: true

@@ -26,7 +26,6 @@ updates:
   directories:
    - "/"
    - "/.docker"
-  #target-branch: "develop"
   schedule:
     interval: daily
     time: "08:00"
@@ -35,7 +34,6 @@ updates:
 
 - package-ecosystem: "github-actions"
   directory: "/"
-  #target-branch: "develop"
   schedule:
     interval: daily
     time: "08:00"
