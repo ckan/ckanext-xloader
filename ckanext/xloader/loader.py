@@ -305,6 +305,44 @@ def split_copy_by_size(input_file, engine, logger, resource_id, headers, delimit
         cleanup_temp_file(infile)
 
 
+# Explicit map of the tabular mimetypes we support to the short format name
+# tabulator expects. Used only as a fallback when the file extension didn't
+# yield a readable format.
+#
+# The previous fallback took the part of the mimetype after '/', but that part
+# isn't always the file extension: for example
+# 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' gives
+# 'vnd.openxmlformats-...sheet' rather than 'xlsx', which tabulator can't open
+# and then reports the misleading "doesn't have a sheet 1" instead of the real
+# cause. Listing every supported mimetype (even ones like 'text/csv' where the
+# suffix already happens to be the extension) keeps this a single, explicit
+# source of truth and independent of whatever the suffix fallback produces.
+MIMETYPE_FORMATS = {
+    'text/csv': 'csv',
+    'application/csv': 'csv',
+    'text/tab-separated-values': 'tsv',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+}
+
+
+def _format_from_mimetype(mimetype):
+    """Best-effort short format name (csv/xls/xlsx/...) from a mimetype.
+
+    Looks the mimetype up in ``MIMETYPE_FORMATS`` first. Only for an unknown
+    mimetype does it fall back to the substring after the last '/' (the
+    historical behaviour), which is correct when that suffix happens to be the
+    file extension but not otherwise.
+    """
+    if not mimetype:
+        return None
+    key = mimetype.lower().split(';')[0].strip()
+    if key in MIMETYPE_FORMATS:
+        return MIMETYPE_FORMATS[key]
+    return key.split('/')[-1]
+
+
 def _read_metadata(table_filepath, mimetype, logger):
     # Determine the header row
     logger.info('Determining column names and types')
@@ -318,13 +356,28 @@ def _read_metadata(table_filepath, mimetype, logger):
             header_offset, headers = headers_guess(stream.sample)
     except TabulatorException:
         try:
-            file_format = mimetype.lower().split('/')[-1]
+            # Fall back to a format derived from the mimetype, mapping known
+            # spreadsheet mimetypes to the name tabulator understands.
+            file_format = _format_from_mimetype(mimetype)
             with UnknownEncodingStream(table_filepath, file_format, decoding_result,
                                        skip_rows=[{'type': 'preset', 'value': 'blank'}],
                                        post_parse=[TypeConverter().convert_types]) as stream:
                 header_offset, headers = headers_guess(stream.sample)
         except TabulatorException as e:
-            raise LoaderError('Tabulator error: {}'.format(e))
+            # The low-level tabulator message (e.g. "doesn't have a sheet 1")
+            # rarely tells a publisher what to fix. The usual causes are a
+            # missing header row, an empty header cell, or a file whose real
+            # format doesn't match its name. Surface actionable guidance and
+            # keep the technical detail for support.
+            raise LoaderError(_(
+                "The file could not be read as a table. This usually means the "
+                "file is not really in the format its name suggests (for "
+                "example a CSV or an older .xls file renamed to .xlsx), or the "
+                "file is empty or corrupted. Please open the file and save it "
+                "again in the correct format (for example .xlsx or .csv), make "
+                "sure the first row contains a header for every column, then "
+                "upload it again. (Technical details: {details})").format(
+                    details=e))
     except Exception as e:
         raise FileCouldNotBeLoadedError(e)
 

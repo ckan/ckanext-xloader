@@ -37,6 +37,34 @@ def Session():
     Session.close()
 
 
+class TestFormatFromMimetype(object):
+    """_format_from_mimetype maps known mimetypes to the short format name
+    tabulator expects. The important case is the xlsx mimetype, whose part
+    after '/' isn't the file extension, so the old split-on-'/' fallback
+    produced a format tabulator couldn't open."""
+
+    def test_xlsx_mimetype_maps_to_xlsx(self):
+        mimetype = (
+            "application/vnd.openxmlformats-officedocument"
+            ".spreadsheetml.sheet"
+        )
+        assert loader._format_from_mimetype(mimetype) == "xlsx"
+
+    def test_legacy_xls_and_csv(self):
+        assert loader._format_from_mimetype("application/vnd.ms-excel") == "xls"
+        assert loader._format_from_mimetype("text/csv") == "csv"
+
+    def test_mimetype_with_charset_parameter(self):
+        assert loader._format_from_mimetype("text/csv; charset=utf-8") == "csv"
+
+    def test_unknown_mimetype_falls_back_to_suffix(self):
+        # Preserve the historical behaviour for anything we don't map.
+        assert loader._format_from_mimetype("application/json") == "json"
+
+    def test_none_mimetype(self):
+        assert loader._format_from_mimetype(None) is None
+
+
 @pytest.mark.skipif(
     p.toolkit.check_ckan_version(max_version='2.7.99'),
     reason="fixtures do not have permission populate full_text_trigger")
