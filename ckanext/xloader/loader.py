@@ -81,14 +81,14 @@ def _should_keep_cell(index, cell, header_count, row_number=None):
     # row contained a comma or a double-quote that wasn't wrapped in quotes,
     # which split it into extra columns. Explain that, and point at the offending
     # value (and the row, when we know it) to help the publisher fix the file.
-    # The lead names the row when we know it ("Row 3 has...") and otherwise
-    # falls back to "A row has..."; the rest of the guidance is shared.
-    if row_number is not None:
-        lead = _("Row {row} has more values than the {columns} column(s) in "
-                 "the header.").format(row=row_number, columns=header_count)
-    else:
+    # The lead falls back to "A row has..." when we don't know the row, and
+    # names it ("Row 3 has...") when we do; the rest of the guidance is shared.
+    if row_number is None:
         lead = _("A row has more values than the {columns} column(s) in the "
                  "header.").format(columns=header_count)
+    else:
+        lead = _("Row {row} has more values than the {columns} column(s) in "
+                 "the header.").format(row=row_number, columns=header_count)
     detail = _(
         "The extra value is: '{value}'. This usually means a value in the row "
         "contains a comma or double-quote that is not wrapped in double-quotes, "
