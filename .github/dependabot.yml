@@ -1,11 +1,11 @@
 version: 2
-registries:
-  python-index-pypi-org:
-    type: python-index
-    url: https://pypi.org/
-    replaces-base: true
-    username: "${{secrets.PYTHON_INDEX_PYPI_ORG_USERNAME}}"
-    password: "${{secrets.PYTHON_INDEX_PYPI_ORG_PASSWORD}}"
+#registries:
+#  python-index-pypi-org:
+#    type: python-index
+#    url: https://pypi.org/
+#    replaces-base: true
+#    username: "${{secrets.PYTHON_INDEX_PYPI_ORG_USERNAME}}"
+#    password: "${{secrets.PYTHON_INDEX_PYPI_ORG_PASSWORD}}"
 
 updates:
 - package-ecosystem: pip
@@ -18,8 +18,8 @@ updates:
     time: "08:00"
     timezone: "Australia/Brisbane"
   open-pull-requests-limit: 10
-  registries:
-  - python-index-pypi-org
+#  registries:
+#  - python-index-pypi-org
 
 
 - package-ecosystem: "docker"
