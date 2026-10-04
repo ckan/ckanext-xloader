@@ -40,7 +40,7 @@ def _notify_datastore_before_update(resource_id, existing_fields, new_headers):
             new_headers=new_headers,
         )
 
-from ckan.plugins.toolkit import config
+from ckan.plugins.toolkit import config, _
 
 import ckanext.datastore.backend.postgres as datastore_db
 
@@ -54,8 +54,8 @@ tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 SINGLE_BYTE_ENCODING = 'cp1252'
 
 
-def _should_keep_cell(index, cell, header_count):
-    """Decide what to do with a cell whose position may exceed the headers.
+def _should_keep_cell(index, cell, header_count, row_number=None):
+    """Return whether a cell should be kept, given it may exceed the headers.
 
     Some exporters (notably Microsoft Excel) append extra empty cells to the
     header and/or body, so a row can be wider than the declared columns. Blank
@@ -63,7 +63,8 @@ def _should_keep_cell(index, cell, header_count):
     matches the column count.
 
     Shared by both load paths (``load_csv`` and ``load_table``) so they treat
-    surplus cells identically.
+    surplus cells identically. When ``row_number`` is given (the file line the
+    user sees), it is included in the error to help locate the problem.
 
     :returns: ``True`` if the cell is within the declared columns and should be
         used, ``False`` if it is a surplus blank cell that should be ignored.
@@ -76,9 +77,24 @@ def _should_keep_cell(index, cell, header_count):
     # row genuinely has more data than the header describes.
     if cell is None or str(cell).strip() == '':
         return False
-    raise LoaderError(
-        "Found data in column %s but resource only has %s header(s)"
-        % (index + 1, header_count))
+    # A surplus cell holding real data usually means one of the values in the
+    # row contained a comma or a double-quote that wasn't wrapped in quotes,
+    # which split it into extra columns. Explain that, and point at the offending
+    # value (and the row, when we know it) to help the publisher fix the file.
+    # The lead falls back to "A row has..." when we don't know the row, and
+    # names it ("Row 3 has...") when we do; the rest of the guidance is shared.
+    if row_number is None:
+        lead = _("A row has more values than the {columns} column(s) in the "
+                 "header.").format(columns=header_count)
+    else:
+        lead = _("Row {row} has more values than the {columns} column(s) in "
+                 "the header.").format(row=row_number, columns=header_count)
+    detail = _(
+        "The extra value is: '{value}'. This usually means a value in the row "
+        "contains a comma or double-quote that is not wrapped in double-quotes, "
+        "splitting it into extra columns. If the file genuinely has an extra "
+        "column, add it to the header row.").format(value=cell)
+    raise LoaderError(lead + " " + detail)
 
 
 class FieldMatch(Enum):
@@ -617,11 +633,16 @@ def load_table(table_filepath, resource_id, mimetype='text/csv', logger=None):
                                skip_rows=skip_rows,
                                post_parse=[type_converter.convert_types]) as stream:
         def row_iterator():
-            for row in stream:
+            # Iterate with extended=True so we get tabulator's physical source
+            # row number. That is the line the publisher sees in their file,
+            # and it stays correct even when blank rows are skipped (unlike
+            # counting yielded rows ourselves).
+            for row_number, _headers, row in stream.iter(extended=True):
                 data_row = {}
                 for index, cell in enumerate(row):
                     # Ignore surplus blank cells, error on surplus real data.
-                    if not _should_keep_cell(index, cell, header_count):
+                    if not _should_keep_cell(index, cell, header_count,
+                                             row_number=row_number):
                         continue
                     data_row[headers[index]] = cell
                 yield data_row

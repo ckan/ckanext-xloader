@@ -665,6 +665,24 @@ class TestLoadCsv(TestLoadBase):
         )
         assert len(self._get_records(Session, resource_id)) == 2
 
+    def test_row_with_extra_data_raises_friendly_error(self, Session):
+        # A data row wider than the header where the surplus cell holds real
+        # data. load_csv can't know the file line number, so the message names
+        # the column count and the offending value but no row number.
+        csv_filepath = get_sample_filepath("row_with_extra_data.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        with pytest.raises(LoaderError) as exception:
+            loader.load_csv(
+                csv_filepath,
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+        message = str(exception.value)
+        assert "more values than the 3 column(s)" in message
+        assert "surplus" in message
+
     def test_with_empty_lines(self, Session):
         csv_filepath = get_sample_filepath("sample_with_empty_lines.csv")
         resource = factories.Resource()
@@ -1086,8 +1104,7 @@ class TestLoadUnhandledTypes(TestLoadBase):
         # than that one header. Surplus cells holding real data are now rejected
         # up-front by _should_keep_cell (see load_csv's row-normalizing iter),
         # so the load fails here rather than later at field-definition validation.
-        assert "Found data in column" in str(exception.value)
-        assert "resource only has 1 header(s)" in str(exception.value)
+        assert "more values than the 1 column(s)" in str(exception.value)
 
     def test_geojson(self):
         filepath = get_sample_filepath("polling_locations.geojson")
@@ -1689,6 +1706,26 @@ class TestLoadTabulator(TestLoadBase):
             logger=logger,
         )
         assert len(self._get_records(Session, resource_id)) == 2
+
+    def test_row_with_extra_data_reports_row_number(self, Session):
+        # Header has 3 columns; the third data row carries a surplus cell with
+        # real data. load_table should reject it with a friendly, translatable
+        # message that names the offending row (the file line the user sees)
+        # and the extra value, instead of an opaque tabulator error.
+        csv_filepath = get_sample_filepath("row_with_extra_data.csv")
+        resource = factories.Resource()
+        resource_id = resource['id']
+        with pytest.raises(LoaderError) as exception:
+            loader.load_table(
+                csv_filepath,
+                resource_id=resource_id,
+                mimetype="text/csv",
+                logger=logger,
+            )
+        message = str(exception.value)
+        assert "Row 3 has" in message
+        assert "more values than the 3 column(s)" in message
+        assert "surplus" in message
 
     def test_with_mixed_quotes(self, Session):
         csv_filepath = get_sample_filepath("sample_with_mixed_quotes.csv")

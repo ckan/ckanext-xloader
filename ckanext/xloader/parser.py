@@ -37,13 +37,19 @@ class TypeConverter:
                     if self.fields[cell_index].get('info', {}).get('strip_extra_white', True) and isinstance(cell_value, six.text_type):
                         cell_value = cell_value.strip()
                         row[cell_index] = cell_value.strip()
+                # A row can be wider than the declared columns (e.g. a stray
+                # delimiter or an unquoted value split a field). Those surplus
+                # cells have no declared type, so index defensively here and
+                # let the loader's row handling report the wide row with a
+                # clear message instead of an opaque "list index out of range".
+                has_type = self.types is not None and cell_index < len(self.types)
                 if not cell_value:
                     # load_csv parody: empty of string type should be None
-                    if self.types and self.types[cell_index] == six.text_type:
+                    if has_type and self.types[cell_index] == six.text_type:
                         cell_value = None
                         row[cell_index] = None
                     continue
-                cell_type = self.types[cell_index] if self.types else None
+                cell_type = self.types[cell_index] if has_type else None
                 if cell_type in [Decimal, None]:
                     converted_value = to_number(cell_value)
                     # Can't do a simple truthiness check,
