@@ -6,6 +6,6 @@ Unidecode==1.0.22
 python-dateutil>=2.8.2
 certifi>=2026.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
 chardet==5.2.0
-idna>=3.7 # not directly required, pinned by Snyk to avoid a vulnerability
+idna>=3.20 # not directly required, pinned by Snyk to avoid a vulnerability
 urllib3>=1.26.19 # not directly required, pinned by Snyk to avoid a vulnerability
 zipp>=4.1.0 # not directly required, pinned by Snyk to avoid a vulnerability
