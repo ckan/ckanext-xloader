@@ -36,13 +36,19 @@ def init(config, echo=False):
 
     """
     global ENGINE, _METADATA, JOBS_TABLE, METADATA_TABLE, LOGS_TABLE
-    db_uri = config.get('ckanext.xloader.jobs_db.uri',
-                        'sqlite:////tmp/xloader_jobs.db')
-    ENGINE = sqlalchemy.create_engine(db_uri, echo=echo)
-    _METADATA = sqlalchemy.MetaData()
-    JOBS_TABLE = _init_jobs_table()
-    METADATA_TABLE = _init_metadata_table()
-    LOGS_TABLE = _init_logs_table()
+    if ENGINE is None:
+        db_uri = config.get('ckanext.xloader.jobs_db.uri',
+                            'sqlite:////tmp/xloader_jobs.db')
+        ENGINE = sqlalchemy.create_engine(db_uri, echo=echo)
+    if _METADATA is None:
+        _METADATA = sqlalchemy.MetaData()
+    if JOBS_TABLE is None:
+        JOBS_TABLE = _init_jobs_table()
+    if METADATA_TABLE is None:
+        METADATA_TABLE = _init_metadata_table()
+    if LOGS_TABLE is None:
+        LOGS_TABLE = _init_logs_table()
+
     _METADATA.create_all(ENGINE)
 
 
