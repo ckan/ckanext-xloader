@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from faker import Faker
 import pytest
 import sqlalchemy as sa
-from faker import Faker
+from unittest.mock import patch
 
 from ckanext.xloader import db, jobs
 
@@ -21,6 +22,15 @@ class TestGetJob:
             conn.execute(sa.delete(db.JOBS_TABLE))
             conn.execute(sa.delete(db.METADATA_TABLE))
             conn.execute(sa.delete(db.LOGS_TABLE))
+
+    def test_idempotent_init(self, monkeypatch: pytest.MonkeyPatch):
+        assert db.ENGINE is not None
+        with patch('sqlalchemy.create_engine') as mock_create_engine:
+            db.init({})
+            mock_create_engine.assert_not_called()
+            monkeypatch.setattr(db, "ENGINE", None)
+            db.init({})
+            mock_create_engine.assert_called_once()
 
     def test_jobs_table_not_initialized(
         self, faker: Faker, monkeypatch: pytest.MonkeyPatch
