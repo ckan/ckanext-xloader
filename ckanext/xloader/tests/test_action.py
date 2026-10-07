@@ -1,5 +1,6 @@
 import pytest
 from ckan.plugins import toolkit
+
 try:
     from unittest import mock
 except ImportError:
@@ -7,6 +8,7 @@ except ImportError:
 
 from ckan.plugins.toolkit import NotAuthorized
 from ckan.tests import helpers, factories
+from ckan.model import Resource
 
 from ckanext.xloader.utils import get_xloader_user_apitoken
 
@@ -15,7 +17,7 @@ from ckanext.xloader.utils import get_xloader_user_apitoken
 def with_api_token(monkeypatch, ckan_config):
     sysadmin = factories.SysadminWithToken()
     apikey = sysadmin["token"]
-    monkeypatch.setitem(ckan_config, 'ckanext.xloader.api_token', apikey)
+    monkeypatch.setitem(ckan_config, "ckanext.xloader.api_token", apikey)
 
 
 @pytest.mark.usefixtures("clean_db", "with_plugins")
@@ -39,7 +41,9 @@ class TestAction(object):
                 resource_id=res["id"],
             )
             assert 1 == enqueue_mock.call_count
-            assert enqueue_mock.call_args[1].get('queue') == 'default{}'.format(ord(res['package_id'][0]) % 2)
+            assert enqueue_mock.call_args[1].get(
+                "queue"
+            ) == "default{}".format(ord(res["package_id"][0]) % 2)
 
     def test_submit_nonexistent_resource(self, with_api_token):
         user = factories.User()
@@ -47,11 +51,14 @@ class TestAction(object):
             "ckanext.xloader.action.enqueue_job",
             return_value=mock.MagicMock(id=123),
         ) as enqueue_mock:
-            assert helpers.call_action(
-                "xloader_submit",
-                context=dict(user=user["name"]),
-                resource_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-            ) is False
+            assert (
+                helpers.call_action(
+                    "xloader_submit",
+                    context=dict(user=user["name"]),
+                    resource_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                )
+                is False
+            )
             assert enqueue_mock.call_count == 0
 
     def test_submit_to_custom_queue_without_auth(self):
@@ -61,17 +68,20 @@ class TestAction(object):
             helpers.call_auth(
                 "xloader_submit",
                 context=dict(user=user["name"], model=None),
-                queue='foo',
+                queue="foo",
             )
 
     def test_submit_to_custom_queue_as_sysadmin(self):
         # check that xloader_submit allows sysadmins to change queues
         user = factories.Sysadmin()
-        assert helpers.call_auth(
-            "xloader_submit",
-            context=dict(user=user["name"], model=None),
-            queue='foo',
-        ) is True
+        assert (
+            helpers.call_auth(
+                "xloader_submit",
+                context=dict(user=user["name"], model=None),
+                queue="foo",
+            )
+            is True
+        )
 
     def test_duplicated_submits(self, with_api_token):
         def submit(res, user):
@@ -143,12 +153,16 @@ class TestAction(object):
     def test_xloader_user_api_token_from_config(self):
         sysadmin = factories.SysadminWithToken()
         apikey = sysadmin["token"]
-        with mock.patch.dict(toolkit.config, {'ckanext.xloader.api_token': apikey}):
+        with mock.patch.dict(
+            toolkit.config, {"ckanext.xloader.api_token": apikey}
+        ):
             api_token = get_xloader_user_apitoken()
             assert api_token == apikey
 
     @pytest.mark.ckan_config("ckanext.xloader.api_token", "NOT_SET")
-    def test_xloader_user_api_token_from_config_should_throw_exceptio_when_not_set(self):
+    def test_xloader_user_api_token_from_config_should_throw_exceptio_when_not_set(
+        self,
+    ):
 
         hasNotThrownException = True
         try:
@@ -163,3 +177,16 @@ class TestAction(object):
         api_token = get_xloader_user_apitoken()
 
         assert api_token == "random-api-token"
+
+    def test_resource_delete(self):
+        user = factories.Sysadmin()
+        resource = factories.Resource(user=user)
+        helpers.call_action(
+            "resource_delete",
+            id=resource["id"],
+            context=dict(user=user["name"]),
+        )
+
+        resource_obj = Resource.get(resource["id"])
+        assert resource_obj is not None
+        assert resource_obj.state == "deleted"

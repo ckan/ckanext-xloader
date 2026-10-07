@@ -117,18 +117,11 @@ class xloaderPlugin(plugins.SingletonPlugin):
         See: ckan/model/modification.py.DomainObjectModificationExtension
         """
         if operation != DomainObjectOperation.changed \
-                or not isinstance(entity, Resource):
+                or not isinstance(entity, Resource) \
+                or entity.state == 'deleted':
             return
 
-        context = {
-            "ignore_auth": True,
-        }
-        resource_dict = toolkit.get_action("resource_show")(
-            context,
-            {
-                "id": entity.id,
-            },
-        )
+        resource_dict = entity.as_dict()
 
         if _should_remove_unsupported_resource_from_datastore(resource_dict):
             toolkit.enqueue_job(fn=_remove_unsupported_resource_from_datastore, args=[entity.id])
