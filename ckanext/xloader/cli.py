@@ -27,7 +27,7 @@ def status():
 @click.option('-y', is_flag=True, default=False, help='Always answer yes to questions')
 @click.option('--dry-run', is_flag=True, default=False, help='Don\'t actually submit any resources')
 @click.option('--queue', help='Queue name for asynchronous processing, unused if executing immediately')
-@click.option('--sync', is_flag=True, default=False,
+@click.option('-s', '--sync', is_flag=True, default=False,
               help='Execute immediately instead of enqueueing for asynchronous processing')
 def submit(dataset_spec, y, dry_run, queue, sync):
     """
