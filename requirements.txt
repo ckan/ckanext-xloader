@@ -3,7 +3,7 @@ requests>=2.34.2
 six>=1.17.0
 tabulator==1.53.5
 Unidecode==1.0.22
-python-dateutil>=2.8.2
+python-dateutil>=2.9.0.post0
 certifi>=2026.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
 chardet==5.2.0
 idna>=3.20 # not directly required, pinned by Snyk to avoid a vulnerability
