@@ -5,12 +5,17 @@ exclude =
     ckan
     scripts
     .git
+    .venv
 
 # Extended output format.
 format = pylint
 
+count = True
+
 # Show the source of errors.
 show_source = True
+
+statistics = True
 
 max-complexity = 27
 max-line-length=127

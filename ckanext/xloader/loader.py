@@ -10,7 +10,7 @@ import tempfile
 from decimal import Decimal
 
 import psycopg2
-from chardet.universaldetector import UniversalDetector
+from chardet import UniversalDetector
 from six.moves import zip
 from tabulator import config as tabulator_config, EncodingError, Stream, TabulatorException
 from unidecode import unidecode
@@ -22,6 +22,10 @@ from .interfaces import IXloader
 from .job_exceptions import FileCouldNotBeLoadedError, LoaderError
 from .parser import CSV_SAMPLE_LINES, TypeConverter
 from .utils import cleanup_temp_file, datastore_resource_exists, headers_guess, type_guess
+
+from ckan.plugins.toolkit import config, _
+
+import ckanext.datastore.backend.postgres as datastore_db
 
 
 def _notify_datastore_before_update(resource_id, existing_fields, new_headers):
@@ -40,9 +44,6 @@ def _notify_datastore_before_update(resource_id, existing_fields, new_headers):
             new_headers=new_headers,
         )
 
-from ckan.plugins.toolkit import config, _
-
-import ckanext.datastore.backend.postgres as datastore_db
 
 get_write_engine = datastore_db.get_write_engine
 create_indexes = datastore_db.create_indexes
@@ -984,7 +985,7 @@ def calculate_record_count(resource_id, logger):
     engine = get_write_engine()
     with engine.connect() as conn:
         conn.execute(sa.text("ANALYZE \"{resource_id}\";"
-                         .format(resource_id=resource_id)))
+                             .format(resource_id=resource_id)))
 
 
 def identifier(s, escape_binds=False):

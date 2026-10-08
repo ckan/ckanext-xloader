@@ -5,14 +5,31 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ckanext-xloader"
 version = "2.5.2"
+requires-python = ">=3.10"
 description = "Express Loader - quickly load data into CKAN DataStore"
 classifiers = [ "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 keywords = [ "CKAN", "extension", "datastore",]
-dependencies = [ "typing_extensions",]
+dependencies = [
+    "typing_extensions",
+    "ckantoolkit>=0.0.7",
+    "requests>=2.34.2",
+    "six>=1.17.0",
+    "tabulator==1.53.5",
+    "Unidecode==1.4.0",
+    "python-dateutil>=2.9.0.post0",
+    "certifi>=2026.7.22",
+    "chardet==7.6.0",
+    "idna>=3.20",
+    "urllib3>=2.8.0",
+    "zipp>=4.1.0",
+]
 authors = [
     {name = "ThrawnCA", email = "carl.antuar@smartservice.qld.gov.au"},
     {name = "Jesse Vickery (JVickery-TBS)", email = "jesse.vickery@tbs-sct.gc.ca"},
@@ -41,7 +58,18 @@ text = "AGPL"
 Homepage = "https://github.com/ckan/ckanext-xloader"
 
 [project.optional-dependencies]
-test = [ "pytest-factoryboy",]
+test = [
+    "pytest-factoryboy",
+    "responses==0.10.9",
+    "mock==5.2.0",
+    "flake8",
+    "pytest-ckan",
+    "pytest-cov",
+    "requests>=2.34.2",
+    "urllib3>=2.8.0",
+    "zipp>=4.1.0"
+]
+
 
 [project.entry-points."ckan.plugins"]
 xloader = "ckanext.xloader.plugin:xloaderPlugin"
@@ -71,7 +99,7 @@ filterwarnings = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.7"
+pythonVersion = "3.10"
 include = ["ckanext"]
 exclude = [
     "**/test*",

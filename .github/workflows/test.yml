@@ -18,7 +18,7 @@ jobs:
       - name: Install requirements
         run: pip install flake8 pycodestyle
       - name: Check syntax
-        run: flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics --extend-exclude ckan
+        run: flake8 .
 
   test:
     needs: lint
@@ -69,13 +69,20 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       continue-on-error: ${{ matrix.experimental }}
 
+    - name: Pin setuptools for ckan 2.10 only
+      #ckan 2.10.11 requires setuptools<82,>=44.1.0,
+      if: ${{ matrix.ckan-version == 2.10 }}
+      run: pip install "setuptools<82,>=44.1.0"
+
+    - name: Pin setuptools
+      #ckan 2.11.x 81.0.0+, 2.12.x 84.0.0+
+      if: ${{ matrix.ckan-version != 2.10 }}
+      run: pip install "setuptools>=83"
+
     - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Install requirements
       continue-on-error: ${{ matrix.experimental }}
       run: |
-        pip install -r requirements.txt
-        pip install -r dev-requirements.txt
-        pip install -e .
-        pip install -U requests[security]
+        pip install -e '.[test]'
         # Replace default path to CKAN core config file with the one on the container
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
 
