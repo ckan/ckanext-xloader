@@ -281,6 +281,7 @@ def set_resource_metadata(update_dict):
                 psi.index_package(solr_data_dict)
                 break
 
+
 def column_count_modal(rows):
     """ Return the modal value of columns in the row_set's
     sample. This can be assumed to be the number of columns

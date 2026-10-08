@@ -114,10 +114,10 @@ Compatibility with core CKAN versions:
 
   | CKAN version | Compatibility                                         |
   |--------------|-------------------------------------------------------|
-  | 2.7          | no longer supported (last supported version: 0.12.2)  |
-  | 2.8          | no longer supported (last supported version: 0.12.2)  |
-  | 2.9          | no longer supported (last supported version: 1.2.x)   |
-  | 2.10         | yes                                                   |
+  | 2.7          | no (last supported version: 0.12.2)                   |
+  | 2.8          | no (last supported version: 0.12.2)                   |
+  | 2.9          | no (last supported version: 1.2.x)                    |
+  | 2.10         | yes 3.10+ (python 3.9 last support version: 2.5.1 )   |
   | 2.11         | yes                                                   |
   | 2.12         | yes                                                   |
 
