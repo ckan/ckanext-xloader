@@ -60,7 +60,7 @@ Homepage = "https://github.com/ckan/ckanext-xloader"
 [project.optional-dependencies]
 test = [
     "pytest-factoryboy",
-    "responses==0.10.9",
+    "responses==0.26.3",
     "mock==5.2.0",
     "flake8",
     "pytest-ckan",

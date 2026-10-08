@@ -214,10 +214,35 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
 
     def test_data_with_rq_job_timeout(self, cli, data):
         file_suffix = 'multiplication_2.csv'
-        self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=2))
+        job = self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=0.5))
         with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
-            stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-            assert "Job timed out after" in stdout
+            cli.invoke(ckan, ["jobs", "worker", "--burst"])
+
+            # Redis keeps job state so don't need to deal with stdout race conditions on forked process flushing
+            import time
+            max_retries = 10  # 5 second wait
+            for _ in range(max_retries):
+                job.refresh()
+                status = job.get_status()
+                if status == "queued" or status == "started":
+                    # 'queued' or 'started', keep waiting
+                    print("job still in state {} loop {}".format(status, _))
+                    time.sleep(0.5)
+                else:
+                    break
+
+            assert job.is_failed, f"Job failed to reach 'failed' status. Current status: {job.get_status()}"
+
+            # rq >= 1.12 uses job.latest_result().exc_string
+            if hasattr(job, 'latest_result'):
+                exc_info = job.latest_result().exc_string or ""
+            else:
+                # rq < 1.12 uses job.exc_info (string)
+                print("Note: Using legacy exc_info (older RQ version), if logs don't show this, please remove fork path in test")
+                exc_info = job.exc_info or ""
+
+            assert "JobTimeoutException" in exc_info or "timed out" in exc_info.lower()
+
             for f in _get_temp_files():
                 # make sure that the tmp file has been closed/deleted in job timeout exception handling
                 assert file_suffix not in f
