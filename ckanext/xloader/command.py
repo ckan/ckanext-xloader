@@ -136,14 +136,29 @@ class XloaderCmd:
         jobs = rq_jobs.get_queue().jobs
         if not jobs:
             print('No jobs currently queued')
+            return
+
         for job in jobs:
-            job_params = eval(job.description.replace(
-                'ckanext.xloader.jobs.xloader_data_into_datastore', ''))
-            job_metadata = job_params['metadata']
+            # The queue is shared with the rest of CKAN, so skip any job that
+            # was not enqueued by xloader. The previous code eval()ed the
+            # description of every job in the queue, including jobs belonging
+            # to other extensions.
+            if job.func_name != \
+                    'ckanext.xloader.jobs.xloader_data_into_datastore':
+                continue
+
+            # xloader_submit() always enqueues a single positional argument
+            # holding the job dict, so the metadata is read straight from
+            # job.args. job.description is not a data channel: RQ builds it
+            # with rq.utils.get_call_string(), which truncates the arguments
+            # at max_length, and that truncated string is what eval() choked
+            # on.
+            metadata = job.args[0]['metadata']
+
             print('{id} Enqueued={enqueued:%Y-%m-%d %H:%M} res_id={res_id} '
                   'url={url}'.format(
-                      id=job._id,
+                      id=job.id,
                       enqueued=job.enqueued_at,
-                      res_id=job_metadata['resource_id'],
-                      url=job_metadata['original_url'],
+                      res_id=metadata['resource_id'],
+                      url=metadata['original_url'],
                   ))
