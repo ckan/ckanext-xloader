@@ -374,6 +374,22 @@ If set to 0 (default) files that exceed the `max_content_length` will
 not be loaded into the datastore.
 
 
+#### ckanext.xloader.type_guessing_sample_size
+
+Example:
+
+```
+ckanext.xloader.type_guessing_sample_size = 1000
+```
+
+Default value: `100`
+
+The number of rows xloader samples from the start of a file to guess
+the header row and the column types. Increase this if values that
+would change a column's type (e.g. decimal numbers) only appear
+further down the file. Larger values use more memory and time.
+
+
 #### ckanext.xloader.ssl_verify
 
 Example:

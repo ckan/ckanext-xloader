@@ -54,6 +54,21 @@ tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 SINGLE_BYTE_ENCODING = 'cp1252'
 
+# Number of rows tabulator reads as the sample used for header and type guessing.
+DEFAULT_TYPE_GUESSING_SAMPLE_SIZE = 100
+
+
+def get_type_guessing_sample_size():
+    """Return the number of rows to sample for header and type guessing,
+    from ``ckanext.xloader.type_guessing_sample_size``. Invalid or
+    non-positive values fall back to the default."""
+    try:
+        size = int(config.get('ckanext.xloader.type_guessing_sample_size',
+                              DEFAULT_TYPE_GUESSING_SAMPLE_SIZE))
+    except (TypeError, ValueError):
+        return DEFAULT_TYPE_GUESSING_SAMPLE_SIZE
+    return size if size > 0 else DEFAULT_TYPE_GUESSING_SAMPLE_SIZE
+
 
 def _should_keep_cell(index, cell, header_count, row_number=None):
     """Return whether a cell should be kept, given it may exceed the headers.
@@ -129,6 +144,7 @@ class UnknownEncodingStream(object):
         self.filepath = filepath
         self.file_format = file_format
         self.stream_args = kwargs
+        self.stream_args.setdefault('sample_size', get_type_guessing_sample_size())
         self.decoding_result = decoding_result  # {'encoding': 'EUC-JP', 'confidence': 0.99}
 
     def __enter__(self):
