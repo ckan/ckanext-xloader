@@ -147,6 +147,16 @@ groups:
             not be loaded into the datastore.
         type: int
         required: false
+      - key: ckanext.xloader.type_guessing_sample_size
+        default: 100
+        example: 1000
+        description: |
+            The number of rows xloader samples from the start of a file to guess
+            the header row and the column types. Increase this if values that
+            would change a column's type (e.g. decimal numbers) only appear
+            further down the file. Larger values use more memory and time.
+        type: int
+        required: false
       - key: ckanext.xloader.ssl_verify
         default: True
         example: True

@@ -1993,3 +1993,99 @@ class TestLoadTabulator(TestLoadBase):
                 u"Citizens Connect App",
             ),
         ]  # noqa
+
+
+class TestTypeGuessingSampleSize(TestLoadBase):
+    """ckanext.xloader.type_guessing_sample_size controls how many rows
+    tabulator samples for header and column-type guessing."""
+
+    SETTING = "ckanext.xloader.type_guessing_sample_size"
+
+    def _write_late_text_csv(self, tmp_path, numeric_rows=150):
+        # Column "val" is decimal for the first `numeric_rows` rows, then holds
+        # a text value, then goes back to decimals.
+        lines = ["id,val"]
+        lines += ["{},{}.5".format(i, i) for i in range(numeric_rows)]
+        lines.append("{},N/A".format(numeric_rows))
+        lines += ["{},{}.5".format(i, i) for i in range(numeric_rows + 1, numeric_rows + 50)]
+        path = tmp_path / "late_text.csv"
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return str(path)
+
+    def test_default_is_100(self):
+        assert loader.DEFAULT_TYPE_GUESSING_SAMPLE_SIZE == 100
+        assert loader.get_type_guessing_sample_size() == 100
+
+    @pytest.mark.parametrize("value, expected", [
+        ("1000", 1000),
+        (250, 250),
+        ("1", 1),
+        # invalid or non-positive values fall back to the default
+        ("abc", 100),
+        ("", 100),
+        ("0", 100),
+        ("-5", 100),
+        ("1.5", 100),
+    ])
+    def test_get_type_guessing_sample_size(self, ckan_config, monkeypatch,
+                                           value, expected):
+        monkeypatch.setitem(ckan_config, self.SETTING, value)
+        assert loader.get_type_guessing_sample_size() == expected
+
+    def test_stream_gets_configured_sample_size(self, ckan_config, monkeypatch):
+        monkeypatch.setitem(ckan_config, self.SETTING, "1000")
+        stream = loader.UnknownEncodingStream(
+            "unused.csv", "csv", {"encoding": "utf-8", "confidence": 1.0})
+        assert stream.stream_args["sample_size"] == 1000
+
+    def test_stream_keeps_explicit_sample_size(self, ckan_config, monkeypatch):
+        monkeypatch.setitem(ckan_config, self.SETTING, "1000")
+        stream = loader.UnknownEncodingStream(
+            "unused.csv", "csv", {"encoding": "utf-8", "confidence": 1.0},
+            sample_size=5)
+        assert stream.stream_args["sample_size"] == 5
+
+    def test_load_table_fails_when_text_value_is_beyond_default_sample(
+            self, tmp_path):
+        # The text value is on row 151, past the default sample of 100 rows,
+        # so the column is guessed as numeric and the load fails there.
+        csv_filepath = self._write_late_text_csv(tmp_path)
+        resource = factories.Resource()
+        with pytest.raises(LoaderError):
+            loader.load_table(
+                csv_filepath,
+                resource_id=resource["id"],
+                mimetype="text/csv",
+                logger=logger,
+            )
+
+    def test_load_table_with_larger_sample_guesses_text_column(
+            self, Session, ckan_config, monkeypatch, tmp_path):
+        monkeypatch.setitem(ckan_config, self.SETTING, "1000")
+        csv_filepath = self._write_late_text_csv(tmp_path)
+        resource = factories.Resource()
+        resource_id = resource["id"]
+        loader.load_table(
+            csv_filepath,
+            resource_id=resource_id,
+            mimetype="text/csv",
+            logger=logger,
+        )
+        assert self._get_column_names(Session, resource_id) == [
+            u"_id",
+            u"_full_text",
+            u"id",
+            u"val",
+        ]
+        # "val" is text because the sample now includes the "N/A" row.
+        assert self._get_column_types(Session, resource_id) == [
+            u"int4",
+            u"tsvector",
+            u"numeric",
+            u"text",
+        ]
+        records = self._get_records(Session, resource_id)
+        assert len(records) == 200
+        assert (151, 150, u"N/A") in [
+            (r[0], int(r[1]), r[2]) for r in records
+        ]

@@ -162,6 +162,11 @@ def xloader_data_into_datastore(input):
         logger.error('xloader error: job_id %s already exists', job_id)
         errored = True
     except Exception as e:
+        if isinstance(e, JobTimeoutException):
+            # The RQ timeout can fire anywhere (not just in the download or
+            # load blocks that translate it), so report it consistently here.
+            logger.warning('Job timed out after %ss', retried_job_timeout)
+            e = JobError('Job timed out after {}s'.format(retried_job_timeout))
         error_state = {'errored': errored}
         retry = handle_retryable_error(e, input, job_id, job_dict, logger, error_state)
         if retry:

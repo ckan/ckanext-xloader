@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 import io
 import os
+import time
 
 from datetime import datetime
 
@@ -40,12 +41,19 @@ def get_large_response(download_url, headers):
     return resp
 
 
-def get_large_data_response(download_url, headers):
-    """Mock jobs.get_response() method."""
+def get_slow_data_response(download_url, headers):
+    """Mock jobs.get_response() so the download outlasts the RQ job timeout,
+    regardless of how fast the machine is."""
     resp = Response()
-    f_content = _TEST_FILE_CONTENT + (_TEST_LARGE_FILE_CONTENT * 500000)
-    resp.raw = io.BytesIO(f_content.encode())
+    resp.raw = io.BytesIO(_TEST_FILE_CONTENT.encode())
     resp.headers = headers
+
+    def slow_iter_content(chunk_size=1, decode_unicode=False):
+        yield _TEST_FILE_CONTENT.encode()
+        time.sleep(10)  # well beyond the 2s job timeout
+        yield _TEST_LARGE_FILE_CONTENT.encode()
+
+    resp.iter_content = slow_iter_content
     return resp
 
 
@@ -212,15 +220,43 @@ class TestXLoaderJobs(helpers.FunctionalRQTestBase):
         resource = helpers.call_action("resource_show", id=data["metadata"]["resource_id"])
         assert resource["datastore_contains_all_records_of_source_file"] is False
 
-    def test_data_with_rq_job_timeout(self, cli, data):
+    def _assert_job_times_out(self, cli, data, target, replacement, check_tmp_files=True):
+        """Run a job with a 2s RQ timeout while `target` is replaced by
+        something that outlasts it, and check the timeout is reported."""
         file_suffix = 'multiplication_2.csv'
         self.enqueue(jobs.xloader_data_into_datastore, [data], rq_kwargs=dict(timeout=2))
-        with mock.patch("ckanext.xloader.jobs.get_response", get_large_data_response):
+        with mock.patch(target, replacement):
             stdout = cli.invoke(ckan, ["jobs", "worker", "--burst"]).output
-            assert "Job timed out after" in stdout
+        assert "Job timed out after" in stdout
+        assert "Express Load completed" not in stdout
+        if check_tmp_files:
             for f in _get_temp_files():
                 # make sure that the tmp file has been closed/deleted in job timeout exception handling
                 assert file_suffix not in f
+
+    def test_data_with_rq_job_timeout(self, cli, data):
+        """Timeout while downloading the data."""
+        self._assert_job_times_out(
+            cli, data, "ckanext.xloader.jobs.get_response", get_slow_data_response)
+
+    def test_data_with_rq_job_timeout_during_load(self, cli, data):
+        """Timeout while loading the (already downloaded) data."""
+        def slow_load_csv(*args, **kwargs):
+            time.sleep(10)  # well beyond the 2s job timeout
+
+        with mock.patch("ckanext.xloader.jobs.get_response", get_response):
+            self._assert_job_times_out(
+                cli, data, "ckanext.xloader.loader.load_csv", slow_load_csv)
+
+    def test_data_with_rq_job_timeout_outside_download_and_load(self, cli, data):
+        """Timeout outside the download/load blocks is still reported as a
+        job timeout, not as a generic error."""
+        def slow_get_resource_and_dataset(*args, **kwargs):
+            time.sleep(10)  # well beyond the 2s job timeout
+
+        self._assert_job_times_out(
+            cli, data, "ckanext.xloader.jobs.get_resource_and_dataset",
+            slow_get_resource_and_dataset, check_tmp_files=False)
 
     @pytest.mark.parametrize("error_type,should_retry", [
         # Retryable errors from RETRYABLE_ERRORS
