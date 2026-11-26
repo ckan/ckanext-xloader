@@ -83,6 +83,18 @@ groups:
             to hide malware from users and AI/LLM systems.
         type: bool
         required: false
+      - key: ckanext.xloader.single_byte_encoding
+        default: cp1252
+        example: cp1255
+        description: |
+            The encoding used for a file that cannot be read with the
+            encoding chardet detected, for example when chardet is not
+            confident (it is often unsure about short single-byte text, and
+            its answer changes between versions). Set it to the encoding
+            your publishers use, for example cp1255 for Hebrew or cp1251
+            for Cyrillic. An unknown codec name falls back to cp1252.
+            This one encoding applies to every such file on the site.
+        required: false
       - key: ckanext.xloader.max_type_guessing_length
         default: 0
         example: 100000

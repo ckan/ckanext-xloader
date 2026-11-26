@@ -1,6 +1,7 @@
 'Load a CSV into postgres'
 from __future__ import absolute_import
 
+import codecs
 import datetime
 from enum import Enum
 import itertools
@@ -53,6 +54,23 @@ MAX_COLUMN_LENGTH = 63
 tabulator_config.CSV_SAMPLE_LINES = CSV_SAMPLE_LINES
 
 SINGLE_BYTE_ENCODING = 'cp1252'
+# Config option that overrides SINGLE_BYTE_ENCODING.
+SINGLE_BYTE_ENCODING_OPTION = 'ckanext.xloader.single_byte_encoding'
+
+
+def get_single_byte_encoding():
+    """Encoding used for files that cannot be read with the detected encoding,
+    from SINGLE_BYTE_ENCODING_OPTION (default SINGLE_BYTE_ENCODING). An unknown
+    codec name falls back to the default."""
+    name = (config.get(SINGLE_BYTE_ENCODING_OPTION) or SINGLE_BYTE_ENCODING).strip()
+    if not name:
+        return SINGLE_BYTE_ENCODING
+    try:
+        codecs.lookup(name)
+    except LookupError:
+        return SINGLE_BYTE_ENCODING
+    return name
+
 
 # Number of rows tabulator reads as the sample used for header and type guessing.
 DEFAULT_TYPE_GUESSING_SAMPLE_SIZE = 100
@@ -158,7 +176,7 @@ class UnknownEncodingStream(object):
 
         except (EncodingError, UnicodeDecodeError):
             self.stream = Stream(self.filepath, format=self.file_format,
-                                 encoding=SINGLE_BYTE_ENCODING, **self.stream_args).__enter__()
+                                 encoding=get_single_byte_encoding(), **self.stream_args).__enter__()
         return self.stream
 
     def __exit__(self, *args):
@@ -558,7 +576,7 @@ def load_csv(csv_filepath, resource_id, mimetype='text/csv', allow_type_guessing
                 stream.iter = _make_row_normalizing_iter(stream.iter)
                 stream.save(**save_args)
         except (EncodingError, UnicodeDecodeError):
-            with Stream(csv_filepath, format=file_format, encoding=SINGLE_BYTE_ENCODING,
+            with Stream(csv_filepath, format=file_format, encoding=get_single_byte_encoding(),
                         skip_rows=skip_rows) as stream:
                 stream.iter = _make_row_normalizing_iter(stream.iter)
                 stream.save(**save_args)

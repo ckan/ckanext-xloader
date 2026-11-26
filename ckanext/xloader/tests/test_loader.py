@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 from __future__ import absolute_import
+import csv
 import os
+import re
+import shutil
 from unittest import mock
 import pytest
 import six
@@ -2089,3 +2092,104 @@ class TestTypeGuessingSampleSize(TestLoadBase):
         assert (151, 150, u"N/A") in [
             (r[0], int(r[1]), r[2]) for r in records
         ]
+
+
+# chardet is unsure about short single-byte text, and its answer depends on its
+# version: for this Hebrew cp1255 sample, 5.2.0 says windows-1255 at 0.99 and
+# 7.x says ISO-8859-8 at about 0.02. Below the 0.7 cut-off the file falls back
+# to the single-byte encoding, which used to be hard-coded to cp1252.
+# The option name and encodings are defined here, not imported from the loader,
+# so that the tests check the real option name and default.
+SINGLE_BYTE_ENCODING_OPTION = "ckanext.xloader.single_byte_encoding"
+UNIDECODE_HEADERS_OPTION = "ckanext.xloader.unidecode_headers"
+DEFAULT_ENCODING = "cp1252"
+HEBREW_ENCODING = "cp1255"
+# The loader function the tests replace to simulate chardet's answer.
+ENCODING_DETECTOR = "detect_encoding"
+CSV_MIMETYPE = "text/csv"
+LOW_CONFIDENCE = {"encoding": "ISO-8859-8", "confidence": 0.017, "language": "he"}
+# Public data: 23rd Knesset election results by locality (data.gov.il), cp1255.
+HEBREW_SAMPLE = "hebrew_cp1255.csv"
+# Characters that cp1255 Hebrew letters turn into when read as cp1252.
+MOJIBAKE = re.compile(u"[\u00c0-\u00ff]")
+HEBREW_LETTER = re.compile(u"[\u05d0-\u05ea]")
+
+
+def _hebrew_sample_header():
+    """The sample's header row, decoded correctly, without the trailing empty cell."""
+    with open(get_sample_filepath(HEBREW_SAMPLE), "rb") as f:
+        first_line = f.readline().decode(HEBREW_ENCODING)
+    names = [name.strip() for name in next(csv.reader([first_line]))]
+    return [name for name in names if name]
+
+
+class TestSingleByteEncodingOption(TestLoadBase):
+    """ckanext.xloader.single_byte_encoding sets the encoding used when a file
+    cannot be read with the detected encoding."""
+
+    SETTING = SINGLE_BYTE_ENCODING_OPTION
+
+    def _load(self, loader_function, tmp_path):
+        # Work on a copy: the loader may write next to its working file.
+        csv_filepath = str(tmp_path / HEBREW_SAMPLE)
+        shutil.copy(get_sample_filepath(HEBREW_SAMPLE), csv_filepath)
+        resource_id = factories.Resource()["id"]
+        with mock.patch.object(loader, ENCODING_DETECTOR, return_value=LOW_CONFIDENCE):
+            loader_function(
+                csv_filepath,
+                resource_id=resource_id,
+                mimetype=CSV_MIMETYPE,
+                logger=logger,
+            )
+        return resource_id
+
+    def _columns_and_text(self, Session, resource_id):
+        columns = [c for c in self._get_column_names(Session, resource_id)
+                   if c not in ("_id", "_full_text")]
+        text = u" ".join(v for record in self._get_records(Session, resource_id)
+                         for v in record if isinstance(v, str))
+        return columns, text
+
+    def test_default_is_cp1252(self, ckan_config, monkeypatch):
+        monkeypatch.delitem(ckan_config, self.SETTING, raising=False)
+        assert loader.get_single_byte_encoding() == DEFAULT_ENCODING
+
+    @pytest.mark.parametrize("value, expected", [
+        (HEBREW_ENCODING, HEBREW_ENCODING),
+        (u"  " + HEBREW_ENCODING + u"  ", HEBREW_ENCODING),
+        ("windows-1251", "windows-1251"),
+        # empty or unknown codec names fall back to the default
+        ("", DEFAULT_ENCODING),
+        ("not-a-codec", DEFAULT_ENCODING),
+    ])
+    def test_get_single_byte_encoding(self, ckan_config, monkeypatch, value, expected):
+        monkeypatch.setitem(ckan_config, self.SETTING, value)
+        assert loader.get_single_byte_encoding() == expected
+
+    @pytest.mark.ckan_config(UNIDECODE_HEADERS_OPTION, False)
+    @pytest.mark.ckan_config(SINGLE_BYTE_ENCODING_OPTION, HEBREW_ENCODING)
+    def test_load_csv_uses_configured_encoding(self, Session, tmp_path):
+        resource_id = self._load(loader.load_csv, tmp_path)
+        columns, text = self._columns_and_text(Session, resource_id)
+        assert columns == _hebrew_sample_header()
+        assert HEBREW_LETTER.search(text)
+        assert not MOJIBAKE.search(text)
+
+    @pytest.mark.ckan_config(UNIDECODE_HEADERS_OPTION, False)
+    @pytest.mark.ckan_config(SINGLE_BYTE_ENCODING_OPTION, HEBREW_ENCODING)
+    def test_load_table_uses_configured_encoding(self, Session, tmp_path):
+        resource_id = self._load(loader.load_table, tmp_path)
+        columns, text = self._columns_and_text(Session, resource_id)
+        assert columns == _hebrew_sample_header()
+        assert HEBREW_LETTER.search(text)
+        assert not MOJIBAKE.search(text)
+
+    @pytest.mark.ckan_config(UNIDECODE_HEADERS_OPTION, False)
+    def test_default_encoding_garbles_hebrew(self, Session, tmp_path, ckan_config, monkeypatch):
+        # Documents the bug the option fixes: with the default cp1252 the
+        # Hebrew sample loads as mojibake.
+        monkeypatch.delitem(ckan_config, self.SETTING, raising=False)
+        resource_id = self._load(loader.load_csv, tmp_path)
+        columns, text = self._columns_and_text(Session, resource_id)
+        assert columns != _hebrew_sample_header()
+        assert MOJIBAKE.search(text)
