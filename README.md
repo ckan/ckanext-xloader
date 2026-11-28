@@ -521,6 +521,24 @@ Example:
 ckanext.xloader.unidecode_headers = False
 ```
 
+##### ckanext.xloader.single_byte_encoding
+The encoding used for a file that cannot be read with the encoding chardet
+detected, for example when chardet is not confident. chardet is often unsure
+about short single-byte text, and its answer changes between versions, so set
+this to the encoding your publishers use, for example `cp1255` for Hebrew or
+`cp1251` for Cyrillic. An unknown codec name falls back to the default.
+
+This one encoding applies to every such file on the site: a file in another
+single-byte encoding is read with the configured one.
+
+Default value: `cp1252`
+
+Example:
+
+```
+ckanext.xloader.single_byte_encoding = cp1255
+```
+
 ## Data Dictionary Fields
 
 #### strip_extra_white
